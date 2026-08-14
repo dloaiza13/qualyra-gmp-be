@@ -6,34 +6,56 @@ Backend API for Qualyra GMP, an audit-ready-by-design quality management SaaS fo
 
 - Node.js 24 LTS (see `.nvmrc`)
 - npm 11+
-
-Docker-based local infrastructure and Prisma are intentionally deferred to Phase 2.
+- Docker Desktop with WSL 2, or Docker Engine with Compose
 
 ## Setup
 
 ```bash
-npm ci
 cp .env.example .env
+npm ci
+npm run infra:up
+npm run db:generate
+npm run db:migrate:deploy
+npm run db:seed
 npm run start:dev
 ```
 
-The application listens on `http://localhost:3000` by default.
+The API listens on `http://localhost:3000`. Mailpit is available at `http://localhost:8025` with the example configuration.
 
 ## Verification
 
 ```bash
 npm run lint
 npm run typecheck
+npx prisma validate
+npm run db:generate
 npm run test -- --runInBand
 npm run test:e2e -- --runInBand
+RUN_DATABASE_INTEGRATION=true npm run test:integration
 npm run build
 npm run start:prod
 ```
 
-## Architecture direction
+On PowerShell, set the integration flag with:
 
-The backend will evolve as a modular NestJS monolith with pragmatic ports and adapters, tenant-aware use cases, PostgreSQL row-level security, and an OpenAPI contract. Business logic must stay out of controllers.
+```powershell
+$env:RUN_DATABASE_INTEGRATION = 'true'
+npm run test:integration
+```
 
-## Security
+## Infrastructure safety
 
-Never commit secrets or real credentials. Qualyra GMP is being designed for future validation and traceability; this repository does not claim GMP, ISO, FDA, or 21 CFR Part 11 compliance.
+`npm run infra:reset` refuses to delete volumes unless the explicit `--confirm-data-loss` flag is supplied. See [local development](docs/local-development.md) before resetting infrastructure.
+
+## Architecture
+
+The backend is a modular NestJS monolith with pragmatic ports and adapters, tenant-aware use cases, PostgreSQL row-level security, and an OpenAPI contract. Business logic must stay out of controllers.
+
+- [Architecture](docs/architecture.md)
+- [Local development](docs/local-development.md)
+- [Multi-tenancy](docs/multi-tenancy.md)
+- [Security](docs/security.md)
+
+## Compliance position
+
+Qualyra GMP is designed for future validation and traceability. This repository does not claim GMP, ISO, FDA, or 21 CFR Part 11 compliance.
