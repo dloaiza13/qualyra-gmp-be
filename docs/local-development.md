@@ -14,6 +14,7 @@ Copy `.env.example` to `.env`. The example contains development-only placeholder
 
 ```bash
 npm ci
+npm run keys:generate
 npm run infra:up
 npm run db:generate
 npm run db:migrate:deploy
@@ -30,6 +31,8 @@ Prisma CLI commands use `MIGRATION_DATABASE_URL`. Application runtime uses `DATA
 | Redis        |         6379 | Future rate limiting and background coordination |
 | Mailpit SMTP |         1025 | Development email capture                        |
 | Mailpit UI   |         8025 | Inspect captured email                           |
+
+After starting the API, Swagger UI is available at `http://localhost:3000/api/docs`. See [authentication](authentication.md) for the browser cookie and CSRF flow.
 
 ## Stopping services
 

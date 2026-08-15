@@ -9,6 +9,11 @@
   "engines": {
     "node": ">=24 <25"
   },
+  "overrides": {
+    "@nestjs/swagger": {
+      "js-yaml": "5.2.2"
+    }
+  },
   "scripts": {
     "build": "nest build",
     "db:generate": "prisma generate",
@@ -16,11 +21,13 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
-    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\" \"prisma/**/*.ts\" prisma.config.ts \"scripts/**/*.mjs\" \"*.yml\" \".github/**/*.yml\" \"docs/**/*.md\" README.md",
-    "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\" \"prisma/**/*.ts\" prisma.config.ts \"scripts/**/*.mjs\" \"*.yml\" \".github/**/*.yml\" \"docs/**/*.md\" README.md",
+    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\" \"prisma/**/*.ts\" prisma.config.ts \"scripts/**/*.{mjs,ts}\" \"*.yml\" \".github/**/*.yml\" \"docs/**/*.md\" README.md",
+    "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\" \"prisma/**/*.ts\" prisma.config.ts \"scripts/**/*.{mjs,ts}\" \"*.yml\" \".github/**/*.yml\" \"docs/**/*.md\" README.md",
     "infra:down": "docker compose down --remove-orphans",
     "infra:reset": "node ./scripts/infra-reset.mjs",
     "infra:up": "docker compose up --detach --wait",
+    "keys:generate": "node ./scripts/generate-jwt-keys.mjs",
+    "openapi:generate": "npm run build --silent && node ./scripts/generate-openapi.mjs",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
@@ -39,11 +46,23 @@
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "4.0.4",
     "@nestjs/core": "^11.0.1",
+    "@nestjs/jwt": "11.0.2",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/swagger": "11.4.6",
+    "@nestjs/throttler": "6.5.0",
     "@prisma/adapter-pg": "7.9.1",
     "@prisma/client": "7.9.1",
+    "argon2": "0.45.1",
+    "class-transformer": "0.5.1",
+    "class-validator": "0.15.1",
+    "cookie-parser": "1.4.7",
     "dotenv": "17.4.2",
+    "helmet": "8.3.0",
+    "nestjs-pino": "4.6.1",
+    "nodemailer": "9.0.5",
     "pg": "8.23.0",
+    "pino": "10.3.1",
+    "pino-http": "11.0.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "zod": "4.4.3"
@@ -54,9 +73,11 @@
     "@nestjs/cli": "^11.0.0",
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.0.1",
+    "@types/cookie-parser": "1.4.10",
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.0.0",
+    "@types/nodemailer": "8.0.1",
     "@types/pg": "8.21.0",
     "@types/supertest": "^7.0.0",
     "eslint": "^9.18.0",

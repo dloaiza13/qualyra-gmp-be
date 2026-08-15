@@ -36,6 +36,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Prepare validated test configuration
+        run: |
+          cp .env.example .env
+          npm run keys:generate
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev
+
+      - name: Check formatting
+        run: npm run format:check
+
       - name: Validate Prisma schema
         run: npx prisma validate
 
@@ -57,6 +68,11 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Verify committed OpenAPI contract
+        run: |
+          npm run openapi:generate
+          git diff --exit-code -- openapi.json
+
   database-integration:
     needs: verify
     runs-on: ubuntu-latest
@@ -76,7 +92,9 @@ jobs:
         run: npm ci
 
       - name: Prepare local integration environment
-        run: cp .env.example .env
+        run: |
+          cp .env.example .env
+          npm run keys:generate
 
       - name: Start isolated infrastructure
         run: npm run infra:up
@@ -90,7 +108,7 @@ jobs:
       - name: Seed permissions
         run: npm run db:seed
 
-      - name: Verify database isolation
+      - name: Verify database isolation and authentication
         run: RUN_DATABASE_INTEGRATION=true npm run test:integration
 
       - name: Remove ephemeral CI infrastructure

@@ -9,3 +9,4 @@ coverage/
 .idea/
 .vscode/
 /src/generated/prisma/
+/.local/

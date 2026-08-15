@@ -13,6 +13,7 @@ Backend API for Qualyra GMP, an audit-ready-by-design quality management SaaS fo
 ```bash
 cp .env.example .env
 npm ci
+npm run keys:generate
 npm run infra:up
 npm run db:generate
 npm run db:migrate:deploy
@@ -55,6 +56,7 @@ The backend is a modular NestJS monolith with pragmatic ports and adapters, tena
 - [Local development](docs/local-development.md)
 - [Multi-tenancy](docs/multi-tenancy.md)
 - [Security](docs/security.md)
+- [Authentication](docs/authentication.md)
 
 ## Compliance position
 

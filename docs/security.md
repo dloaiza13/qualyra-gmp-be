@@ -26,6 +26,12 @@ Composite foreign keys include `tenant_id` for relationships between tenant-owne
 
 `.env.example` contains placeholders only. Production credentials, JWT keys, tokens, and SMTP secrets must come from an approved secret manager and must never be committed or logged.
 
+## Authentication controls
+
+Passwords use Argon2id. Access tokens use asymmetric RS256 signing, while refresh and one-time email tokens are opaque and stored only as hashes. Refresh rotation includes reuse detection and session-family revocation. Cookie mutations enforce an origin allowlist and double-submit CSRF protection. Security-sensitive operations append structured events with correlation identifiers.
+
+Production hardening still requires selecting a CAPTCHA or equivalent bot-defense provider and moving email delivery to a durable outbox worker with retry and monitoring.
+
 ## Compliance statement
 
 These controls support future validation and traceability. They do not by themselves make the system GMP compliant, ISO certified, FDA approved, or 21 CFR Part 11 compliant.
