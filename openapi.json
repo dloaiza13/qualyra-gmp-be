@@ -646,6 +646,104 @@
         ]
       }
     },
+    "/api/v1/documents/{documentId}/periodic-reviews": {
+      "post": {
+        "operationId": "DocumentsController_configurePeriodicReview",
+        "parameters": [
+          {
+            "name": "documentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigurePeriodicReviewDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/api/v1/documents/{documentId}/periodic-reviews/{periodicReviewId}/decision": {
+      "post": {
+        "operationId": "DocumentsController_periodicReviewDecision",
+        "parameters": [
+          {
+            "name": "documentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "periodicReviewId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PeriodicReviewDecisionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
     "/api/v1/documents/{documentId}/review-request": {
       "post": {
         "operationId": "DocumentsController_requestReview",
@@ -1818,6 +1916,98 @@
           "createdAt"
         ]
       },
+      "DocumentPeriodicReviewResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "documentVersionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionNumber": {
+            "type": "number",
+            "minimum": 1
+          },
+          "assignedTo": {
+            "$ref": "#/components/schemas/DocumentUserSummaryDto"
+          },
+          "scheduledBy": {
+            "$ref": "#/components/schemas/DocumentUserSummaryDto"
+          },
+          "intervalMonths": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 60
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "COMPLETED",
+              "CANCELLED"
+            ]
+          },
+          "dueState": {
+            "type": "string",
+            "enum": [
+              "UPCOMING",
+              "DUE_SOON",
+              "OVERDUE",
+              "COMPLETED",
+              "CANCELLED"
+            ]
+          },
+          "dueAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "CONFIRM_EFFECTIVE",
+              "REVISION_REQUIRED"
+            ],
+            "nullable": true
+          },
+          "comment": {
+            "type": "object",
+            "nullable": true
+          },
+          "completedAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          },
+          "cancelledAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          },
+          "cancellationReason": {
+            "type": "object",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "documentVersionId",
+          "versionNumber",
+          "assignedTo",
+          "scheduledBy",
+          "intervalMonths",
+          "status",
+          "dueState",
+          "dueAt",
+          "createdAt"
+        ]
+      },
       "DocumentSummaryResponseDto": {
         "type": "object",
         "properties": {
@@ -1861,6 +2051,30 @@
           },
           "currentVersion": {
             "$ref": "#/components/schemas/DocumentVersionSummaryDto"
+          },
+          "periodicReviewIntervalMonths": {
+            "type": "object",
+            "minimum": 1,
+            "maximum": 60,
+            "nullable": true
+          },
+          "periodicReviewReviewer": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DocumentUserSummaryDto"
+              }
+            ]
+          },
+          "periodicReview": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DocumentPeriodicReviewResponseDto"
+              }
+            ]
           },
           "createdAt": {
             "type": "string",
@@ -2167,6 +2381,30 @@
           "currentVersion": {
             "$ref": "#/components/schemas/DocumentVersionSummaryDto"
           },
+          "periodicReviewIntervalMonths": {
+            "type": "object",
+            "minimum": 1,
+            "maximum": 60,
+            "nullable": true
+          },
+          "periodicReviewReviewer": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DocumentUserSummaryDto"
+              }
+            ]
+          },
+          "periodicReview": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DocumentPeriodicReviewResponseDto"
+              }
+            ]
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -2198,6 +2436,12 @@
             "items": {
               "$ref": "#/components/schemas/DocumentObsolescenceResponseDto"
             }
+          },
+          "periodicReviews": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DocumentPeriodicReviewResponseDto"
+            }
           }
         },
         "required": [
@@ -2214,7 +2458,8 @@
           "versions",
           "workflows",
           "releases",
-          "obsolescences"
+          "obsolescences",
+          "periodicReviews"
         ]
       },
       "CreateDocumentDto": {
@@ -2289,6 +2534,45 @@
           "title",
           "content",
           "changeSummary"
+        ]
+      },
+      "ConfigurePeriodicReviewDto": {
+        "type": "object",
+        "properties": {
+          "reviewerUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "intervalMonths": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 60,
+            "example": 12
+          }
+        },
+        "required": [
+          "reviewerUserId",
+          "intervalMonths"
+        ]
+      },
+      "PeriodicReviewDecisionDto": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "CONFIRM_EFFECTIVE",
+              "REVISION_REQUIRED"
+            ]
+          },
+          "comment": {
+            "type": "string",
+            "example": "Content remains accurate and fit for use."
+          }
+        },
+        "required": [
+          "decision",
+          "comment"
         ]
       },
       "RequestDocumentReviewDto": {

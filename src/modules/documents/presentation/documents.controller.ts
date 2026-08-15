@@ -27,9 +27,11 @@ import { PermissionsGuard } from '../../authorization/presentation/permissions.g
 import {
   CreateDocumentDto,
   CreateDocumentVersionDto,
+  ConfigurePeriodicReviewDto,
   DocumentDecisionDto,
   DocumentListQueryDto,
   ObsoleteDocumentDto,
+  PeriodicReviewDecisionDto,
   ReleaseDocumentDto,
   RequestDocumentReviewDto,
 } from '../application/dto/document-request.dto.js';
@@ -89,6 +91,42 @@ export class DocumentsController {
     return this.documents.createVersion(
       principal,
       documentId,
+      input,
+      requestMetadata(request),
+    );
+  }
+
+  @Post(':documentId/periodic-reviews')
+  @Permissions('documents.update')
+  @ApiCreatedResponse({ type: DocumentDetailResponseDto })
+  configurePeriodicReview(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+    @Param('documentId', new ParseUUIDPipe()) documentId: string,
+    @Body() input: ConfigurePeriodicReviewDto,
+    @Req() request: Request & RequestWithContext,
+  ): Promise<DocumentDetailResponseDto> {
+    return this.documents.configurePeriodicReview(
+      principal,
+      documentId,
+      input,
+      requestMetadata(request),
+    );
+  }
+
+  @Post(':documentId/periodic-reviews/:periodicReviewId/decision')
+  @Permissions('documents.review')
+  @ApiCreatedResponse({ type: DocumentDetailResponseDto })
+  periodicReviewDecision(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+    @Param('documentId', new ParseUUIDPipe()) documentId: string,
+    @Param('periodicReviewId', new ParseUUIDPipe()) periodicReviewId: string,
+    @Body() input: PeriodicReviewDecisionDto,
+    @Req() request: Request & RequestWithContext,
+  ): Promise<DocumentDetailResponseDto> {
+    return this.documents.periodicReviewDecision(
+      principal,
+      documentId,
+      periodicReviewId,
       input,
       requestMetadata(request),
     );

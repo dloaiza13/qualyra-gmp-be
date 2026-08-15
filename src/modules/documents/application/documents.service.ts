@@ -9,17 +9,20 @@ import type { AuthenticatedPrincipal } from '../../authentication/domain/authent
 import { appendSecurityEvent } from '../../security-events/application/append-security-event.js';
 import { TenantUnitOfWork } from '../../tenancy/application/ports/tenant-unit-of-work.js';
 import type {
+  ConfigurePeriodicReviewDto,
   CreateDocumentDto,
   CreateDocumentVersionDto,
   DocumentDecisionDto,
   DocumentListQueryDto,
   ObsoleteDocumentDto,
+  PeriodicReviewDecisionDto,
   ReleaseDocumentDto,
   RequestDocumentReviewDto,
 } from './dto/document-request.dto.js';
 import type {
   DocumentDetailResponseDto,
   DocumentObsolescenceResponseDto,
+  DocumentPeriodicReviewResponseDto,
   DocumentReleaseResponseDto,
   DocumentSummaryResponseDto,
   DocumentUserSummaryDto,
@@ -32,18 +35,31 @@ const userSummary = { id: true, displayName: true, email: true } as const;
 const versionDetails = {
   createdByUser: { select: userSummary },
 } satisfies Prisma.DocumentVersionInclude;
+const periodicReviewDetails = {
+  documentVersion: { select: { id: true, versionNumber: true } },
+  assignedToUser: { select: userSummary },
+  scheduledByUser: { select: userSummary },
+} satisfies Prisma.DocumentPeriodicReviewInclude;
 const documentSummaryDetails = {
   ownerUser: { select: userSummary },
   createdByUser: { select: userSummary },
+  periodicReviewReviewer: { select: userSummary },
   versions: {
     orderBy: { versionNumber: 'desc' as const },
     take: 1,
     include: versionDetails,
   },
+  periodicReviews: {
+    where: { status: 'PENDING' as const },
+    orderBy: { dueAt: 'asc' as const },
+    take: 1,
+    include: periodicReviewDetails,
+  },
 } satisfies Prisma.DocumentInclude;
 const documentDetails = {
   ownerUser: { select: userSummary },
   createdByUser: { select: userSummary },
+  periodicReviewReviewer: { select: userSummary },
   versions: {
     orderBy: { versionNumber: 'desc' as const },
     include: versionDetails,
@@ -71,6 +87,10 @@ const documentDetails = {
       obsoletedByUser: { select: userSummary },
     },
   },
+  periodicReviews: {
+    orderBy: { createdAt: 'desc' as const },
+    include: periodicReviewDetails,
+  },
 } satisfies Prisma.DocumentInclude;
 
 type DocumentSummaryRecord = Prisma.DocumentGetPayload<{
@@ -83,6 +103,8 @@ type DocumentVersionRecord = DocumentDetailRecord['versions'][number];
 type DocumentWorkflowRecord = DocumentDetailRecord['workflows'][number];
 type DocumentReleaseRecord = DocumentDetailRecord['releases'][number];
 type DocumentObsolescenceRecord = DocumentDetailRecord['obsolescences'][number];
+type DocumentPeriodicReviewRecord =
+  DocumentDetailRecord['periodicReviews'][number];
 
 @Injectable()
 export class DocumentsService {
@@ -130,7 +152,7 @@ export class DocumentsService {
           orderBy: [{ updatedAt: 'desc' }, { code: 'asc' }],
           include: documentSummaryDetails,
         });
-        return documents.map(mapDocumentSummary);
+        return documents.map((document) => mapDocumentSummary(document));
       },
     );
   }
@@ -324,6 +346,266 @@ export class DocumentsService {
           include: documentDetails,
         });
         return mapDocumentDetail(document);
+      },
+    );
+  }
+
+  configurePeriodicReview(
+    principal: AuthenticatedPrincipal,
+    documentId: string,
+    input: ConfigurePeriodicReviewDto,
+    request: RequestMetadata,
+  ): Promise<DocumentDetailResponseDto> {
+    return this.tenantUnitOfWork.execute(
+      principal.tenantId,
+      async (transaction) => {
+        const now = new Date();
+        const document = await transaction.document.findFirst({
+          where: { id: documentId, tenantId: principal.tenantId },
+          select: { id: true, status: true, currentVersionNumber: true },
+        });
+        if (!document) throw documentNotFound();
+        if (document.status !== 'EFFECTIVE') {
+          throw documentPeriodicReviewConflict();
+        }
+
+        const version = await transaction.documentVersion.findFirst({
+          where: {
+            tenantId: principal.tenantId,
+            documentId,
+            status: 'EFFECTIVE',
+          },
+          select: { id: true, versionNumber: true, createdByUserId: true },
+        });
+        if (!version) {
+          throw documentPeriodicReviewConflict(
+            'Resolve the active revision before scheduling a periodic review.',
+          );
+        }
+        if (input.reviewerUserId === version.createdByUserId) {
+          throw documentPeriodicReviewInvalid(
+            'The effective version author cannot perform its periodic review.',
+          );
+        }
+        await requireQualifiedAssignee(
+          transaction,
+          principal.tenantId,
+          input.reviewerUserId,
+          'documents.review',
+          'The selected periodic reviewer is not active or lacks review permission.',
+          documentPeriodicReviewInvalid,
+        );
+
+        const pending = await transaction.documentPeriodicReview.findFirst({
+          where: {
+            tenantId: principal.tenantId,
+            documentId,
+            status: 'PENDING',
+          },
+          select: { id: true },
+        });
+        if (pending) {
+          const cancelled = await transaction.documentPeriodicReview.updateMany(
+            {
+              where: {
+                id: pending.id,
+                tenantId: principal.tenantId,
+                status: 'PENDING',
+              },
+              data: {
+                status: 'CANCELLED',
+                cancelledAt: now,
+                cancellationReason: 'SCHEDULE_REPLACED',
+              },
+            },
+          );
+          if (cancelled.count !== 1) throw documentPeriodicReviewConflict();
+        }
+
+        const configured = await transaction.document.updateMany({
+          where: {
+            id: documentId,
+            tenantId: principal.tenantId,
+            status: 'EFFECTIVE',
+            currentVersionNumber: document.currentVersionNumber,
+          },
+          data: {
+            periodicReviewIntervalMonths: input.intervalMonths,
+            periodicReviewReviewerUserId: input.reviewerUserId,
+          },
+        });
+        if (configured.count !== 1) throw documentPeriodicReviewConflict();
+
+        const dueAt = addUtcMonths(now, input.intervalMonths);
+        let periodicReviewId: string;
+        try {
+          const review = await transaction.documentPeriodicReview.create({
+            data: {
+              tenantId: principal.tenantId,
+              documentId,
+              documentVersionId: version.id,
+              assignedToUserId: input.reviewerUserId,
+              scheduledByUserId: principal.userId,
+              intervalMonths: input.intervalMonths,
+              dueAt,
+            },
+            select: { id: true },
+          });
+          periodicReviewId = review.id;
+        } catch (error: unknown) {
+          if (isUniqueConstraintError(error)) {
+            throw documentPeriodicReviewConflict();
+          }
+          throw error;
+        }
+
+        await appendSecurityEvent(transaction, {
+          tenantId: principal.tenantId,
+          actorUserId: principal.userId,
+          subjectUserId: input.reviewerUserId,
+          eventType: 'DOCUMENT_PERIODIC_REVIEW_SCHEDULED',
+          outcome: 'SUCCESS',
+          request,
+          metadata: {
+            documentId,
+            documentVersionId: version.id,
+            versionNumber: version.versionNumber,
+            periodicReviewId,
+            intervalMonths: input.intervalMonths,
+            dueAt: dueAt.toISOString(),
+            replacedPeriodicReviewId: pending?.id,
+          },
+        });
+        return readDocument(transaction, principal.tenantId, documentId);
+      },
+    );
+  }
+
+  periodicReviewDecision(
+    principal: AuthenticatedPrincipal,
+    documentId: string,
+    periodicReviewId: string,
+    input: PeriodicReviewDecisionDto,
+    request: RequestMetadata,
+  ): Promise<DocumentDetailResponseDto> {
+    return this.tenantUnitOfWork.execute(
+      principal.tenantId,
+      async (transaction) => {
+        const now = new Date();
+        const document = await transaction.document.findFirst({
+          where: { id: documentId, tenantId: principal.tenantId },
+          select: {
+            id: true,
+            status: true,
+            currentVersionNumber: true,
+            periodicReviewIntervalMonths: true,
+            periodicReviewReviewerUserId: true,
+          },
+        });
+        if (!document) throw documentNotFound();
+        if (document.status !== 'EFFECTIVE') {
+          throw documentPeriodicReviewConflict();
+        }
+
+        const review = await transaction.documentPeriodicReview.findFirst({
+          where: {
+            id: periodicReviewId,
+            tenantId: principal.tenantId,
+            documentId,
+            status: 'PENDING',
+          },
+          select: {
+            id: true,
+            documentVersionId: true,
+            assignedToUserId: true,
+            intervalMonths: true,
+          },
+        });
+        if (!review) throw documentPeriodicReviewConflict();
+        if (review.assignedToUserId !== principal.userId) {
+          throw documentDecisionForbidden(
+            'Only the assigned periodic reviewer can record this decision.',
+          );
+        }
+
+        const version = await transaction.documentVersion.findFirst({
+          where: {
+            id: review.documentVersionId,
+            tenantId: principal.tenantId,
+            documentId,
+            status: 'EFFECTIVE',
+          },
+          select: { id: true, versionNumber: true },
+        });
+        if (!version) throw documentPeriodicReviewConflict();
+
+        const completed = await transaction.documentPeriodicReview.updateMany({
+          where: {
+            id: review.id,
+            tenantId: principal.tenantId,
+            status: 'PENDING',
+          },
+          data: {
+            status: 'COMPLETED',
+            decision: input.decision,
+            comment: input.comment,
+            completedAt: now,
+          },
+        });
+        if (completed.count !== 1) throw documentPeriodicReviewConflict();
+
+        let nextPeriodicReviewId: string | undefined;
+        let nextDueAt: Date | undefined;
+        if (input.decision === 'CONFIRM_EFFECTIVE') {
+          if (
+            document.periodicReviewIntervalMonths !== review.intervalMonths ||
+            document.periodicReviewReviewerUserId !== principal.userId
+          ) {
+            throw documentPeriodicReviewConflict();
+          }
+          nextDueAt = addUtcMonths(now, review.intervalMonths);
+          try {
+            const next = await transaction.documentPeriodicReview.create({
+              data: {
+                tenantId: principal.tenantId,
+                documentId,
+                documentVersionId: version.id,
+                assignedToUserId: principal.userId,
+                scheduledByUserId: principal.userId,
+                intervalMonths: review.intervalMonths,
+                dueAt: nextDueAt,
+              },
+              select: { id: true },
+            });
+            nextPeriodicReviewId = next.id;
+          } catch (error: unknown) {
+            if (isUniqueConstraintError(error)) {
+              throw documentPeriodicReviewConflict();
+            }
+            throw error;
+          }
+        }
+
+        await appendSecurityEvent(transaction, {
+          tenantId: principal.tenantId,
+          actorUserId: principal.userId,
+          eventType:
+            input.decision === 'CONFIRM_EFFECTIVE'
+              ? 'DOCUMENT_PERIODIC_REVIEW_CONFIRMED'
+              : 'DOCUMENT_REVISION_REQUIRED',
+          outcome: 'SUCCESS',
+          request,
+          metadata: {
+            documentId,
+            documentVersionId: version.id,
+            versionNumber: version.versionNumber,
+            periodicReviewId: review.id,
+            decision: input.decision,
+            nextPeriodicReviewId,
+            nextDueAt: nextDueAt?.toISOString(),
+          },
+        });
+        return readDocument(transaction, principal.tenantId, documentId);
       },
     );
   }
@@ -657,6 +939,8 @@ export class DocumentsService {
             type: true,
             status: true,
             currentVersionNumber: true,
+            periodicReviewIntervalMonths: true,
+            periodicReviewReviewerUserId: true,
           },
         });
         if (!document) throw documentNotFound();
@@ -683,6 +967,17 @@ export class DocumentsService {
           throw documentReleaseConflict();
         }
 
+        const pendingPeriodicReview = effectiveVersion
+          ? await transaction.documentPeriodicReview.findFirst({
+              where: {
+                tenantId: principal.tenantId,
+                documentId,
+                status: 'PENDING',
+              },
+              select: { id: true },
+            })
+          : null;
+
         const version = await transaction.documentVersion.findFirst({
           where: {
             tenantId: principal.tenantId,
@@ -703,6 +998,30 @@ export class DocumentsService {
         if (!version || version.status !== 'APPROVED') {
           throw documentReleaseConflict();
         }
+        const periodicReviewReviewer =
+          document.periodicReviewIntervalMonths &&
+          document.periodicReviewReviewerUserId &&
+          document.periodicReviewReviewerUserId !== version.createdByUserId
+            ? await transaction.user.findFirst({
+                where: {
+                  id: document.periodicReviewReviewerUserId,
+                  tenantId: principal.tenantId,
+                  status: 'ACTIVE',
+                  userRoles: {
+                    some: {
+                      role: {
+                        rolePermissions: {
+                          some: {
+                            permission: { code: 'documents.review' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+                select: { id: true },
+              })
+            : null;
         const workflow = await transaction.documentWorkflow.findFirst({
           where: {
             tenantId: principal.tenantId,
@@ -795,7 +1114,15 @@ export class DocumentsService {
             status: document.status,
             currentVersionNumber: document.currentVersionNumber,
           },
-          data: { status: 'EFFECTIVE' },
+          data: {
+            status: 'EFFECTIVE',
+            ...(!periodicReviewReviewer && document.periodicReviewReviewerUserId
+              ? {
+                  periodicReviewIntervalMonths: null,
+                  periodicReviewReviewerUserId: null,
+                }
+              : {}),
+          },
         });
         const claimedVersion = await transaction.documentVersion.updateMany({
           where: {
@@ -815,10 +1142,25 @@ export class DocumentsService {
               data: { status: 'SUPERSEDED' },
             })
           : null;
+        const cancelledPeriodicReview = pendingPeriodicReview
+          ? await transaction.documentPeriodicReview.updateMany({
+              where: {
+                id: pendingPeriodicReview.id,
+                tenantId: principal.tenantId,
+                status: 'PENDING',
+              },
+              data: {
+                status: 'CANCELLED',
+                cancelledAt: now,
+                cancellationReason: 'VERSION_SUPERSEDED',
+              },
+            })
+          : null;
         if (
           claimedDocument.count !== 1 ||
           claimedVersion.count !== 1 ||
-          (supersededVersion && supersededVersion.count !== 1)
+          (supersededVersion && supersededVersion.count !== 1) ||
+          (cancelledPeriodicReview && cancelledPeriodicReview.count !== 1)
         ) {
           throw documentReleaseConflict();
         }
@@ -845,6 +1187,36 @@ export class DocumentsService {
           throw error;
         }
 
+        let nextPeriodicReviewId: string | undefined;
+        let nextPeriodicReviewDueAt: Date | undefined;
+        if (periodicReviewReviewer && document.periodicReviewIntervalMonths) {
+          nextPeriodicReviewDueAt = addUtcMonths(
+            effectiveAt,
+            document.periodicReviewIntervalMonths,
+          );
+          try {
+            const periodicReview =
+              await transaction.documentPeriodicReview.create({
+                data: {
+                  tenantId: principal.tenantId,
+                  documentId,
+                  documentVersionId: version.id,
+                  assignedToUserId: periodicReviewReviewer.id,
+                  scheduledByUserId: principal.userId,
+                  intervalMonths: document.periodicReviewIntervalMonths,
+                  dueAt: nextPeriodicReviewDueAt,
+                },
+                select: { id: true },
+              });
+            nextPeriodicReviewId = periodicReview.id;
+          } catch (error: unknown) {
+            if (isUniqueConstraintError(error)) {
+              throw documentReleaseConflict();
+            }
+            throw error;
+          }
+        }
+
         await appendSecurityEvent(transaction, {
           tenantId: principal.tenantId,
           actorUserId: principal.userId,
@@ -862,6 +1234,9 @@ export class DocumentsService {
             recordHash,
             supersededVersionNumber: effectiveVersion?.versionNumber,
             supersededReleaseId: effectiveVersion?.release?.id,
+            cancelledPeriodicReviewId: pendingPeriodicReview?.id,
+            nextPeriodicReviewId,
+            nextPeriodicReviewDueAt: nextPeriodicReviewDueAt?.toISOString(),
           },
         });
         if (effectiveVersion) {
@@ -877,6 +1252,23 @@ export class DocumentsService {
               supersededVersionNumber: effectiveVersion.versionNumber,
               replacementDocumentVersionId: version.id,
               replacementVersionNumber: version.versionNumber,
+            },
+          });
+        }
+        if (pendingPeriodicReview || nextPeriodicReviewId) {
+          await appendSecurityEvent(transaction, {
+            tenantId: principal.tenantId,
+            actorUserId: principal.userId,
+            subjectUserId: periodicReviewReviewer?.id,
+            eventType: 'DOCUMENT_PERIODIC_REVIEW_RESCHEDULED',
+            outcome: 'SUCCESS',
+            request,
+            metadata: {
+              documentId,
+              cancelledPeriodicReviewId: pendingPeriodicReview?.id,
+              nextPeriodicReviewId,
+              nextPeriodicReviewDueAt: nextPeriodicReviewDueAt?.toISOString(),
+              versionNumber: version.versionNumber,
             },
           });
         }
@@ -1013,6 +1405,16 @@ export class DocumentsService {
         });
         if (existing) throw documentObsolescenceConflict();
 
+        const pendingPeriodicReview =
+          await transaction.documentPeriodicReview.findFirst({
+            where: {
+              tenantId: principal.tenantId,
+              documentId,
+              status: 'PENDING',
+            },
+            select: { id: true },
+          });
+
         const recordHash = hashDocumentLifecycleRecord({
           schemaVersion: 1,
           documentId,
@@ -1043,7 +1445,11 @@ export class DocumentsService {
             status: 'EFFECTIVE',
             currentVersionNumber: document.currentVersionNumber,
           },
-          data: { status: 'OBSOLETE' },
+          data: {
+            status: 'OBSOLETE',
+            periodicReviewIntervalMonths: null,
+            periodicReviewReviewerUserId: null,
+          },
         });
         const claimedVersion = await transaction.documentVersion.updateMany({
           where: {
@@ -1055,6 +1461,25 @@ export class DocumentsService {
         });
         if (claimedDocument.count !== 1 || claimedVersion.count !== 1) {
           throw documentObsolescenceConflict();
+        }
+
+        if (pendingPeriodicReview) {
+          const cancelledPeriodicReview =
+            await transaction.documentPeriodicReview.updateMany({
+              where: {
+                id: pendingPeriodicReview.id,
+                tenantId: principal.tenantId,
+                status: 'PENDING',
+              },
+              data: {
+                status: 'CANCELLED',
+                cancelledAt: now,
+                cancellationReason: 'DOCUMENT_OBSOLETED',
+              },
+            });
+          if (cancelledPeriodicReview.count !== 1) {
+            throw documentObsolescenceConflict();
+          }
         }
 
         let obsolescenceId: string;
@@ -1095,8 +1520,24 @@ export class DocumentsService {
             meaning: 'DOCUMENT_OBSOLESCENCE',
             authenticationMethod: 'PASSWORD_REAUTHENTICATION',
             recordHash,
+            cancelledPeriodicReviewId: pendingPeriodicReview?.id,
           },
         });
+        if (pendingPeriodicReview) {
+          await appendSecurityEvent(transaction, {
+            tenantId: principal.tenantId,
+            actorUserId: principal.userId,
+            eventType: 'DOCUMENT_PERIODIC_REVIEW_CANCELLED',
+            outcome: 'SUCCESS',
+            request,
+            metadata: {
+              documentId,
+              documentVersionId: version.id,
+              periodicReviewId: pendingPeriodicReview.id,
+              reason: 'DOCUMENT_OBSOLETED',
+            },
+          });
+        }
         return readDocument(transaction, principal.tenantId, documentId);
       },
     );
@@ -1105,8 +1546,12 @@ export class DocumentsService {
 
 function mapDocumentSummary(
   document: DocumentSummaryRecord,
+  now = new Date(),
 ): DocumentSummaryResponseDto {
   const currentVersion = document.versions[0];
+  const pendingPeriodicReview = document.periodicReviews.find(
+    ({ status }) => status === 'PENDING',
+  );
   if (!currentVersion) {
     throw new Error('Document invariant violated: current version is missing.');
   }
@@ -1119,6 +1564,13 @@ function mapDocumentSummary(
     owner: mapUser(document.ownerUser),
     createdBy: mapUser(document.createdByUser),
     currentVersion: mapVersionSummary(currentVersion),
+    periodicReviewIntervalMonths: document.periodicReviewIntervalMonths,
+    periodicReviewReviewer: document.periodicReviewReviewer
+      ? mapUser(document.periodicReviewReviewer)
+      : null,
+    periodicReview: pendingPeriodicReview
+      ? mapPeriodicReview(pendingPeriodicReview, now)
+      : null,
     createdAt: document.createdAt.toISOString(),
     updatedAt: document.updatedAt.toISOString(),
   };
@@ -1134,6 +1586,32 @@ function mapDocumentDetail(
     workflows: document.workflows.map(mapWorkflow),
     releases: document.releases.map(mapRelease),
     obsolescences: document.obsolescences.map(mapObsolescence),
+    periodicReviews: document.periodicReviews.map((review) =>
+      mapPeriodicReview(review),
+    ),
+  };
+}
+
+function mapPeriodicReview(
+  review: DocumentPeriodicReviewRecord,
+  now = new Date(),
+): DocumentPeriodicReviewResponseDto {
+  return {
+    id: review.id,
+    documentVersionId: review.documentVersion.id,
+    versionNumber: review.documentVersion.versionNumber,
+    assignedTo: mapUser(review.assignedToUser),
+    scheduledBy: mapUser(review.scheduledByUser),
+    intervalMonths: review.intervalMonths,
+    status: review.status,
+    dueState: periodicReviewDueState(review.status, review.dueAt, now),
+    dueAt: review.dueAt.toISOString(),
+    decision: review.decision,
+    comment: review.comment,
+    completedAt: review.completedAt?.toISOString() ?? null,
+    cancelledAt: review.cancelledAt?.toISOString() ?? null,
+    cancellationReason: review.cancellationReason,
+    createdAt: review.createdAt.toISOString(),
   };
 }
 
@@ -1307,6 +1785,24 @@ function documentObsolescenceConflict(
   );
 }
 
+function documentPeriodicReviewInvalid(message: string): ApplicationError {
+  return new ApplicationError(
+    ErrorCode.DocumentPeriodicReviewInvalid,
+    message,
+    HttpStatus.BAD_REQUEST,
+  );
+}
+
+function documentPeriodicReviewConflict(
+  message = 'The periodic review changed. Reload and try again.',
+): ApplicationError {
+  return new ApplicationError(
+    ErrorCode.DocumentPeriodicReviewConflict,
+    message,
+    HttpStatus.CONFLICT,
+  );
+}
+
 function reauthenticationFailed(): ApplicationError {
   return new ApplicationError(
     ErrorCode.ReauthenticationFailed,
@@ -1321,6 +1817,7 @@ async function requireQualifiedAssignee(
   userId: string,
   permission: string,
   message: string,
+  errorFactory: (message: string) => ApplicationError = documentWorkflowInvalid,
 ): Promise<void> {
   const user = await transaction.user.findFirst({
     where: {
@@ -1339,7 +1836,7 @@ async function requireQualifiedAssignee(
     },
     select: { id: true },
   });
-  if (!user) throw documentWorkflowInvalid(message);
+  if (!user) throw errorFactory(message);
 }
 
 async function decisionContext(
@@ -1428,6 +1925,30 @@ function hashDocumentLifecycleRecord(record: Record<string, unknown>): string {
   return createHash('sha256')
     .update(JSON.stringify(record), 'utf8')
     .digest('hex');
+}
+
+function addUtcMonths(value: Date, months: number): Date {
+  const result = new Date(value);
+  const originalDay = result.getUTCDate();
+  result.setUTCDate(1);
+  result.setUTCMonth(result.getUTCMonth() + months);
+  const lastDay = new Date(
+    Date.UTC(result.getUTCFullYear(), result.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  result.setUTCDate(Math.min(originalDay, lastDay));
+  return result;
+}
+
+function periodicReviewDueState(
+  status: 'PENDING' | 'COMPLETED' | 'CANCELLED',
+  dueAt: Date,
+  now: Date,
+): 'UPCOMING' | 'DUE_SOON' | 'OVERDUE' | 'COMPLETED' | 'CANCELLED' {
+  if (status === 'COMPLETED') return 'COMPLETED';
+  if (status === 'CANCELLED') return 'CANCELLED';
+  if (dueAt.getTime() < now.getTime()) return 'OVERDUE';
+  const dueSoonThreshold = now.getTime() + 30 * 24 * 60 * 60 * 1000;
+  return dueAt.getTime() <= dueSoonThreshold ? 'DUE_SOON' : 'UPCOMING';
 }
 
 function isUniqueConstraintError(error: unknown): boolean {

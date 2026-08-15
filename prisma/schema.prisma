@@ -95,6 +95,17 @@ enum DocumentAuthenticationMethod {
   PASSWORD_REAUTHENTICATION
 }
 
+enum DocumentPeriodicReviewStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+enum DocumentPeriodicReviewDecision {
+  CONFIRM_EFFECTIVE
+  REVISION_REQUIRED
+}
+
 model Tenant {
   id                      String                   @id @default(uuid()) @db.Uuid
   name                    String                   @db.VarChar(200)
@@ -120,40 +131,44 @@ model Tenant {
   documentWorkflows       DocumentWorkflow[]
   documentReleases        DocumentRelease[]
   documentObsolescences   DocumentObsolescence[]
+  documentPeriodicReviews DocumentPeriodicReview[]
 
   @@map("tenants")
 }
 
 model User {
-  id                          String                   @id @default(uuid()) @db.Uuid
-  tenantId                    String                   @map("tenant_id") @db.Uuid
-  email                       String                   @db.VarChar(320)
-  displayName                 String                   @map("display_name") @db.VarChar(200)
-  passwordHash                String                   @map("password_hash")
-  status                      UserStatus               @default(INVITED)
-  emailVerifiedAt             DateTime?                @map("email_verified_at") @db.Timestamptz(3)
-  failedLoginCount            Int                      @default(0) @map("failed_login_count")
-  lockedUntil                 DateTime?                @map("locked_until") @db.Timestamptz(3)
-  passwordChangedAt           DateTime?                @map("password_changed_at") @db.Timestamptz(3)
-  createdAt                   DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt                   DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
-  tenant                      Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  userRoles                   UserRole[]
-  sessions                    Session[]
-  refreshTokens               RefreshToken[]
-  passwordResetTokens         PasswordResetToken[]
-  emailVerificationTokens     EmailVerificationToken[]
-  invitationsCreated          Invitation[]             @relation("InvitationCreator")
-  securityEventsAsActor       SecurityEvent[]          @relation("SecurityEventActor")
-  securityEventsAsSubject     SecurityEvent[]          @relation("SecurityEventSubject")
-  documentsOwned              Document[]               @relation("DocumentOwner")
-  documentsCreated            Document[]               @relation("DocumentCreator")
-  documentVersionsCreated     DocumentVersion[]        @relation("DocumentVersionCreator")
-  documentWorkflowsRequested  DocumentWorkflow[]       @relation("DocumentWorkflowRequester")
-  documentReviewAssignments   DocumentWorkflow[]       @relation("DocumentWorkflowReviewer")
-  documentApprovalAssignments DocumentWorkflow[]       @relation("DocumentWorkflowApprover")
-  documentReleases            DocumentRelease[]        @relation("DocumentReleaseSigner")
-  documentObsolescences       DocumentObsolescence[]   @relation("DocumentObsolescenceSigner")
+  id                                String                   @id @default(uuid()) @db.Uuid
+  tenantId                          String                   @map("tenant_id") @db.Uuid
+  email                             String                   @db.VarChar(320)
+  displayName                       String                   @map("display_name") @db.VarChar(200)
+  passwordHash                      String                   @map("password_hash")
+  status                            UserStatus               @default(INVITED)
+  emailVerifiedAt                   DateTime?                @map("email_verified_at") @db.Timestamptz(3)
+  failedLoginCount                  Int                      @default(0) @map("failed_login_count")
+  lockedUntil                       DateTime?                @map("locked_until") @db.Timestamptz(3)
+  passwordChangedAt                 DateTime?                @map("password_changed_at") @db.Timestamptz(3)
+  createdAt                         DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                         DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant                            Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  userRoles                         UserRole[]
+  sessions                          Session[]
+  refreshTokens                     RefreshToken[]
+  passwordResetTokens               PasswordResetToken[]
+  emailVerificationTokens           EmailVerificationToken[]
+  invitationsCreated                Invitation[]             @relation("InvitationCreator")
+  securityEventsAsActor             SecurityEvent[]          @relation("SecurityEventActor")
+  securityEventsAsSubject           SecurityEvent[]          @relation("SecurityEventSubject")
+  documentsOwned                    Document[]               @relation("DocumentOwner")
+  documentsCreated                  Document[]               @relation("DocumentCreator")
+  documentVersionsCreated           DocumentVersion[]        @relation("DocumentVersionCreator")
+  documentWorkflowsRequested        DocumentWorkflow[]       @relation("DocumentWorkflowRequester")
+  documentReviewAssignments         DocumentWorkflow[]       @relation("DocumentWorkflowReviewer")
+  documentApprovalAssignments       DocumentWorkflow[]       @relation("DocumentWorkflowApprover")
+  documentReleases                  DocumentRelease[]        @relation("DocumentReleaseSigner")
+  documentObsolescences             DocumentObsolescence[]   @relation("DocumentObsolescenceSigner")
+  documentsPeriodicReviewConfigured Document[]               @relation("DocumentPeriodicReviewConfiguration")
+  documentPeriodicReviewAssignments DocumentPeriodicReview[] @relation("DocumentPeriodicReviewAssignee")
+  documentPeriodicReviewsScheduled  DocumentPeriodicReview[] @relation("DocumentPeriodicReviewScheduler")
 
   @@unique([tenantId, id], map: "users_tenant_id_id_key")
   @@unique([tenantId, email], map: "users_tenant_id_email_key")
@@ -374,23 +389,27 @@ model OutboxMessage {
 }
 
 model Document {
-  id                   String                 @id @default(uuid()) @db.Uuid
-  tenantId             String                 @map("tenant_id") @db.Uuid
-  code                 String                 @db.VarChar(50)
-  type                 DocumentType
-  status               DocumentStatus         @default(DRAFT)
-  currentVersionNumber Int                    @default(1) @map("current_version_number")
-  ownerUserId          String                 @map("owner_user_id") @db.Uuid
-  createdByUserId      String                 @map("created_by_user_id") @db.Uuid
-  createdAt            DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt            DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
-  tenant               Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  ownerUser            User                   @relation("DocumentOwner", fields: [tenantId, ownerUserId], references: [tenantId, id], onDelete: Restrict)
-  createdByUser        User                   @relation("DocumentCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
-  versions             DocumentVersion[]
-  workflows            DocumentWorkflow[]
-  releases             DocumentRelease[]
-  obsolescences        DocumentObsolescence[]
+  id                           String                   @id @default(uuid()) @db.Uuid
+  tenantId                     String                   @map("tenant_id") @db.Uuid
+  code                         String                   @db.VarChar(50)
+  type                         DocumentType
+  status                       DocumentStatus           @default(DRAFT)
+  currentVersionNumber         Int                      @default(1) @map("current_version_number")
+  ownerUserId                  String                   @map("owner_user_id") @db.Uuid
+  createdByUserId              String                   @map("created_by_user_id") @db.Uuid
+  createdAt                    DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                    DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+  periodicReviewIntervalMonths Int?                     @map("periodic_review_interval_months")
+  periodicReviewReviewerUserId String?                  @map("periodic_review_reviewer_user_id") @db.Uuid
+  tenant                       Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  ownerUser                    User                     @relation("DocumentOwner", fields: [tenantId, ownerUserId], references: [tenantId, id], onDelete: Restrict)
+  createdByUser                User                     @relation("DocumentCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
+  periodicReviewReviewer       User?                    @relation("DocumentPeriodicReviewConfiguration", fields: [tenantId, periodicReviewReviewerUserId], references: [tenantId, id], onDelete: Restrict)
+  versions                     DocumentVersion[]
+  workflows                    DocumentWorkflow[]
+  releases                     DocumentRelease[]
+  obsolescences                DocumentObsolescence[]
+  periodicReviews              DocumentPeriodicReview[]
 
   @@unique([tenantId, id], map: "documents_tenant_id_id_key")
   @@unique([tenantId, code], map: "documents_tenant_id_code_key")
@@ -400,23 +419,24 @@ model Document {
 }
 
 model DocumentVersion {
-  id              String                @id @default(uuid()) @db.Uuid
-  tenantId        String                @map("tenant_id") @db.Uuid
-  documentId      String                @map("document_id") @db.Uuid
-  versionNumber   Int                   @map("version_number")
-  title           String                @db.VarChar(300)
-  description     String?               @db.VarChar(2000)
+  id              String                   @id @default(uuid()) @db.Uuid
+  tenantId        String                   @map("tenant_id") @db.Uuid
+  documentId      String                   @map("document_id") @db.Uuid
+  versionNumber   Int                      @map("version_number")
+  title           String                   @db.VarChar(300)
+  description     String?                  @db.VarChar(2000)
   content         String
-  changeSummary   String                @map("change_summary") @db.VarChar(500)
-  status          DocumentVersionStatus @default(DRAFT)
-  createdByUserId String                @map("created_by_user_id") @db.Uuid
-  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
-  tenant          Tenant                @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  document        Document              @relation(fields: [tenantId, documentId], references: [tenantId, id], onDelete: Restrict)
-  createdByUser   User                  @relation("DocumentVersionCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
+  changeSummary   String                   @map("change_summary") @db.VarChar(500)
+  status          DocumentVersionStatus    @default(DRAFT)
+  createdByUserId String                   @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant          Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  document        Document                 @relation(fields: [tenantId, documentId], references: [tenantId, id], onDelete: Restrict)
+  createdByUser   User                     @relation("DocumentVersionCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
   workflow        DocumentWorkflow?
   release         DocumentRelease?
   obsolescence    DocumentObsolescence?
+  periodicReviews DocumentPeriodicReview[]
 
   @@unique([tenantId, id], map: "document_versions_tenant_id_id_key")
   @@unique([tenantId, documentId, id], map: "document_versions_tenant_document_id_id_key")
@@ -508,4 +528,34 @@ model DocumentObsolescence {
   @@unique([tenantId, documentId, documentVersionId], map: "document_obsolescences_tenant_document_version_id_key")
   @@index([tenantId, obsoletedAt], map: "document_obsolescences_tenant_obsoleted_at_idx")
   @@map("document_obsolescences")
+}
+
+model DocumentPeriodicReview {
+  id                 String                          @id @default(uuid()) @db.Uuid
+  tenantId           String                          @map("tenant_id") @db.Uuid
+  documentId         String                          @map("document_id") @db.Uuid
+  documentVersionId  String                          @map("document_version_id") @db.Uuid
+  assignedToUserId   String                          @map("assigned_to_user_id") @db.Uuid
+  scheduledByUserId  String                          @map("scheduled_by_user_id") @db.Uuid
+  intervalMonths     Int                             @map("interval_months")
+  status             DocumentPeriodicReviewStatus    @default(PENDING)
+  dueAt              DateTime                        @map("due_at") @db.Timestamptz(3)
+  decision           DocumentPeriodicReviewDecision?
+  comment            String?                         @db.VarChar(2000)
+  completedAt        DateTime?                       @map("completed_at") @db.Timestamptz(3)
+  cancelledAt        DateTime?                       @map("cancelled_at") @db.Timestamptz(3)
+  cancellationReason String?                         @map("cancellation_reason") @db.VarChar(100)
+  createdAt          DateTime                        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime                        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant             Tenant                          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  document           Document                        @relation(fields: [tenantId, documentId], references: [tenantId, id], onDelete: Restrict)
+  documentVersion    DocumentVersion                 @relation(fields: [tenantId, documentId, documentVersionId], references: [tenantId, documentId, id], onDelete: Restrict)
+  assignedToUser     User                            @relation("DocumentPeriodicReviewAssignee", fields: [tenantId, assignedToUserId], references: [tenantId, id], onDelete: Restrict)
+  scheduledByUser    User                            @relation("DocumentPeriodicReviewScheduler", fields: [tenantId, scheduledByUserId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id], map: "document_periodic_reviews_tenant_id_id_key")
+  @@index([tenantId, documentId, createdAt], map: "document_periodic_reviews_tenant_document_created_idx")
+  @@index([tenantId, assignedToUserId, status, dueAt], map: "document_periodic_reviews_assignee_status_due_idx")
+  @@index([tenantId, status, dueAt], map: "document_periodic_reviews_status_due_idx")
+  @@map("document_periodic_reviews")
 }

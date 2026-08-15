@@ -156,6 +156,58 @@ export class DocumentObsolescenceResponseDto {
   recordHash!: string;
 }
 
+export class DocumentPeriodicReviewResponseDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ format: 'uuid' })
+  documentVersionId!: string;
+
+  @ApiProperty({ minimum: 1 })
+  versionNumber!: number;
+
+  @ApiProperty({ type: DocumentUserSummaryDto })
+  assignedTo!: DocumentUserSummaryDto;
+
+  @ApiProperty({ type: DocumentUserSummaryDto })
+  scheduledBy!: DocumentUserSummaryDto;
+
+  @ApiProperty({ minimum: 1, maximum: 60 })
+  intervalMonths!: number;
+
+  @ApiProperty({ enum: ['PENDING', 'COMPLETED', 'CANCELLED'] })
+  status!: string;
+
+  @ApiProperty({
+    enum: ['UPCOMING', 'DUE_SOON', 'OVERDUE', 'COMPLETED', 'CANCELLED'],
+  })
+  dueState!: string;
+
+  @ApiProperty({ format: 'date-time' })
+  dueAt!: string;
+
+  @ApiPropertyOptional({
+    enum: ['CONFIRM_EFFECTIVE', 'REVISION_REQUIRED'],
+    nullable: true,
+  })
+  decision!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  comment!: string | null;
+
+  @ApiPropertyOptional({ format: 'date-time', nullable: true })
+  completedAt!: string | null;
+
+  @ApiPropertyOptional({ format: 'date-time', nullable: true })
+  cancelledAt!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  cancellationReason!: string | null;
+
+  @ApiProperty({ format: 'date-time' })
+  createdAt!: string;
+}
+
 export class DocumentSummaryResponseDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
@@ -181,6 +233,18 @@ export class DocumentSummaryResponseDto {
   @ApiProperty({ type: DocumentVersionSummaryDto })
   currentVersion!: DocumentVersionSummaryDto;
 
+  @ApiPropertyOptional({ minimum: 1, maximum: 60, nullable: true })
+  periodicReviewIntervalMonths!: number | null;
+
+  @ApiPropertyOptional({ type: DocumentUserSummaryDto, nullable: true })
+  periodicReviewReviewer!: DocumentUserSummaryDto | null;
+
+  @ApiPropertyOptional({
+    type: DocumentPeriodicReviewResponseDto,
+    nullable: true,
+  })
+  periodicReview!: DocumentPeriodicReviewResponseDto | null;
+
   @ApiProperty({ format: 'date-time' })
   createdAt!: string;
 
@@ -200,4 +264,7 @@ export class DocumentDetailResponseDto extends DocumentSummaryResponseDto {
 
   @ApiProperty({ type: DocumentObsolescenceResponseDto, isArray: true })
   obsolescences!: DocumentObsolescenceResponseDto[];
+
+  @ApiProperty({ type: DocumentPeriodicReviewResponseDto, isArray: true })
+  periodicReviews!: DocumentPeriodicReviewResponseDto[];
 }

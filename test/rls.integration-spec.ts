@@ -16,6 +16,7 @@ interface Fixture {
 
 const tenantScopedTables = [
   'document_obsolescences',
+  'document_periodic_reviews',
   'document_releases',
   'document_versions',
   'document_workflows',
@@ -270,6 +271,60 @@ describeDatabase('PostgreSQL tenant isolation', () => {
         can_delete: false,
       },
     ]);
+  });
+
+  it('allows periodic review transitions but not evidence deletion', async () => {
+    const result = await applicationPool.query<{
+      can_select: boolean;
+      can_insert: boolean;
+      can_update: boolean;
+      can_delete: boolean;
+    }>(
+      `SELECT
+         has_table_privilege(current_user, 'document_periodic_reviews', 'SELECT') AS can_select,
+         has_table_privilege(current_user, 'document_periodic_reviews', 'INSERT') AS can_insert,
+         has_table_privilege(current_user, 'document_periodic_reviews', 'UPDATE') AS can_update,
+         has_table_privilege(current_user, 'document_periodic_reviews', 'DELETE') AS can_delete`,
+    );
+
+    expect(result.rows).toEqual([
+      {
+        can_select: true,
+        can_insert: true,
+        can_update: true,
+        can_delete: false,
+      },
+    ]);
+  });
+
+  it('guards periodic review finalization and one pending cycle per document', async () => {
+    const triggers = await ownerPool.query<{
+      trigger_name: string;
+      function_name: string;
+    }>(
+      `SELECT
+         trigger.tgname AS trigger_name,
+         function.proname AS function_name
+       FROM pg_trigger AS trigger
+       JOIN pg_proc AS function ON function.oid = trigger.tgfoid
+       WHERE trigger.tgrelid = 'document_periodic_reviews'::regclass
+         AND NOT trigger.tgisinternal`,
+    );
+    const index = await ownerPool.query<{ indexdef: string }>(
+      `SELECT indexdef
+       FROM pg_indexes
+       WHERE schemaname = 'public'
+         AND indexname = 'document_periodic_reviews_one_pending_per_document_key'`,
+    );
+
+    expect(triggers.rows).toEqual([
+      {
+        trigger_name: 'document_periodic_reviews_transition_guard',
+        function_name: 'guard_document_periodic_review_transition',
+      },
+    ]);
+    expect(index.rows).toHaveLength(1);
+    expect(index.rows[0]?.indexdef).toContain("WHERE (status = 'PENDING'");
   });
 
   it('constrains lifecycle signature meanings to their record type', async () => {

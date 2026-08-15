@@ -1,6 +1,6 @@
 # Controlled document lifecycle
 
-Phase 8 introduced immutable tenant-scoped document versions. Phase 9 added assigned review and approval decisions. Phase 10 added immediate controlled release with password reauthentication and immutable evidence. Phase 11 completes the post-release lifecycle for effective revisions, atomic supersession, and controlled obsolescence.
+Phase 8 introduced immutable tenant-scoped document versions. Phase 9 added assigned review and approval decisions. Phase 10 added immediate controlled release with password reauthentication and immutable evidence. Phase 11 completed effective revisions, atomic supersession, and controlled obsolescence. Phase 12 adds recurring review of effective documents with due-state visibility and preserved decisions.
 
 ## Scope
 
@@ -28,6 +28,11 @@ This phase provides:
 - releasing an approved revision atomically changes the prior effective version to `SUPERSEDED`;
 - obsolescence is restricted to an effective document without an open revision;
 - obsolescence requires password reauthentication, explicit intent, segregation of duties, a reason, and immutable SHA-256 evidence.
+- a configurable periodic-review interval from 1 to 60 months and an active, permission-qualified reviewer;
+- one pending cycle per document, with real-time `UPCOMING`, `DUE_SOON`, or `OVERDUE` classification;
+- assigned decisions to confirm effectiveness or require a revision;
+- automatic next-cycle creation after confirmation and transfer to a newly released version;
+- immutable completed and cancelled cycle history protected by a database transition trigger.
 
 Creating a new draft version marks the previous draft as `SUPERSEDED`. Hard deletion is not exposed and the runtime database role has no delete privilege on either document table.
 
@@ -35,17 +40,19 @@ Creating a new draft version marks the previous draft as `SUPERSEDED`. Hard dele
 
 All routes use the `/api/v1` prefix.
 
-| Method | Route                                      | Permission          | Purpose                               |
-| ------ | ------------------------------------------ | ------------------- | ------------------------------------- |
-| `GET`  | `/documents`                               | `documents.read`    | List current document summaries       |
-| `GET`  | `/documents/:documentId`                   | `documents.read`    | Read content and complete history     |
-| `POST` | `/documents`                               | `documents.create`  | Create document and version 1         |
-| `POST` | `/documents/:documentId/versions`          | `documents.update`  | Preserve a new current draft version  |
-| `POST` | `/documents/:documentId/review-request`    | `documents.update`  | Assign reviewer and approver          |
-| `POST` | `/documents/:documentId/review-decision`   | `documents.review`  | Accept or reject the review           |
-| `POST` | `/documents/:documentId/approval-decision` | `documents.approve` | Accept or reject final approval       |
-| `POST` | `/documents/:documentId/release`           | `documents.release` | Reauthenticate, release, and activate |
-| `POST` | `/documents/:documentId/obsolete`          | `documents.release` | Reauthenticate and withdraw from use  |
+| Method | Route                                                                | Permission          | Purpose                               |
+| ------ | -------------------------------------------------------------------- | ------------------- | ------------------------------------- |
+| `GET`  | `/documents`                                                         | `documents.read`    | List current document summaries       |
+| `GET`  | `/documents/:documentId`                                             | `documents.read`    | Read content and complete history     |
+| `POST` | `/documents`                                                         | `documents.create`  | Create document and version 1         |
+| `POST` | `/documents/:documentId/versions`                                    | `documents.update`  | Preserve a new current draft version  |
+| `POST` | `/documents/:documentId/review-request`                              | `documents.update`  | Assign reviewer and approver          |
+| `POST` | `/documents/:documentId/review-decision`                             | `documents.review`  | Accept or reject the review           |
+| `POST` | `/documents/:documentId/approval-decision`                           | `documents.approve` | Accept or reject final approval       |
+| `POST` | `/documents/:documentId/release`                                     | `documents.release` | Reauthenticate, release, and activate |
+| `POST` | `/documents/:documentId/obsolete`                                    | `documents.release` | Reauthenticate and withdraw from use  |
+| `POST` | `/documents/:documentId/periodic-reviews`                            | `documents.update`  | Configure or replace the review cycle |
+| `POST` | `/documents/:documentId/periodic-reviews/:periodicReviewId/decision` | `documents.review`  | Record the assigned periodic decision |
 
 The list endpoint supports `limit`, `type`, `status`, and `search`. Document codes are normalized to uppercase and are unique only within the authenticated tenant.
 
@@ -75,9 +82,19 @@ Obsolescence is an immediate controlled withdrawal, not a replacement. It is all
 
 The immutable `document_obsolescences` record links the document, effective version, signer, session, timestamp, reason, authentication method, prior release fingerprint, and its own canonical SHA-256 fingerprint. The runtime database role can select and insert this evidence but cannot update or delete it. A successful action changes both document and version to `OBSOLETE` atomically.
 
+## Periodic review rules
+
+Only an effective document version can receive a periodic-review schedule. The scheduler needs `documents.update`; the assigned reviewer must be an active tenant user with `documents.review` and must differ from the effective version author. Reconfiguring the schedule cancels the prior pending cycle as `SCHEDULE_REPLACED` and creates a new one. PostgreSQL permits at most one pending cycle per document.
+
+Due state is derived when the API response is produced: a pending cycle is `OVERDUE` after its due timestamp, `DUE_SOON` during the preceding 30 days, and otherwise `UPCOMING`. No mutable status job is needed merely to make a cycle overdue.
+
+Only the assigned reviewer can record a decision. `CONFIRM_EFFECTIVE` completes the current cycle and schedules the next one from the decision time using the configured interval. `REVISION_REQUIRED` completes the cycle without scheduling another; the configuration is retained so that releasing a revised version can create its next cycle. Releasing a replacement cancels the old version's pending cycle as `VERSION_SUPERSEDED` and schedules the new effective version when the reviewer remains qualified and separate from its author. Obsolescence cancels the pending cycle as `DOCUMENT_OBSOLETED` and removes the configuration.
+
+Finalized cycle identity, schedule, decision, and cancellation evidence cannot be changed through the runtime role. The database transition trigger allows a pending row to move exactly once to `COMPLETED` or `CANCELLED`, and the runtime role cannot delete rows.
+
 ## Compliance boundary
 
-Phases 10 and 11 capture several electronic-signature and lifecycle building blocks, but Qualyra still does not claim 21 CFR Part 11 compliance. Formal validation, signed-record manifestations and exports, identity-proofing policy, trusted time controls, retention, operational procedures, and regulatory assessment remain required. Future scheduling, revision cancellation, periodic review, and automated review reminders remain out of scope.
+Phases 10 through 12 capture several electronic-signature and lifecycle building blocks, but Qualyra still does not claim 21 CFR Part 11 compliance. Formal validation, signed-record manifestations and exports, identity-proofing policy, trusted time controls, retention, operational procedures, and regulatory assessment remain required. Revision cancellation, durable reminder delivery, escalation, and notification retry monitoring remain out of scope.
 
 Binary files and object storage are also out of scope. Text content is limited to 100,000 characters so the aggregate can be exercised without storing blobs in PostgreSQL or selecting an object-storage provider prematurely.
 

@@ -7,6 +7,8 @@ export const ErrorCode = {
   DocumentNotFound: 'DOCUMENT_NOT_FOUND',
   DocumentObsolescenceConflict: 'DOCUMENT_OBSOLESCENCE_CONFLICT',
   DocumentObsolescenceInvalid: 'DOCUMENT_OBSOLESCENCE_INVALID',
+  DocumentPeriodicReviewConflict: 'DOCUMENT_PERIODIC_REVIEW_CONFLICT',
+  DocumentPeriodicReviewInvalid: 'DOCUMENT_PERIODIC_REVIEW_INVALID',
   DocumentReleaseConflict: 'DOCUMENT_RELEASE_CONFLICT',
   DocumentReleaseInvalid: 'DOCUMENT_RELEASE_INVALID',
   DocumentDecisionForbidden: 'DOCUMENT_DECISION_FORBIDDEN',

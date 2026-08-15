@@ -31,12 +31,32 @@ interface DocumentVersionBody {
   status: string;
 }
 
+interface PeriodicReviewBody {
+  id: string;
+  documentVersionId: string;
+  versionNumber: number;
+  assignedTo: { id: string };
+  scheduledBy: { id: string };
+  intervalMonths: number;
+  status: string;
+  dueState: string;
+  dueAt: string;
+  decision: string | null;
+  comment: string | null;
+  completedAt: string | null;
+  cancelledAt: string | null;
+  cancellationReason: string | null;
+}
+
 interface DocumentBody {
   id: string;
   code: string;
   status: string;
   currentVersionNumber: number;
   currentVersion: DocumentVersionBody;
+  periodicReviewIntervalMonths: number | null;
+  periodicReviewReviewer: { id: string } | null;
+  periodicReview: PeriodicReviewBody | null;
   versions: DocumentVersionBody[];
   workflows: {
     status: string;
@@ -65,6 +85,7 @@ interface DocumentBody {
     obsoletedAt: string;
     recordHash: string;
   }[];
+  periodicReviews: PeriodicReviewBody[];
 }
 
 interface ErrorBody {
@@ -458,6 +479,55 @@ describeDatabase('Document control foundation', () => {
     });
     expect(released.releases[0]?.recordHash).toMatch(/^[0-9a-f]{64}$/);
 
+    await request(server)
+      .post(`/api/v1/documents/${created.id}/periodic-reviews`)
+      .set(authA)
+      .send({ reviewerUserId: tenantB.user.id, intervalMonths: 12 })
+      .expect(400)
+      .expect(({ body }: { body: ErrorBody }) => {
+        expect(body.code).toBe('DOCUMENT_PERIODIC_REVIEW_INVALID');
+      });
+
+    const firstPeriodicSchedule = bodyAs<DocumentBody>(
+      await request(server)
+        .post(`/api/v1/documents/${created.id}/periodic-reviews`)
+        .set(authA)
+        .send({ reviewerUserId: reviewer.user.id, intervalMonths: 12 })
+        .expect(201),
+    );
+    expect(firstPeriodicSchedule).toMatchObject({
+      periodicReviewIntervalMonths: 12,
+      periodicReviewReviewer: { id: reviewer.user.id },
+      periodicReview: {
+        versionNumber: 3,
+        assignedTo: { id: reviewer.user.id },
+        intervalMonths: 12,
+        status: 'PENDING',
+        dueState: 'UPCOMING',
+      },
+    });
+
+    const replacedPeriodicSchedule = bodyAs<DocumentBody>(
+      await request(server)
+        .post(`/api/v1/documents/${created.id}/periodic-reviews`)
+        .set(authA)
+        .send({ reviewerUserId: reviewer.user.id, intervalMonths: 6 })
+        .expect(201),
+    );
+    expect(replacedPeriodicSchedule).toMatchObject({
+      periodicReviewIntervalMonths: 6,
+      periodicReview: {
+        versionNumber: 3,
+        intervalMonths: 6,
+        status: 'PENDING',
+      },
+    });
+    expect(
+      replacedPeriodicSchedule.periodicReviews.find(
+        ({ cancellationReason }) => cancellationReason === 'SCHEDULE_REPLACED',
+      ),
+    ).toMatchObject({ status: 'CANCELLED', intervalMonths: 12 });
+
     const revision = bodyAs<DocumentBody>(
       await request(server)
         .post(`/api/v1/documents/${created.id}/versions`)
@@ -531,6 +601,124 @@ describeDatabase('Document control foundation', () => {
       replacement.versions.find(({ versionNumber }) => versionNumber === 3)
         ?.status,
     ).toBe('SUPERSEDED');
+    expect(replacement).toMatchObject({
+      periodicReviewIntervalMonths: 6,
+      periodicReviewReviewer: { id: reviewer.user.id },
+      periodicReview: {
+        versionNumber: 4,
+        assignedTo: { id: reviewer.user.id },
+        intervalMonths: 6,
+        status: 'PENDING',
+      },
+    });
+    expect(
+      replacement.periodicReviews.find(
+        ({ cancellationReason }) => cancellationReason === 'VERSION_SUPERSEDED',
+      ),
+    ).toMatchObject({ versionNumber: 3, status: 'CANCELLED' });
+
+    const replacementPeriodicReviewId = replacement.periodicReview?.id;
+    if (!replacementPeriodicReviewId) {
+      throw new Error('Replacement periodic review was not scheduled.');
+    }
+    await request(server)
+      .post(
+        `/api/v1/documents/${created.id}/periodic-reviews/${replacementPeriodicReviewId}/decision`,
+      )
+      .set(bearer(approver.accessToken))
+      .send({
+        decision: 'CONFIRM_EFFECTIVE',
+        comment: 'Attempted by the wrong periodic reviewer.',
+      })
+      .expect(403)
+      .expect(({ body }: { body: ErrorBody }) => {
+        expect(body.code).toBe('DOCUMENT_DECISION_FORBIDDEN');
+      });
+
+    const periodicConfirmations = await Promise.all([
+      request(server)
+        .post(
+          `/api/v1/documents/${created.id}/periodic-reviews/${replacementPeriodicReviewId}/decision`,
+        )
+        .set(bearer(reviewer.accessToken))
+        .send({
+          decision: 'CONFIRM_EFFECTIVE',
+          comment: 'The effective content remains accurate and suitable.',
+        }),
+      request(server)
+        .post(
+          `/api/v1/documents/${created.id}/periodic-reviews/${replacementPeriodicReviewId}/decision`,
+        )
+        .set(bearer(reviewer.accessToken))
+        .send({
+          decision: 'CONFIRM_EFFECTIVE',
+          comment: 'Duplicate periodic review confirmation.',
+        }),
+    ]);
+    expect(periodicConfirmations.map(({ status }) => status).sort()).toEqual([
+      201, 409,
+    ]);
+    const confirmedPeriodicResponse = periodicConfirmations.find(
+      ({ status }) => status === 201,
+    );
+    if (!confirmedPeriodicResponse) {
+      throw new Error('Periodic review confirmation was not accepted.');
+    }
+    const confirmedPeriodic = bodyAs<DocumentBody>(confirmedPeriodicResponse);
+    expect(
+      confirmedPeriodic.periodicReviews.find(
+        ({ id }) => id === replacementPeriodicReviewId,
+      ),
+    ).toMatchObject({
+      status: 'COMPLETED',
+      decision: 'CONFIRM_EFFECTIVE',
+      dueState: 'COMPLETED',
+    });
+    expect(confirmedPeriodic.periodicReview).toMatchObject({
+      versionNumber: 4,
+      assignedTo: { id: reviewer.user.id },
+      status: 'PENDING',
+    });
+
+    const nextPeriodicReviewId = confirmedPeriodic.periodicReview?.id;
+    if (!nextPeriodicReviewId) {
+      throw new Error('The next periodic review was not scheduled.');
+    }
+    const revisionRequired = bodyAs<DocumentBody>(
+      await request(server)
+        .post(
+          `/api/v1/documents/${created.id}/periodic-reviews/${nextPeriodicReviewId}/decision`,
+        )
+        .set(bearer(reviewer.accessToken))
+        .send({
+          decision: 'REVISION_REQUIRED',
+          comment: 'The controlled procedure requires a substantive revision.',
+        })
+        .expect(201),
+    );
+    expect(revisionRequired.periodicReview).toBeNull();
+    expect(
+      revisionRequired.periodicReviews.find(
+        ({ id }) => id === nextPeriodicReviewId,
+      ),
+    ).toMatchObject({
+      status: 'COMPLETED',
+      decision: 'REVISION_REQUIRED',
+      dueState: 'COMPLETED',
+    });
+
+    const scheduledBeforeObsolescence = bodyAs<DocumentBody>(
+      await request(server)
+        .post(`/api/v1/documents/${created.id}/periodic-reviews`)
+        .set(authA)
+        .send({ reviewerUserId: reviewer.user.id, intervalMonths: 18 })
+        .expect(201),
+    );
+    const periodicReviewBeforeObsolescenceId =
+      scheduledBeforeObsolescence.periodicReview?.id;
+    if (!periodicReviewBeforeObsolescenceId) {
+      throw new Error('Periodic review before obsolescence was not scheduled.');
+    }
 
     await request(server)
       .post(`/api/v1/documents/${created.id}/obsolete`)
@@ -568,6 +756,9 @@ describeDatabase('Document control foundation', () => {
     expect(obsolete).toMatchObject({
       status: 'OBSOLETE',
       currentVersion: { versionNumber: 4, status: 'OBSOLETE' },
+      periodicReviewIntervalMonths: null,
+      periodicReviewReviewer: null,
+      periodicReview: null,
       obsolescences: [
         {
           versionNumber: 4,
@@ -578,6 +769,15 @@ describeDatabase('Document control foundation', () => {
       ],
     });
     expect(obsolete.obsolescences[0]?.recordHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(
+      obsolete.periodicReviews.find(
+        ({ id }) => id === periodicReviewBeforeObsolescenceId,
+      ),
+    ).toMatchObject({
+      status: 'CANCELLED',
+      dueState: 'CANCELLED',
+      cancellationReason: 'DOCUMENT_OBSOLETED',
+    });
 
     await request(server)
       .post(`/api/v1/documents/${created.id}/versions`)
@@ -664,6 +864,11 @@ describeDatabase('Document control foundation', () => {
         'DOCUMENT_VERSION_SUPERSEDED',
         'DOCUMENT_OBSOLESCENCE_REAUTHENTICATION_FAILED',
         'DOCUMENT_OBSOLETED',
+        'DOCUMENT_PERIODIC_REVIEW_SCHEDULED',
+        'DOCUMENT_PERIODIC_REVIEW_RESCHEDULED',
+        'DOCUMENT_PERIODIC_REVIEW_CONFIRMED',
+        'DOCUMENT_REVISION_REQUIRED',
+        'DOCUMENT_PERIODIC_REVIEW_CANCELLED',
       ]),
     );
   }, 120_000);

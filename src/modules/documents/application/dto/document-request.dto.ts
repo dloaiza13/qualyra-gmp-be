@@ -33,6 +33,11 @@ export const documentStatuses = [
 
 export const documentDecisions = ['APPROVE', 'REJECT'] as const;
 
+export const periodicReviewDecisions = [
+  'CONFIRM_EFFECTIVE',
+  'REVISION_REQUIRED',
+] as const;
+
 function trimString({ value }: TransformFnParams): unknown {
   return typeof value === 'string' ? value.trim() : value;
 }
@@ -186,6 +191,31 @@ export class ObsoleteDocumentDto {
   })
   @Equals(true)
   attestationAccepted!: true;
+}
+
+export class ConfigurePeriodicReviewDto {
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID('4')
+  reviewerUserId!: string;
+
+  @ApiProperty({ minimum: 1, maximum: 60, example: 12 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(60)
+  intervalMonths!: number;
+}
+
+export class PeriodicReviewDecisionDto {
+  @ApiProperty({ enum: periodicReviewDecisions })
+  @IsIn(periodicReviewDecisions)
+  decision!: (typeof periodicReviewDecisions)[number];
+
+  @ApiProperty({ example: 'Content remains accurate and fit for use.' })
+  @Transform(trimString)
+  @IsString()
+  @Length(3, 2000)
+  comment!: string;
 }
 
 export class DocumentListQueryDto {
