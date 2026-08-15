@@ -15,6 +15,7 @@ interface Fixture {
 }
 
 const tenantScopedTables = [
+  'document_releases',
   'document_versions',
   'document_workflows',
   'documents',
@@ -220,6 +221,30 @@ describeDatabase('PostgreSQL tenant isolation', () => {
       await client.query('ROLLBACK');
       client.release();
     }
+  });
+
+  it('allows release evidence insertion but not mutation or deletion', async () => {
+    const result = await applicationPool.query<{
+      can_select: boolean;
+      can_insert: boolean;
+      can_update: boolean;
+      can_delete: boolean;
+    }>(
+      `SELECT
+         has_table_privilege(current_user, 'document_releases', 'SELECT') AS can_select,
+         has_table_privilege(current_user, 'document_releases', 'INSERT') AS can_insert,
+         has_table_privilege(current_user, 'document_releases', 'UPDATE') AS can_update,
+         has_table_privilege(current_user, 'document_releases', 'DELETE') AS can_delete`,
+    );
+
+    expect(result.rows).toEqual([
+      {
+        can_select: true,
+        can_insert: true,
+        can_update: false,
+        can_delete: false,
+      },
+    ]);
   });
 });
 

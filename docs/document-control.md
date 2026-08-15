@@ -1,6 +1,6 @@
 # Controlled document lifecycle
 
-Phase 8 introduced immutable tenant-scoped document versions. Phase 9 adds authenticated review and approval decisions with explicit assignments and segregation of duties.
+Phase 8 introduced immutable tenant-scoped document versions. Phase 9 added assigned review and approval decisions. Phase 10 adds immediate controlled release with password reauthentication and immutable evidence.
 
 ## Scope
 
@@ -12,12 +12,17 @@ This phase provides:
 - an atomic current-version counter that rejects concurrent version races;
 - server-side document permissions;
 - tenant isolation through composite foreign keys and forced PostgreSQL RLS;
-- `DOCUMENT_CREATED` and `DOCUMENT_VERSION_CREATED` security events.
+- `DOCUMENT_CREATED` and `DOCUMENT_VERSION_CREATED` security events;
 - one review/approval workflow per immutable document version;
 - assigned, permission-qualified reviewer and approver;
 - server-enforced separation between version author, reviewer, and approver;
 - conditional state transitions that reject duplicate or concurrent decisions;
 - persistent comments, decision timestamps, and workflow security events.
+- release restricted to an approved current version and `documents.release`;
+- password reauthentication, explicit intent, signature meaning, and reason;
+- an immutable release record tied to user and active session;
+- an SHA-256 fingerprint over the version and release evidence;
+- immediate transition from `APPROVED` to `EFFECTIVE`.
 
 Creating a new draft version marks the previous draft as `SUPERSEDED`. Hard deletion is not exposed and the runtime database role has no delete privilege on either document table.
 
@@ -25,15 +30,16 @@ Creating a new draft version marks the previous draft as `SUPERSEDED`. Hard dele
 
 All routes use the `/api/v1` prefix.
 
-| Method | Route                                      | Permission          | Purpose                              |
-| ------ | ------------------------------------------ | ------------------- | ------------------------------------ |
-| `GET`  | `/documents`                               | `documents.read`    | List current document summaries      |
-| `GET`  | `/documents/:documentId`                   | `documents.read`    | Read content and complete history    |
-| `POST` | `/documents`                               | `documents.create`  | Create document and version 1        |
-| `POST` | `/documents/:documentId/versions`          | `documents.update`  | Preserve a new current draft version |
-| `POST` | `/documents/:documentId/review-request`    | `documents.update`  | Assign reviewer and approver         |
-| `POST` | `/documents/:documentId/review-decision`   | `documents.review`  | Accept or reject the review          |
-| `POST` | `/documents/:documentId/approval-decision` | `documents.approve` | Accept or reject final approval      |
+| Method | Route                                      | Permission          | Purpose                               |
+| ------ | ------------------------------------------ | ------------------- | ------------------------------------- |
+| `GET`  | `/documents`                               | `documents.read`    | List current document summaries       |
+| `GET`  | `/documents/:documentId`                   | `documents.read`    | Read content and complete history     |
+| `POST` | `/documents`                               | `documents.create`  | Create document and version 1         |
+| `POST` | `/documents/:documentId/versions`          | `documents.update`  | Preserve a new current draft version  |
+| `POST` | `/documents/:documentId/review-request`    | `documents.update`  | Assign reviewer and approver          |
+| `POST` | `/documents/:documentId/review-decision`   | `documents.review`  | Accept or reject the review           |
+| `POST` | `/documents/:documentId/approval-decision` | `documents.approve` | Accept or reject final approval       |
+| `POST` | `/documents/:documentId/release`           | `documents.release` | Reauthenticate, release, and activate |
 
 The list endpoint supports `limit`, `type`, `status`, and `search`. Document codes are normalized to uppercase and are unique only within the authenticated tenant.
 
@@ -43,9 +49,17 @@ A draft can be submitted only when its current version has no workflow history. 
 
 An accepted review moves the workflow to `PENDING_APPROVAL`. An accepted approval moves both document and version to `APPROVED`. A rejection at either stage returns them to `DRAFT`; the rejected workflow remains immutable audit history, so the author must create a corrected version before resubmission.
 
+## Release rules
+
+Only the approved current version can be released. The releaser needs `documents.release`, must differ from the version author and approver, and must re-enter the current account password from an active session. The request also carries an explicit acknowledgement, reason, and effective timestamp.
+
+Phase 10 supports immediate effectiveness only: the timestamp must fall between approval and the current server time. Future scheduling is deferred until a durable production scheduler and operational monitoring are selected.
+
+The release stores its fixed meaning (`DOCUMENT_RELEASE`), authentication method (`PASSWORD_REAUTHENTICATION`), actor, session link, timestamps, reason, and a canonical SHA-256 record fingerprint. The runtime role can insert and read release evidence but cannot update or delete it.
+
 ## Compliance boundary
 
-Phase 9 decisions are authenticated application actions, not 21 CFR Part 11 electronic signatures. Release, effective dates, signature re-authentication and meaning, signed representation, reason-for-change policies, obsolescence, and periodic review remain future controls.
+Phase 10 captures several electronic-signature building blocks, but Qualyra still does not claim 21 CFR Part 11 compliance. Formal validation, signed-record manifestations and exports, identity-proofing policy, trusted time controls, retention, operational procedures, and regulatory assessment remain required. Future scheduling, revision of effective documents, obsolescence, and periodic review are also out of scope.
 
 Binary files and object storage are also out of scope. Text content is limited to 100,000 characters so the aggregate can be exercised without storing blobs in PostgreSQL or selecting an object-storage provider prematurely.
 

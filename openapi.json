@@ -781,6 +781,51 @@
         ]
       }
     },
+    "/api/v1/documents/{documentId}/release": {
+      "post": {
+        "operationId": "DocumentsController_release",
+        "parameters": [
+          {
+            "name": "documentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleaseDocumentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
     "/api/v1/users/invitations": {
       "post": {
         "operationId": "UserInvitationsController_create",
@@ -1920,6 +1965,65 @@
           "createdAt"
         ]
       },
+      "DocumentReleaseResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "documentVersionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionNumber": {
+            "type": "number",
+            "minimum": 1
+          },
+          "meaning": {
+            "type": "string",
+            "enum": [
+              "DOCUMENT_RELEASE"
+            ]
+          },
+          "authenticationMethod": {
+            "type": "string",
+            "enum": [
+              "PASSWORD_REAUTHENTICATION"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "releasedBy": {
+            "$ref": "#/components/schemas/DocumentUserSummaryDto"
+          },
+          "effectiveAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "releasedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "recordHash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        "required": [
+          "id",
+          "documentVersionId",
+          "versionNumber",
+          "meaning",
+          "authenticationMethod",
+          "reason",
+          "releasedBy",
+          "effectiveAt",
+          "releasedAt",
+          "recordHash"
+        ]
+      },
       "DocumentDetailResponseDto": {
         "type": "object",
         "properties": {
@@ -1983,6 +2087,12 @@
             "items": {
               "$ref": "#/components/schemas/DocumentWorkflowResponseDto"
             }
+          },
+          "releases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DocumentReleaseResponseDto"
+            }
           }
         },
         "required": [
@@ -1997,7 +2107,8 @@
           "createdAt",
           "updatedAt",
           "versions",
-          "workflows"
+          "workflows",
+          "releases"
         ]
       },
       "CreateDocumentDto": {
@@ -2109,6 +2220,36 @@
         "required": [
           "decision",
           "comment"
+        ]
+      },
+      "ReleaseDocumentDto": {
+        "type": "object",
+        "properties": {
+          "effectiveAt": {
+            "type": "string",
+            "example": "2026-08-15T04:30:00.000Z",
+            "description": "Immediate effective timestamp, not earlier than approval."
+          },
+          "reason": {
+            "type": "string",
+            "example": "Released after QA approval and final metadata check."
+          },
+          "password": {
+            "type": "string",
+            "example": "current account password",
+            "writeOnly": true
+          },
+          "attestationAccepted": {
+            "type": "boolean",
+            "example": true,
+            "description": "Explicit acknowledgement of the document release meaning."
+          }
+        },
+        "required": [
+          "effectiveAt",
+          "reason",
+          "password",
+          "attestationAccepted"
         ]
       },
       "CreateInvitationDto": {

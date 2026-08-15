@@ -1,7 +1,9 @@
 import { Transform, Type, type TransformFnParams } from 'class-transformer';
 import {
+  Equals,
   IsIn,
   IsInt,
+  IsISO8601,
   IsOptional,
   IsString,
   IsUUID,
@@ -132,6 +134,35 @@ export class DocumentDecisionDto {
   @IsString()
   @Length(3, 2000)
   comment!: string;
+}
+
+export class ReleaseDocumentDto {
+  @ApiProperty({
+    example: '2026-08-15T04:30:00.000Z',
+    description: 'Immediate effective timestamp, not earlier than approval.',
+  })
+  @IsISO8601({ strict: true, strictSeparator: true })
+  effectiveAt!: string;
+
+  @ApiProperty({
+    example: 'Released after QA approval and final metadata check.',
+  })
+  @Transform(trimString)
+  @IsString()
+  @Length(3, 500)
+  reason!: string;
+
+  @ApiProperty({ example: 'current account password', writeOnly: true })
+  @IsString()
+  @Length(1, 128)
+  password!: string;
+
+  @ApiProperty({
+    example: true,
+    description: 'Explicit acknowledgement of the document release meaning.',
+  })
+  @Equals(true)
+  attestationAccepted!: true;
 }
 
 export class DocumentListQueryDto {

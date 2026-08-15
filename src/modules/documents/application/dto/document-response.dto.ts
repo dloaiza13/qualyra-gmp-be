@@ -95,6 +95,38 @@ export class DocumentWorkflowResponseDto {
   createdAt!: string;
 }
 
+export class DocumentReleaseResponseDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ format: 'uuid' })
+  documentVersionId!: string;
+
+  @ApiProperty({ minimum: 1 })
+  versionNumber!: number;
+
+  @ApiProperty({ enum: ['DOCUMENT_RELEASE'] })
+  meaning!: string;
+
+  @ApiProperty({ enum: ['PASSWORD_REAUTHENTICATION'] })
+  authenticationMethod!: string;
+
+  @ApiProperty()
+  reason!: string;
+
+  @ApiProperty({ type: DocumentUserSummaryDto })
+  releasedBy!: DocumentUserSummaryDto;
+
+  @ApiProperty({ format: 'date-time' })
+  effectiveAt!: string;
+
+  @ApiProperty({ format: 'date-time' })
+  releasedAt!: string;
+
+  @ApiProperty({ pattern: '^[0-9a-f]{64}$' })
+  recordHash!: string;
+}
+
 export class DocumentSummaryResponseDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
@@ -133,4 +165,7 @@ export class DocumentDetailResponseDto extends DocumentSummaryResponseDto {
 
   @ApiProperty({ type: DocumentWorkflowResponseDto, isArray: true })
   workflows!: DocumentWorkflowResponseDto[];
+
+  @ApiProperty({ type: DocumentReleaseResponseDto, isArray: true })
+  releases!: DocumentReleaseResponseDto[];
 }

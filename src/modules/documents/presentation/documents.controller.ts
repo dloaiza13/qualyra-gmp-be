@@ -15,6 +15,7 @@ import {
   ApiOkResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import type { RequestWithContext } from '../../../common/request-context/request-with-context.js';
 import type { RequestMetadata } from '../../authentication/application/request-metadata.js';
@@ -28,6 +29,7 @@ import {
   CreateDocumentVersionDto,
   DocumentDecisionDto,
   DocumentListQueryDto,
+  ReleaseDocumentDto,
   RequestDocumentReviewDto,
 } from '../application/dto/document-request.dto.js';
 import {
@@ -135,6 +137,24 @@ export class DocumentsController {
     @Req() request: Request & RequestWithContext,
   ): Promise<DocumentDetailResponseDto> {
     return this.documents.approvalDecision(
+      principal,
+      documentId,
+      input,
+      requestMetadata(request),
+    );
+  }
+
+  @Post(':documentId/release')
+  @Permissions('documents.release')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @ApiCreatedResponse({ type: DocumentDetailResponseDto })
+  release(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+    @Param('documentId', new ParseUUIDPipe()) documentId: string,
+    @Body() input: ReleaseDocumentDto,
+    @Req() request: Request & RequestWithContext,
+  ): Promise<DocumentDetailResponseDto> {
+    return this.documents.release(
       principal,
       documentId,
       input,

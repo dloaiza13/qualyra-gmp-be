@@ -46,6 +46,16 @@ interface DocumentBody {
     reviewComment: string | null;
     approvalComment: string | null;
   }[];
+  releases: {
+    versionNumber: number;
+    meaning: string;
+    authenticationMethod: string;
+    reason: string;
+    releasedBy: { id: string };
+    effectiveAt: string;
+    releasedAt: string;
+    recordHash: string;
+  }[];
 }
 
 interface ErrorBody {
@@ -108,6 +118,9 @@ describeDatabase('Document control foundation', () => {
     const qaManager = bodyAs<RoleBody[]>(rolesResponse).find(
       ({ name }) => name === 'QA Manager',
     );
+    const documentController = bodyAs<RoleBody[]>(rolesResponse).find(
+      ({ name }) => name === 'Document Controller',
+    );
     expect(operator).toBeDefined();
     expect(operator?.permissions.map(({ code }) => code)).toContain(
       'documents.read',
@@ -117,6 +130,9 @@ describeDatabase('Document control foundation', () => {
     );
     expect(qaManager?.permissions.map(({ code }) => code)).toEqual(
       expect.arrayContaining(['documents.review', 'documents.approve']),
+    );
+    expect(documentController?.permissions.map(({ code }) => code)).toContain(
+      'documents.release',
     );
 
     const invalidOwner = await request(server)
@@ -350,6 +366,89 @@ describeDatabase('Document control foundation', () => {
         expect(body.code).toBe('DOCUMENT_VERSION_CONFLICT');
       });
 
+    if (!documentController) {
+      throw new Error('Document Controller role was not created.');
+    }
+    const releaser = await inviteAndAccept(
+      server,
+      authA,
+      notifier,
+      documentController.id,
+      `releaser-${suffix}@example.test`,
+      'Assigned Document Controller',
+    );
+
+    await request(server)
+      .post(`/api/v1/documents/${created.id}/release`)
+      .set(bearer(approver.accessToken))
+      .send(releaseInput('Qualified assignee passphrase! 2026'))
+      .expect(403)
+      .expect(({ body }: { body: ErrorBody }) => {
+        expect(body.code).toBe('FORBIDDEN');
+      });
+    await request(server)
+      .post(`/api/v1/documents/${created.id}/release`)
+      .set(authA)
+      .send(releaseInput('Administration passphrase! 2026'))
+      .expect(400)
+      .expect(({ body }: { body: ErrorBody }) => {
+        expect(body.code).toBe('DOCUMENT_RELEASE_INVALID');
+      });
+    await request(server)
+      .post(`/api/v1/documents/${created.id}/release`)
+      .set(bearer(releaser.accessToken))
+      .send(releaseInput('incorrect release password'))
+      .expect(403)
+      .expect(({ body }: { body: ErrorBody }) => {
+        expect(body.code).toBe('REAUTHENTICATION_FAILED');
+      });
+    await request(server)
+      .post(`/api/v1/documents/${created.id}/release`)
+      .set(bearer(releaser.accessToken))
+      .send(
+        releaseInput(
+          'Qualified assignee passphrase! 2026',
+          new Date(Date.now() + 60_000).toISOString(),
+        ),
+      )
+      .expect(400)
+      .expect(({ body }: { body: ErrorBody }) => {
+        expect(body.code).toBe('DOCUMENT_RELEASE_INVALID');
+      });
+
+    const releaseTimestamp = new Date().toISOString();
+    const releases = await Promise.all([
+      request(server)
+        .post(`/api/v1/documents/${created.id}/release`)
+        .set(bearer(releaser.accessToken))
+        .send(
+          releaseInput('Qualified assignee passphrase! 2026', releaseTimestamp),
+        ),
+      request(server)
+        .post(`/api/v1/documents/${created.id}/release`)
+        .set(bearer(releaser.accessToken))
+        .send(
+          releaseInput('Qualified assignee passphrase! 2026', releaseTimestamp),
+        ),
+    ]);
+    expect(releases.map(({ status }) => status).sort()).toEqual([201, 409]);
+    const releasedResponse = releases.find(({ status }) => status === 201);
+    if (!releasedResponse) throw new Error('Document was not released.');
+    const released = bodyAs<DocumentBody>(releasedResponse);
+    expect(released).toMatchObject({
+      status: 'EFFECTIVE',
+      currentVersion: { status: 'EFFECTIVE' },
+      releases: [
+        {
+          versionNumber: 3,
+          meaning: 'DOCUMENT_RELEASE',
+          authenticationMethod: 'PASSWORD_REAUTHENTICATION',
+          releasedBy: { id: releaser.user.id },
+        },
+      ],
+    });
+    expect(released.releases[0]?.recordHash).toMatch(/^[0-9a-f]{64}$/);
+
     const rejectedDocument = bodyAs<DocumentBody>(
       await request(server)
         .post('/api/v1/documents')
@@ -420,9 +519,11 @@ describeDatabase('Document control foundation', () => {
         'DOCUMENT_REVIEW_COMPLETED',
         'DOCUMENT_APPROVED',
         'DOCUMENT_REVIEW_REJECTED',
+        'DOCUMENT_RELEASE_REAUTHENTICATION_FAILED',
+        'DOCUMENT_RELEASED',
       ]),
     );
-  }, 90_000);
+  }, 120_000);
 });
 
 async function inviteAndAccept(
@@ -486,6 +587,18 @@ function versionInput(changeSummary: string) {
     description: 'Controlled procedure for document lifecycle management.',
     content: '1. Purpose\nDefine ownership and version traceability.',
     changeSummary,
+  };
+}
+
+function releaseInput(
+  password: string,
+  effectiveAt = new Date().toISOString(),
+) {
+  return {
+    effectiveAt,
+    reason: 'Released after approval and metadata verification.',
+    password,
+    attestationAccepted: true,
   };
 }
 

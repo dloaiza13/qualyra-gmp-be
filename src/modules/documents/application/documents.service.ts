@@ -1,7 +1,9 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 import type { Prisma } from '../../../generated/prisma/client.js';
 import { ApplicationError } from '../../../common/errors/application-error.js';
 import { ErrorCode } from '../../../common/errors/error-codes.js';
+import { PasswordHasher } from '../../../infrastructure/crypto/password-hasher.js';
 import type { RequestMetadata } from '../../authentication/application/request-metadata.js';
 import type { AuthenticatedPrincipal } from '../../authentication/domain/authenticated-principal.js';
 import { appendSecurityEvent } from '../../security-events/application/append-security-event.js';
@@ -11,10 +13,12 @@ import type {
   CreateDocumentVersionDto,
   DocumentDecisionDto,
   DocumentListQueryDto,
+  ReleaseDocumentDto,
   RequestDocumentReviewDto,
 } from './dto/document-request.dto.js';
 import type {
   DocumentDetailResponseDto,
+  DocumentReleaseResponseDto,
   DocumentSummaryResponseDto,
   DocumentUserSummaryDto,
   DocumentVersionResponseDto,
@@ -51,6 +55,13 @@ const documentDetails = {
       approverUser: { select: userSummary },
     },
   },
+  releases: {
+    orderBy: { releasedAt: 'desc' as const },
+    include: {
+      documentVersion: { select: { id: true, versionNumber: true } },
+      releasedByUser: { select: userSummary },
+    },
+  },
 } satisfies Prisma.DocumentInclude;
 
 type DocumentSummaryRecord = Prisma.DocumentGetPayload<{
@@ -61,10 +72,14 @@ type DocumentDetailRecord = Prisma.DocumentGetPayload<{
 }>;
 type DocumentVersionRecord = DocumentDetailRecord['versions'][number];
 type DocumentWorkflowRecord = DocumentDetailRecord['workflows'][number];
+type DocumentReleaseRecord = DocumentDetailRecord['releases'][number];
 
 @Injectable()
 export class DocumentsService {
-  constructor(private readonly tenantUnitOfWork: TenantUnitOfWork) {}
+  constructor(
+    private readonly tenantUnitOfWork: TenantUnitOfWork,
+    private readonly passwordHasher: PasswordHasher,
+  ) {}
 
   list(
     principal: AuthenticatedPrincipal,
@@ -528,6 +543,229 @@ export class DocumentsService {
       },
     );
   }
+
+  async release(
+    principal: AuthenticatedPrincipal,
+    documentId: string,
+    input: ReleaseDocumentDto,
+    request: RequestMetadata,
+  ): Promise<DocumentDetailResponseDto> {
+    const signer = await this.tenantUnitOfWork.execute(
+      principal.tenantId,
+      (transaction) =>
+        transaction.user.findFirst({
+          where: {
+            id: principal.userId,
+            tenantId: principal.tenantId,
+            status: 'ACTIVE',
+          },
+          select: { passwordHash: true },
+        }),
+    );
+    const passwordMatches = signer
+      ? await this.passwordHasher
+          .verify(signer.passwordHash, input.password)
+          .catch(() => false)
+      : false;
+    if (!passwordMatches) {
+      await this.tenantUnitOfWork.execute(principal.tenantId, (transaction) =>
+        appendSecurityEvent(transaction, {
+          tenantId: principal.tenantId,
+          actorUserId: principal.userId,
+          eventType: 'DOCUMENT_RELEASE_REAUTHENTICATION_FAILED',
+          outcome: 'FAILURE',
+          request,
+          metadata: { documentId },
+        }),
+      );
+      throw reauthenticationFailed();
+    }
+
+    return this.tenantUnitOfWork.execute(
+      principal.tenantId,
+      async (transaction) => {
+        const now = new Date();
+        const effectiveAt = new Date(input.effectiveAt);
+        const document = await transaction.document.findFirst({
+          where: { id: documentId, tenantId: principal.tenantId },
+          select: {
+            id: true,
+            code: true,
+            type: true,
+            status: true,
+            currentVersionNumber: true,
+          },
+        });
+        if (!document) throw documentNotFound();
+        if (document.status !== 'APPROVED') throw documentReleaseConflict();
+
+        const version = await transaction.documentVersion.findFirst({
+          where: {
+            tenantId: principal.tenantId,
+            documentId,
+            versionNumber: document.currentVersionNumber,
+          },
+          select: {
+            id: true,
+            versionNumber: true,
+            title: true,
+            description: true,
+            content: true,
+            changeSummary: true,
+            status: true,
+            createdByUserId: true,
+          },
+        });
+        if (!version || version.status !== 'APPROVED') {
+          throw documentReleaseConflict();
+        }
+        const workflow = await transaction.documentWorkflow.findFirst({
+          where: {
+            tenantId: principal.tenantId,
+            documentVersionId: version.id,
+            status: 'APPROVED',
+          },
+          select: { approverUserId: true, approvedAt: true },
+        });
+        if (!workflow?.approvedAt) throw documentReleaseConflict();
+        if (
+          principal.userId === version.createdByUserId ||
+          principal.userId === workflow.approverUserId
+        ) {
+          throw documentReleaseInvalid(
+            'The version author and approver cannot release the document.',
+          );
+        }
+        if (
+          effectiveAt.getTime() < workflow.approvedAt.getTime() ||
+          effectiveAt.getTime() > now.getTime()
+        ) {
+          throw documentReleaseInvalid(
+            'The effective timestamp must be between approval and the current time.',
+          );
+        }
+
+        const currentSigner = await transaction.user.findFirst({
+          where: {
+            id: principal.userId,
+            tenantId: principal.tenantId,
+            status: 'ACTIVE',
+          },
+          select: { passwordHash: true },
+        });
+        const session = await transaction.session.findFirst({
+          where: {
+            id: principal.sessionId,
+            tenantId: principal.tenantId,
+            userId: principal.userId,
+            status: 'ACTIVE',
+            expiresAt: { gt: now },
+          },
+          select: { id: true },
+        });
+        if (
+          !currentSigner ||
+          currentSigner.passwordHash !== signer?.passwordHash ||
+          !session
+        ) {
+          throw reauthenticationFailed();
+        }
+
+        const existingRelease = await transaction.documentRelease.findFirst({
+          where: {
+            tenantId: principal.tenantId,
+            documentVersionId: version.id,
+          },
+          select: { id: true },
+        });
+        if (existingRelease) throw documentReleaseConflict();
+
+        const recordHash = hashReleaseRecord({
+          schemaVersion: 1,
+          documentId,
+          documentVersionId: version.id,
+          versionNumber: version.versionNumber,
+          code: document.code,
+          type: document.type,
+          title: version.title,
+          description: version.description,
+          content: version.content,
+          changeSummary: version.changeSummary,
+          approvedAt: workflow.approvedAt.toISOString(),
+          releasedByUserId: principal.userId,
+          sessionId: principal.sessionId,
+          meaning: 'DOCUMENT_RELEASE',
+          authenticationMethod: 'PASSWORD_REAUTHENTICATION',
+          attestationAccepted: true,
+          reason: input.reason,
+          effectiveAt: effectiveAt.toISOString(),
+          releasedAt: now.toISOString(),
+        });
+
+        const claimedDocument = await transaction.document.updateMany({
+          where: {
+            id: documentId,
+            tenantId: principal.tenantId,
+            status: 'APPROVED',
+            currentVersionNumber: document.currentVersionNumber,
+          },
+          data: { status: 'EFFECTIVE' },
+        });
+        const claimedVersion = await transaction.documentVersion.updateMany({
+          where: {
+            id: version.id,
+            tenantId: principal.tenantId,
+            status: 'APPROVED',
+          },
+          data: { status: 'EFFECTIVE' },
+        });
+        if (claimedDocument.count !== 1 || claimedVersion.count !== 1) {
+          throw documentReleaseConflict();
+        }
+
+        let releaseId: string;
+        try {
+          const release = await transaction.documentRelease.create({
+            data: {
+              tenantId: principal.tenantId,
+              documentId,
+              documentVersionId: version.id,
+              releasedByUserId: principal.userId,
+              sessionId: principal.sessionId,
+              reason: input.reason,
+              effectiveAt,
+              releasedAt: now,
+              recordHash,
+            },
+            select: { id: true },
+          });
+          releaseId = release.id;
+        } catch (error: unknown) {
+          if (isUniqueConstraintError(error)) throw documentReleaseConflict();
+          throw error;
+        }
+
+        await appendSecurityEvent(transaction, {
+          tenantId: principal.tenantId,
+          actorUserId: principal.userId,
+          eventType: 'DOCUMENT_RELEASED',
+          outcome: 'SUCCESS',
+          request,
+          metadata: {
+            documentId,
+            documentVersionId: version.id,
+            versionNumber: version.versionNumber,
+            releaseId,
+            effectiveAt: effectiveAt.toISOString(),
+            meaning: 'DOCUMENT_RELEASE',
+            authenticationMethod: 'PASSWORD_REAUTHENTICATION',
+            recordHash,
+          },
+        });
+        return readDocument(transaction, principal.tenantId, documentId);
+      },
+    );
+  }
 }
 
 function mapDocumentSummary(
@@ -559,6 +797,24 @@ function mapDocumentDetail(
     ...summary,
     versions: document.versions.map(mapVersion),
     workflows: document.workflows.map(mapWorkflow),
+    releases: document.releases.map(mapRelease),
+  };
+}
+
+function mapRelease(
+  release: DocumentReleaseRecord,
+): DocumentReleaseResponseDto {
+  return {
+    id: release.id,
+    documentVersionId: release.documentVersion.id,
+    versionNumber: release.documentVersion.versionNumber,
+    meaning: release.meaning,
+    authenticationMethod: release.authenticationMethod,
+    reason: release.reason,
+    releasedBy: mapUser(release.releasedByUser),
+    effectiveAt: release.effectiveAt.toISOString(),
+    releasedAt: release.releasedAt.toISOString(),
+    recordHash: release.recordHash,
   };
 }
 
@@ -665,6 +921,30 @@ function documentDecisionForbidden(message: string): ApplicationError {
   );
 }
 
+function documentReleaseInvalid(message: string): ApplicationError {
+  return new ApplicationError(
+    ErrorCode.DocumentReleaseInvalid,
+    message,
+    HttpStatus.BAD_REQUEST,
+  );
+}
+
+function documentReleaseConflict(): ApplicationError {
+  return new ApplicationError(
+    ErrorCode.DocumentReleaseConflict,
+    'The document release changed. Reload and try again.',
+    HttpStatus.CONFLICT,
+  );
+}
+
+function reauthenticationFailed(): ApplicationError {
+  return new ApplicationError(
+    ErrorCode.ReauthenticationFailed,
+    'Reauthentication failed.',
+    HttpStatus.FORBIDDEN,
+  );
+}
+
 async function requireQualifiedAssignee(
   transaction: Prisma.TransactionClient,
   tenantId: string,
@@ -754,6 +1034,12 @@ async function readDocument(
   });
   if (!document) throw documentNotFound();
   return mapDocumentDetail(document);
+}
+
+function hashReleaseRecord(record: Record<string, unknown>): string {
+  return createHash('sha256')
+    .update(JSON.stringify(record), 'utf8')
+    .digest('hex');
 }
 
 function isUniqueConstraintError(error: unknown): boolean {
