@@ -53,6 +53,39 @@ enum OutboxStatus {
   FAILED
 }
 
+enum DocumentType {
+  POLICY
+  SOP
+  WORK_INSTRUCTION
+  FORM
+  SPECIFICATION
+  OTHER
+}
+
+enum DocumentStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  EFFECTIVE
+  OBSOLETE
+}
+
+enum DocumentVersionStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  EFFECTIVE
+  SUPERSEDED
+  OBSOLETE
+}
+
+enum DocumentWorkflowStatus {
+  PENDING_REVIEW
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+}
+
 model Tenant {
   id                      String                   @id @default(uuid()) @db.Uuid
   name                    String                   @db.VarChar(200)
@@ -73,32 +106,41 @@ model Tenant {
   invitationRoles         InvitationRole[]
   securityEvents          SecurityEvent[]
   outboxMessages          OutboxMessage[]
+  documents               Document[]
+  documentVersions        DocumentVersion[]
+  documentWorkflows       DocumentWorkflow[]
 
   @@map("tenants")
 }
 
 model User {
-  id                      String                   @id @default(uuid()) @db.Uuid
-  tenantId                String                   @map("tenant_id") @db.Uuid
-  email                   String                   @db.VarChar(320)
-  displayName             String                   @map("display_name") @db.VarChar(200)
-  passwordHash            String                   @map("password_hash")
-  status                  UserStatus               @default(INVITED)
-  emailVerifiedAt         DateTime?                @map("email_verified_at") @db.Timestamptz(3)
-  failedLoginCount        Int                      @default(0) @map("failed_login_count")
-  lockedUntil             DateTime?                @map("locked_until") @db.Timestamptz(3)
-  passwordChangedAt       DateTime?                @map("password_changed_at") @db.Timestamptz(3)
-  createdAt               DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt               DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
-  tenant                  Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  userRoles               UserRole[]
-  sessions                Session[]
-  refreshTokens           RefreshToken[]
-  passwordResetTokens     PasswordResetToken[]
-  emailVerificationTokens EmailVerificationToken[]
-  invitationsCreated      Invitation[]             @relation("InvitationCreator")
-  securityEventsAsActor   SecurityEvent[]           @relation("SecurityEventActor")
-  securityEventsAsSubject SecurityEvent[]           @relation("SecurityEventSubject")
+  id                          String                   @id @default(uuid()) @db.Uuid
+  tenantId                    String                   @map("tenant_id") @db.Uuid
+  email                       String                   @db.VarChar(320)
+  displayName                 String                   @map("display_name") @db.VarChar(200)
+  passwordHash                String                   @map("password_hash")
+  status                      UserStatus               @default(INVITED)
+  emailVerifiedAt             DateTime?                @map("email_verified_at") @db.Timestamptz(3)
+  failedLoginCount            Int                      @default(0) @map("failed_login_count")
+  lockedUntil                 DateTime?                @map("locked_until") @db.Timestamptz(3)
+  passwordChangedAt           DateTime?                @map("password_changed_at") @db.Timestamptz(3)
+  createdAt                   DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                   DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant                      Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  userRoles                   UserRole[]
+  sessions                    Session[]
+  refreshTokens               RefreshToken[]
+  passwordResetTokens         PasswordResetToken[]
+  emailVerificationTokens     EmailVerificationToken[]
+  invitationsCreated          Invitation[]             @relation("InvitationCreator")
+  securityEventsAsActor       SecurityEvent[]          @relation("SecurityEventActor")
+  securityEventsAsSubject     SecurityEvent[]          @relation("SecurityEventSubject")
+  documentsOwned              Document[]               @relation("DocumentOwner")
+  documentsCreated            Document[]               @relation("DocumentCreator")
+  documentVersionsCreated     DocumentVersion[]        @relation("DocumentVersionCreator")
+  documentWorkflowsRequested  DocumentWorkflow[]       @relation("DocumentWorkflowRequester")
+  documentReviewAssignments   DocumentWorkflow[]       @relation("DocumentWorkflowReviewer")
+  documentApprovalAssignments DocumentWorkflow[]       @relation("DocumentWorkflowApprover")
 
   @@unique([tenantId, id], map: "users_tenant_id_id_key")
   @@unique([tenantId, email], map: "users_tenant_id_email_key")
@@ -135,13 +177,13 @@ model Role {
 }
 
 model RolePermission {
-  tenantId    String     @map("tenant_id") @db.Uuid
-  roleId      String     @map("role_id") @db.Uuid
-  permissionId String    @map("permission_id") @db.Uuid
-  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
-  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  role        Role       @relation(fields: [tenantId, roleId], references: [tenantId, id], onDelete: Restrict)
-  permission  Permission @relation(fields: [permissionId], references: [id], onDelete: Restrict)
+  tenantId     String     @map("tenant_id") @db.Uuid
+  roleId       String     @map("role_id") @db.Uuid
+  permissionId String     @map("permission_id") @db.Uuid
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  role         Role       @relation(fields: [tenantId, roleId], references: [tenantId, id], onDelete: Restrict)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Restrict)
 
   @@id([tenantId, roleId, permissionId])
   @@index([permissionId], map: "role_permissions_permission_id_idx")
@@ -163,19 +205,19 @@ model UserRole {
 }
 
 model Session {
-  id            String        @id @default(uuid()) @db.Uuid
-  tenantId      String        @map("tenant_id") @db.Uuid
-  userId        String        @map("user_id") @db.Uuid
-  status        SessionStatus @default(ACTIVE)
-  userAgent     String?       @map("user_agent") @db.VarChar(1024)
-  ipAddress     String?       @map("ip_address") @db.Inet
-  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
-  lastUsedAt    DateTime      @default(now()) @map("last_used_at") @db.Timestamptz(3)
-  expiresAt     DateTime      @map("expires_at") @db.Timestamptz(3)
-  revokedAt     DateTime?     @map("revoked_at") @db.Timestamptz(3)
-  revokeReason  String?       @map("revoke_reason") @db.VarChar(300)
-  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  user          User          @relation(fields: [tenantId, userId], references: [tenantId, id], onDelete: Restrict)
+  id            String         @id @default(uuid()) @db.Uuid
+  tenantId      String         @map("tenant_id") @db.Uuid
+  userId        String         @map("user_id") @db.Uuid
+  status        SessionStatus  @default(ACTIVE)
+  userAgent     String?        @map("user_agent") @db.VarChar(1024)
+  ipAddress     String?        @map("ip_address") @db.Inet
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastUsedAt    DateTime       @default(now()) @map("last_used_at") @db.Timestamptz(3)
+  expiresAt     DateTime       @map("expires_at") @db.Timestamptz(3)
+  revokedAt     DateTime?      @map("revoked_at") @db.Timestamptz(3)
+  revokeReason  String?        @map("revoke_reason") @db.VarChar(300)
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user          User           @relation(fields: [tenantId, userId], references: [tenantId, id], onDelete: Restrict)
   refreshTokens RefreshToken[]
 
   @@unique([tenantId, userId, id], map: "sessions_tenant_id_user_id_id_key")
@@ -251,6 +293,7 @@ model Invitation {
   expiresAt       DateTime         @map("expires_at") @db.Timestamptz(3)
   acceptedAt      DateTime?        @map("accepted_at") @db.Timestamptz(3)
   revokedAt       DateTime?        @map("revoked_at") @db.Timestamptz(3)
+  lastSentAt      DateTime         @default(now()) @map("last_sent_at") @db.Timestamptz(3)
   createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
   tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   invitedByUser   User             @relation("InvitationCreator", fields: [tenantId, invitedByUserId], references: [tenantId, id], onDelete: Restrict)
@@ -263,13 +306,13 @@ model Invitation {
 }
 
 model InvitationRole {
-  tenantId    String     @map("tenant_id") @db.Uuid
-  invitationId String    @map("invitation_id") @db.Uuid
-  roleId      String     @map("role_id") @db.Uuid
-  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
-  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  invitation  Invitation @relation(fields: [tenantId, invitationId], references: [tenantId, id], onDelete: Restrict)
-  role        Role       @relation(fields: [tenantId, roleId], references: [tenantId, id], onDelete: Restrict)
+  tenantId     String     @map("tenant_id") @db.Uuid
+  invitationId String     @map("invitation_id") @db.Uuid
+  roleId       String     @map("role_id") @db.Uuid
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  invitation   Invitation @relation(fields: [tenantId, invitationId], references: [tenantId, id], onDelete: Restrict)
+  role         Role       @relation(fields: [tenantId, roleId], references: [tenantId, id], onDelete: Restrict)
 
   @@id([tenantId, invitationId, roleId])
   @@index([tenantId, roleId], map: "invitation_roles_tenant_role_idx")
@@ -313,4 +356,84 @@ model OutboxMessage {
   @@index([status, availableAt], map: "outbox_messages_status_available_at_idx")
   @@index([tenantId, createdAt], map: "outbox_messages_tenant_created_at_idx")
   @@map("outbox_messages")
+}
+
+model Document {
+  id                   String             @id @default(uuid()) @db.Uuid
+  tenantId             String             @map("tenant_id") @db.Uuid
+  code                 String             @db.VarChar(50)
+  type                 DocumentType
+  status               DocumentStatus     @default(DRAFT)
+  currentVersionNumber Int                @default(1) @map("current_version_number")
+  ownerUserId          String             @map("owner_user_id") @db.Uuid
+  createdByUserId      String             @map("created_by_user_id") @db.Uuid
+  createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant               Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  ownerUser            User               @relation("DocumentOwner", fields: [tenantId, ownerUserId], references: [tenantId, id], onDelete: Restrict)
+  createdByUser        User               @relation("DocumentCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
+  versions             DocumentVersion[]
+  workflows            DocumentWorkflow[]
+
+  @@unique([tenantId, id], map: "documents_tenant_id_id_key")
+  @@unique([tenantId, code], map: "documents_tenant_id_code_key")
+  @@index([tenantId, status, updatedAt], map: "documents_tenant_status_updated_idx")
+  @@index([tenantId, type, updatedAt], map: "documents_tenant_type_updated_idx")
+  @@map("documents")
+}
+
+model DocumentVersion {
+  id              String                @id @default(uuid()) @db.Uuid
+  tenantId        String                @map("tenant_id") @db.Uuid
+  documentId      String                @map("document_id") @db.Uuid
+  versionNumber   Int                   @map("version_number")
+  title           String                @db.VarChar(300)
+  description     String?               @db.VarChar(2000)
+  content         String
+  changeSummary   String                @map("change_summary") @db.VarChar(500)
+  status          DocumentVersionStatus @default(DRAFT)
+  createdByUserId String                @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant          Tenant                @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  document        Document              @relation(fields: [tenantId, documentId], references: [tenantId, id], onDelete: Restrict)
+  createdByUser   User                  @relation("DocumentVersionCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
+  workflow        DocumentWorkflow?
+
+  @@unique([tenantId, id], map: "document_versions_tenant_id_id_key")
+  @@unique([tenantId, documentId, id], map: "document_versions_tenant_document_id_id_key")
+  @@unique([tenantId, documentId, versionNumber], map: "document_versions_tenant_document_version_key")
+  @@index([tenantId, documentId, createdAt], map: "document_versions_tenant_document_created_idx")
+  @@map("document_versions")
+}
+
+model DocumentWorkflow {
+  id                String                 @id @default(uuid()) @db.Uuid
+  tenantId          String                 @map("tenant_id") @db.Uuid
+  documentId        String                 @map("document_id") @db.Uuid
+  documentVersionId String                 @map("document_version_id") @db.Uuid
+  requestedByUserId String                 @map("requested_by_user_id") @db.Uuid
+  reviewerUserId    String                 @map("reviewer_user_id") @db.Uuid
+  approverUserId    String                 @map("approver_user_id") @db.Uuid
+  status            DocumentWorkflowStatus @default(PENDING_REVIEW)
+  reviewComment     String?                @map("review_comment") @db.VarChar(2000)
+  approvalComment   String?                @map("approval_comment") @db.VarChar(2000)
+  reviewedAt        DateTime?              @map("reviewed_at") @db.Timestamptz(3)
+  approvedAt        DateTime?              @map("approved_at") @db.Timestamptz(3)
+  completedAt       DateTime?              @map("completed_at") @db.Timestamptz(3)
+  createdAt         DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant            Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  document          Document               @relation(fields: [tenantId, documentId], references: [tenantId, id], onDelete: Restrict)
+  documentVersion   DocumentVersion        @relation(fields: [tenantId, documentId, documentVersionId], references: [tenantId, documentId, id], onDelete: Restrict)
+  requestedByUser   User                   @relation("DocumentWorkflowRequester", fields: [tenantId, requestedByUserId], references: [tenantId, id], onDelete: Restrict)
+  reviewerUser      User                   @relation("DocumentWorkflowReviewer", fields: [tenantId, reviewerUserId], references: [tenantId, id], onDelete: Restrict)
+  approverUser      User                   @relation("DocumentWorkflowApprover", fields: [tenantId, approverUserId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id], map: "document_workflows_tenant_id_id_key")
+  @@unique([tenantId, documentVersionId], map: "document_workflows_tenant_version_key")
+  @@unique([tenantId, documentId, documentVersionId], map: "document_workflows_tenant_document_version_id_key")
+  @@index([tenantId, documentId, createdAt], map: "document_workflows_tenant_document_created_idx")
+  @@index([tenantId, reviewerUserId, status], map: "document_workflows_tenant_reviewer_status_idx")
+  @@index([tenantId, approverUserId, status], map: "document_workflows_tenant_approver_status_idx")
+  @@map("document_workflows")
 }

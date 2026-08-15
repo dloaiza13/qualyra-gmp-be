@@ -25,7 +25,7 @@ Do not perform email delivery, HTTP calls, or other slow external work while the
 
 ## Tables
 
-RLS is enabled and forced on users, roles, role assignments, sessions, tokens, invitations, security events, and outbox messages. The global permissions catalog is intentionally not tenant-scoped. Tenant lookup by public slug occurs before a tenant context exists, so the tenants catalog is protected through restricted grants and explicit repository behavior rather than the same RLS policy.
+RLS is enabled and forced on users, roles, role assignments, sessions, tokens, invitations, controlled documents, document versions, document workflows, security events, and outbox messages. The global permissions catalog is intentionally not tenant-scoped. Tenant lookup by public slug occurs before a tenant context exists, so the tenants catalog is protected through restricted grants and explicit repository behavior rather than the same RLS policy.
 
 ## Verification
 

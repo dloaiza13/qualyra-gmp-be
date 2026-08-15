@@ -8,6 +8,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   Req,
   Res,
   UseGuards,
@@ -30,12 +31,15 @@ import {
   AuthenticationResponseDto,
   MeResponseDto,
   NeutralResponseDto,
+  RegistrationPolicyResponseDto,
   SessionResponseDto,
+  TenantAvailabilityResponseDto,
 } from '../application/dto/auth-response.dto.js';
 import {
   LoginDto,
   RegisterCompanyDto,
   ResetPasswordDto,
+  TenantAvailabilityQueryDto,
   TenantEmailDto,
   TokenDto,
 } from '../application/dto/auth-request.dto.js';
@@ -53,6 +57,24 @@ export class AuthenticationController {
     private readonly authentication: AuthenticationService,
     private readonly cookies: AuthenticationCookieService,
   ) {}
+
+  @Get('registration-policy')
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @ApiOkResponse({ type: RegistrationPolicyResponseDto })
+  registrationPolicy(): RegistrationPolicyResponseDto {
+    return this.authentication.getRegistrationPolicy();
+  }
+
+  @Get('tenant-availability')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @ApiOkResponse({ type: TenantAvailabilityResponseDto })
+  async tenantAvailability(
+    @Query() query: TenantAvailabilityQueryDto,
+  ): Promise<TenantAvailabilityResponseDto> {
+    return {
+      available: await this.authentication.isTenantSlugAvailable(query.slug),
+    };
+  }
 
   @Post('register-company')
   @Throttle({

@@ -15,6 +15,9 @@ interface Fixture {
 }
 
 const tenantScopedTables = [
+  'document_versions',
+  'document_workflows',
+  'documents',
   'email_verification_tokens',
   'invitation_roles',
   'invitations',

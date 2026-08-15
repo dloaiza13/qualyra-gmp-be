@@ -6,6 +6,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: backend-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -42,7 +46,7 @@ jobs:
           npm run keys:generate
 
       - name: Audit production dependencies
-        run: npm audit --omit=dev
+        run: npm audit --audit-level=high
 
       - name: Check formatting
         run: npm run format:check

@@ -57,6 +57,14 @@ The backend is a modular NestJS monolith with pragmatic ports and adapters, tena
 - [Multi-tenancy](docs/multi-tenancy.md)
 - [Security](docs/security.md)
 - [Authentication](docs/authentication.md)
+- [Authorization, users, roles, and invitations](docs/authorization.md)
+- [Controlled document lifecycle](docs/document-control.md)
+- [Phase 8 security review](docs/security-review.md)
+- [ADR-006: invitation-only organization membership](docs/adr/ADR-006-invitation-only-user-onboarding.md)
+- [ADR-008: controlled-document versioning](docs/adr/ADR-008-controlled-document-versioning.md)
+- [ADR-009: document review and approval workflow](docs/adr/ADR-009-document-review-approval-workflow.md)
+- [Threat model](docs/threat-model.md)
+- [Production readiness checklist](docs/production-checklist.md)
 
 ## Compliance position
 

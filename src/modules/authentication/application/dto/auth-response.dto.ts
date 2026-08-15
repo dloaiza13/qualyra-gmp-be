@@ -50,11 +50,35 @@ export class MeResponseDto {
 
   @ApiProperty({ type: TenantSummaryDto })
   tenant!: TenantSummaryDto;
+
+  @ApiProperty({ type: String, isArray: true })
+  roles!: string[];
+
+  @ApiProperty({ type: String, isArray: true })
+  permissions!: string[];
 }
 
 export class NeutralResponseDto {
   @ApiProperty({ example: true })
   accepted!: boolean;
+}
+
+export class TenantAvailabilityResponseDto {
+  @ApiProperty()
+  available!: boolean;
+}
+
+export class RegistrationPolicyResponseDto {
+  @ApiProperty({
+    description: 'Whether a visitor can create a new organization.',
+  })
+  publicCompanyRegistrationEnabled!: boolean;
+
+  @ApiProperty({
+    enum: ['INVITATION_ONLY'],
+    description: 'How users join an organization that already exists.',
+  })
+  existingOrganizationMembership!: 'INVITATION_ONLY';
 }
 
 export class SessionResponseDto {

@@ -23,8 +23,8 @@ export interface ParsedToken {
 
 @Injectable()
 export class SecureTokenService {
-  create(tenantId: string): PersistedToken {
-    const id = randomUUID();
+  create(tenantId: string, tokenId: string = randomUUID()): PersistedToken {
+    const id = tokenId;
     const secret = randomBytes(48).toString('base64url');
     const raw = `v1.${tenantId}.${id}.${secret}`;
     return { id, raw, hash: this.hash(raw) };

@@ -19,6 +19,7 @@ import { AuthenticationNotifier } from '../domain/ports/authentication-notifier.
 import type {
   AuthenticationResponseDto,
   MeResponseDto,
+  RegistrationPolicyResponseDto,
   SessionResponseDto,
 } from './dto/auth-response.dto.js';
 import type {
@@ -37,6 +38,26 @@ const initialRoles = [
   'Operator',
   'Auditor',
 ] as const;
+const initialRolePermissions: Record<(typeof initialRoles)[number], string[]> =
+  {
+    Administrator: [],
+    'QA Manager': [
+      'documents.read',
+      'documents.create',
+      'documents.update',
+      'documents.review',
+      'documents.approve',
+    ],
+    'Document Controller': [
+      'documents.read',
+      'documents.create',
+      'documents.update',
+      'documents.review',
+      'documents.release',
+    ],
+    Operator: ['documents.read'],
+    Auditor: ['documents.read', 'security.events.read', 'audit.read'],
+  };
 const failedLoginThreshold = 5;
 
 export interface AuthenticationResult {
@@ -125,7 +146,7 @@ export class AuthenticationService {
         });
 
         const permissions = await transaction.permission.findMany({
-          select: { id: true },
+          select: { id: true, code: true },
         });
         const roles = new Map<string, string>();
         for (const name of initialRoles) {
@@ -153,6 +174,22 @@ export class AuthenticationService {
             permissionId,
           })),
         });
+
+        for (const [roleName, roleId] of roles) {
+          if (roleName === 'Administrator') continue;
+          const allowedCodes = new Set(
+            initialRolePermissions[roleName as (typeof initialRoles)[number]],
+          );
+          await transaction.rolePermission.createMany({
+            data: permissions
+              .filter(({ code }) => allowedCodes.has(code))
+              .map(({ id: permissionId }) => ({
+                tenantId,
+                roleId,
+                permissionId,
+              })),
+          });
+        }
 
         await transaction.user.create({
           data: {
@@ -242,6 +279,21 @@ export class AuthenticationService {
       sessionId,
       refreshToken,
     );
+  }
+
+  getRegistrationPolicy(): RegistrationPolicyResponseDto {
+    return {
+      publicCompanyRegistrationEnabled: this.publicRegistrationEnabled,
+      existingOrganizationMembership: 'INVITATION_ONLY',
+    };
+  }
+
+  async isTenantSlugAvailable(slug: string): Promise<boolean> {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug },
+      select: { id: true },
+    });
+    return tenant === null;
   }
 
   async login(
@@ -555,10 +607,33 @@ export class AuthenticationService {
             displayName: true,
             status: true,
             emailVerifiedAt: true,
+            userRoles: {
+              select: {
+                role: {
+                  select: {
+                    name: true,
+                    rolePermissions: {
+                      select: { permission: { select: { code: true } } },
+                    },
+                  },
+                },
+              },
+            },
           },
         }),
     );
-    return { user: mapUser(user), tenant };
+    return {
+      user: mapUser(user),
+      tenant,
+      roles: user.userRoles.map(({ role }) => role.name).sort(),
+      permissions: [
+        ...new Set(
+          user.userRoles.flatMap(({ role }) =>
+            role.rolePermissions.map(({ permission }) => permission.code),
+          ),
+        ),
+      ].sort(),
+    };
   }
 
   listSessions(

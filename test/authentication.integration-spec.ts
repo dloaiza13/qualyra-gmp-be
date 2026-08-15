@@ -41,6 +41,7 @@ interface SessionBody {
 class RecordingAuthenticationNotifier extends AuthenticationNotifier {
   readonly verifications: AuthenticationEmail[] = [];
   readonly passwordResets: AuthenticationEmail[] = [];
+  readonly invitations: AuthenticationEmail[] = [];
 
   sendEmailVerification(message: AuthenticationEmail): Promise<void> {
     this.verifications.push({ ...message });
@@ -49,6 +50,11 @@ class RecordingAuthenticationNotifier extends AuthenticationNotifier {
 
   sendPasswordReset(message: AuthenticationEmail): Promise<void> {
     this.passwordResets.push({ ...message });
+    return Promise.resolve();
+  }
+
+  sendInvitation(message: AuthenticationEmail): Promise<void> {
+    this.invitations.push({ ...message });
     return Promise.resolve();
   }
 }
@@ -95,6 +101,12 @@ describeDatabase('Authentication lifecycle', () => {
   it('covers registration, sessions, refresh rotation, recovery and verification', async () => {
     const server = app.getHttpServer() as Parameters<typeof request>[0];
 
+    await request(server)
+      .get('/api/v1/auth/tenant-availability')
+      .query({ slug: tenantSlug })
+      .expect(200)
+      .expect({ available: true });
+
     const registration = await request(server)
       .post('/api/v1/auth/register-company')
       .send({
@@ -126,6 +138,12 @@ describeDatabase('Authentication lifecycle', () => {
     expect(notifier.verifications).toHaveLength(1);
     expect(registrationRefreshToken).toMatch(/^v1\./);
     expectCookieSecurity(registration);
+
+    await request(server)
+      .get('/api/v1/auth/tenant-availability')
+      .query({ slug: tenantSlug })
+      .expect(200)
+      .expect({ available: false });
 
     await expectProvisionedTenant(
       ownerPool,

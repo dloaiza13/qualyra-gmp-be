@@ -5,6 +5,7 @@ import type { Environment } from '../../common/config/environment.js';
 import {
   AuthenticationNotifier,
   type AuthenticationEmail,
+  type InvitationEmail,
 } from '../../modules/authentication/domain/ports/authentication-notifier.js';
 
 @Injectable()
@@ -22,6 +23,7 @@ export class SmtpAuthenticationNotifier extends AuthenticationNotifier {
       host: configService.getOrThrow('SMTP_HOST', { infer: true }),
       port,
       secure: port === 465,
+      requireTLS: configService.getOrThrow('SMTP_REQUIRE_TLS', { infer: true }),
       auth: user && password ? { user, pass: password } : undefined,
     });
     this.from = configService.getOrThrow('SMTP_FROM', { infer: true });
@@ -45,6 +47,16 @@ export class SmtpAuthenticationNotifier extends AuthenticationNotifier {
       to: message.email,
       subject: 'Reset your Qualyra GMP password',
       text: `Hello ${message.displayName}, reset your password for ${message.tenantSlug}: ${url}`,
+    });
+  }
+
+  async sendInvitation(message: InvitationEmail): Promise<void> {
+    const url = `${this.webBaseUrl}/accept-invitation?token=${encodeURIComponent(message.token)}`;
+    await this.transporter.sendMail({
+      from: this.from,
+      to: message.email,
+      subject: `You're invited to ${message.tenantName} on Qualyra GMP`,
+      text: `Hello, accept your invitation to ${message.tenantName} with the following roles: ${message.roles.join(', ')}. ${url}`,
     });
   }
 }

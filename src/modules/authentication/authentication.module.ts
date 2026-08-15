@@ -15,6 +15,6 @@ import { JwtAuthGuard } from './presentation/jwt-auth.guard.js';
     CsrfGuard,
     JwtAuthGuard,
   ],
-  exports: [JwtAuthGuard],
+  exports: [AuthenticationCookieService, JwtAuthGuard],
 })
 export class AuthenticationModule {}

@@ -1,0 +1,49 @@
+# Threat model
+
+Last reviewed: 2026-08-14
+
+## Scope and security objectives
+
+This model covers the browser application, NestJS API, PostgreSQL, Redis, SMTP delivery, CI, and the trust boundaries between organizations. The primary objectives are tenant confidentiality and integrity, reliable identity and authorization, append-only traceability, and safe recovery from operational failure.
+
+The most sensitive assets are credentials and one-time tokens, authenticated sessions, tenant business data, role assignments, security events, JWT signing keys, database and SMTP credentials, and backups.
+
+## Trust boundaries
+
+1. An untrusted browser and public network communicate with the API through the production reverse proxy.
+2. The API crosses into PostgreSQL using a non-owner runtime role and into Redis and SMTP using dedicated credentials.
+3. Each tenant is mutually untrusted. A valid identity in one tenant must never read or mutate another tenant's data.
+4. CI and deployment systems can produce artifacts and apply migrations, but must not expose production secrets to pull requests or logs.
+5. Email links cross an external delivery channel and must be treated as bearer credentials until redeemed.
+
+## Threats and controls
+
+| Threat                                         | Primary controls                                                                                                                          | Residual risk and required operation                                                                                                                      |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cross-tenant data access                       | Tenant-aware transactions, forced PostgreSQL RLS, composite tenant foreign keys, non-owner application role, integration tests            | Review every new tenant table and policy; run isolation tests for every migration.                                                                        |
+| Stolen access or refresh token                 | Short-lived RS256 access tokens kept in memory, `HttpOnly` strict refresh cookie, rotation and reuse detection, revocable session family  | XSS or a compromised endpoint can still act as the user; maintain CSP, dependency review, and session alerts.                                             |
+| CSRF and cross-origin abuse                    | Exact CORS allowlist, origin validation, `SameSite=Strict`, double-submit CSRF, production HTTPS and `__Host-` cookie validation          | Reverse-proxy origin and scheme configuration must be verified in staging.                                                                                |
+| Password guessing and credential stuffing      | Argon2id, generic authentication errors, IP-and-identity throttling, lockout controls, security events                                    | Current throttle state is process-local; use a distributed Redis-backed limiter before horizontal scaling and select bot defense based on abuse evidence. |
+| Recovery, verification, or invitation takeover | Cryptographically random one-time tokens, hashes at rest, expiration, atomic redemption, generic recovery response, resend rotation       | Email account compromise remains out of scope; monitor redemption anomalies and support secure administrator recovery.                                    |
+| Unauthorized tenant enrollment                 | Existing-tenant membership is invitation-only; public creation of a new tenant is independently configurable; permissions are preassigned | Future SSO just-in-time enrollment must require a tenant-controlled enterprise connection or verified domain and explicit role policy.                    |
+| Document history tampering                     | Immutable version API, no runtime delete privilege, tenant RLS, conditional version counter, author and security-event traceability       | Database owners remain privileged; export audit evidence and add retention/checksum controls when binary storage is selected.                             |
+| Self-approval or workflow replay               | Distinct author/reviewer/approver, qualified named assignees, version-bound workflow, conditional transitions, retained rejection history | Decisions are authenticated actions, not regulated electronic signatures; add signature re-authentication and intent before making a Part 11 claim.       |
+| Privilege escalation                           | Server-side permission lookup, permission guard, last-administrator invariant, role-change audit events                                   | UI permission gates are not a control; authorization tests are required for every protected operation.                                                    |
+| Sensitive data in logs or errors               | Header/body redaction, query-string removal, correlation IDs, generic unexpected errors, validation errors without submitted values       | Operators must restrict log access and verify downstream APM exporters apply equivalent filtering.                                                        |
+| Security-event tampering                       | Runtime role cannot update/delete events, database trigger rejects mutation, append-only API design                                       | A database owner can still alter data; protect privileged credentials and export logs to separately controlled storage.                                   |
+| Supply-chain compromise                        | Lockfiles, reproducible `npm ci`, high-severity audit gate, read-only CI permissions, reviewed actions                                    | Automated audit does not detect every malicious package; review dependency changes and pin actions by digest for higher assurance.                        |
+| Email loss or duplication                      | SMTP TLS required in production, one-time token semantics                                                                                 | Delivery is not yet durable; a transactional outbox, retries, idempotency, and monitoring are go-live requirements.                                       |
+| Database loss or corruption                    | Reviewed migrations and relational constraints                                                                                            | Production backup, encryption, point-in-time recovery, and a tested restore runbook are deployment responsibilities.                                      |
+| Denial of service                              | Request size limits and endpoint throttling                                                                                               | Add edge rate limiting, capacity alerts, timeouts, and load tests before public launch.                                                                   |
+
+## Verification cadence
+
+- Every pull request: lint, type-check, unit, API, browser, authorization, RLS, build, OpenAPI drift, and dependency audit gates.
+- Every schema change: RLS policy, forced-RLS state, runtime privileges, tenant foreign keys, rollback, and restore impact review.
+- Before each release: run the production checklist, test session revocation and recovery, inspect logs for secrets, and review new dependencies.
+- At least quarterly after launch: tabletop incident exercise, access review, secret rotation evidence, restore drill, and threat-model update.
+- After a security incident or material architecture change: update this model before the next release.
+
+## Assumptions and exclusions
+
+The deployment platform, DNS, TLS termination, employee endpoints, email provider, and secret manager are not implemented in this repository. Their configuration is part of the production checklist. These controls improve security and traceability but do not by themselves establish GMP, ISO, FDA, or 21 CFR Part 11 compliance.

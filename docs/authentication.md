@@ -2,7 +2,11 @@
 
 ## Public lifecycle
 
-The public API is rooted at `/api/v1/auth` and supports company registration, login, refresh, logout, password recovery, and email verification. There is deliberately no public endpoint for creating a user inside an existing tenant; that capability belongs to the invitation phase.
+The public API is rooted at `/api/v1/auth` and supports company registration, slug availability, login, refresh, logout, password recovery, and email verification. There is deliberately no public endpoint for creating a user inside an existing tenant; internal users are created only through invitations.
+
+`GET /api/v1/auth/registration-policy` exposes the non-sensitive onboarding policy required by the public UI. `publicCompanyRegistrationEnabled` follows `PUBLIC_REGISTRATION_ENABLED`, while `existingOrganizationMembership` is always `INVITATION_ONLY`. This keeps public creation of a new organization independently configurable without allowing a person to self-enroll in an existing tenant.
+
+`GET /api/v1/auth/tenant-availability?slug=acme-pharma` supports the debounced registration UX. It is rate limited and advisory only; registration still enforces the unique database constraint inside its transaction.
 
 Company registration is one database transaction. It creates the tenant, the first active user, the five system roles, the Administrator assignment, all Administrator permissions, a session, a hashed refresh token, an email-verification token, and the initial security event. A duplicate slug rolls the entire transaction back.
 
@@ -41,4 +45,4 @@ $env:RUN_DATABASE_INTEGRATION = 'true'
 npm run test:integration
 ```
 
-The test covers atomic tenant provisioning, duplicate slugs, generic login failures, Argon2id hashes, session ownership, refresh rotation and reuse detection, logout, password reset revocation, email verification, response redaction, and security-event creation.
+The test covers the public registration policy, slug availability, atomic tenant provisioning, duplicate slugs, generic login failures, Argon2id hashes, session ownership, refresh rotation and reuse detection, logout, password reset revocation, email verification, response redaction, and security-event creation.

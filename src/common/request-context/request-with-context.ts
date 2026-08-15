@@ -3,4 +3,5 @@ import type { AuthenticatedPrincipal } from '../../modules/authentication/domain
 export interface RequestWithContext {
   correlationId: string;
   principal?: AuthenticatedPrincipal;
+  permissions?: string[];
 }

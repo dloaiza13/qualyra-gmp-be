@@ -43,6 +43,7 @@ const environmentSchema = z
     SMTP_PORT: z.coerce.number().int().min(1).max(65_535),
     SMTP_USER: optionalString,
     SMTP_PASSWORD: optionalString,
+    SMTP_REQUIRE_TLS: booleanValue.default(false),
     SMTP_FROM: z.string().min(3).max(320),
     ALLOW_PUBLIC_TENANT_REGISTRATION: booleanValue,
     TRUST_PROXY: z.string().default('false'),
@@ -103,6 +104,38 @@ const environmentSchema = z
         code: 'custom',
         path: ['COOKIE_NAME'],
         message: 'COOKIE_NAME must use the __Host- prefix in production.',
+      });
+    }
+
+    if (!environment.CSRF_COOKIE_NAME.startsWith('__Host-')) {
+      context.addIssue({
+        code: 'custom',
+        path: ['CSRF_COOKIE_NAME'],
+        message: 'CSRF_COOKIE_NAME must use the __Host- prefix in production.',
+      });
+    }
+
+    for (const [field, value] of [
+      ['APP_BASE_URL', environment.APP_BASE_URL],
+      ['WEB_BASE_URL', environment.WEB_BASE_URL],
+      ...parseAllowedOrigins(environment.CORS_ALLOWED_ORIGINS).map(
+        (origin) => ['CORS_ALLOWED_ORIGINS', origin] as const,
+      ),
+    ] as const) {
+      if (!value.startsWith('https://')) {
+        context.addIssue({
+          code: 'custom',
+          path: [field],
+          message: `${field} must use HTTPS in production.`,
+        });
+      }
+    }
+
+    if (!environment.SMTP_REQUIRE_TLS) {
+      context.addIssue({
+        code: 'custom',
+        path: ['SMTP_REQUIRE_TLS'],
+        message: 'SMTP_REQUIRE_TLS must be true in production.',
       });
     }
   });

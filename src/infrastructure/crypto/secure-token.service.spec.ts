@@ -21,4 +21,16 @@ describe('SecureTokenService', () => {
     expect(service.parse('not-a-token')).toBeUndefined();
     expect(service.parse('v1.invalid.invalid.invalid')).toBeUndefined();
   });
+
+  it('rotates the secret while preserving an existing token identifier', () => {
+    const tenantId = 'bce748c7-371b-41a0-8ff0-d7de5c7c103b';
+    const tokenId = '5cd3ed03-4f5e-40af-bcb6-6d92d9490664';
+    const first = service.create(tenantId, tokenId);
+    const rotated = service.create(tenantId, tokenId);
+
+    expect(rotated.id).toBe(tokenId);
+    expect(rotated.raw).not.toBe(first.raw);
+    expect(rotated.hash).not.toBe(first.hash);
+    expect(service.parse(rotated.raw)?.tokenId).toBe(tokenId);
+  });
 });

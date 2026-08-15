@@ -80,6 +80,16 @@ export class LoginDto {
   password!: string;
 }
 
+export class TenantAvailabilityQueryDto {
+  @ApiProperty({ example: 'acme-pharma' })
+  @Transform(normalizeLowercase)
+  @IsString()
+  @Length(3, 63)
+  @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+  @IsNotIn(reservedSlugs, { message: 'slug is reserved.' })
+  slug!: string;
+}
+
 export class TenantEmailDto {
   @ApiProperty({ example: 'acme-pharma' })
   @Transform(normalizeLowercase)

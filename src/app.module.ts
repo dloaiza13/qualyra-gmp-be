@@ -14,6 +14,7 @@ import {
   type Environment,
 } from './common/config/environment.js';
 import { credentialThrottleTracker } from './common/rate-limiting/credential-throttle-tracker.js';
+import { sanitizeLoggedRequest } from './common/logging/http-log-sanitizer.js';
 import {
   CorrelationIdMiddleware,
   isCorrelationId,
@@ -22,7 +23,12 @@ import { CryptoModule } from './infrastructure/crypto/crypto.module.js';
 import { PrismaModule } from './infrastructure/database/prisma/prisma.module.js';
 import { EmailModule } from './infrastructure/email/email.module.js';
 import { AuthenticationModule } from './modules/authentication/authentication.module.js';
+import { DocumentsModule } from './modules/documents/documents.module.js';
 import { HealthModule } from './modules/health/health.module.js';
+import { InvitationsModule } from './modules/invitations/invitations.module.js';
+import { RolesModule } from './modules/roles/roles.module.js';
+import { SecurityEventsModule } from './modules/security-events/security-events.module.js';
+import { UsersModule } from './modules/users/users.module.js';
 
 @Module({
   imports: [
@@ -43,12 +49,17 @@ import { HealthModule } from './modules/health/health.module.js';
             const incoming = request.headers['x-correlation-id'];
             return isCorrelationId(incoming) ? incoming : randomUUID();
           },
+          serializers: {
+            req: sanitizeLoggedRequest,
+          },
           redact: {
             paths: [
               'req.headers.authorization',
               'req.headers.cookie',
-              'res.headers.set-cookie',
+              'req.headers["x-csrf-token"]',
+              'res.headers["set-cookie"]',
               'req.body.password',
+              'req.body.confirmPassword',
               'req.body.newPassword',
               'req.body.currentPassword',
               'req.body.refreshToken',
@@ -77,7 +88,19 @@ import { HealthModule } from './modules/health/health.module.js';
     PrismaModule,
     HealthModule,
     AuthenticationModule,
-    RouterModule.register([{ path: 'api/v1', module: AuthenticationModule }]),
+    DocumentsModule,
+    InvitationsModule,
+    UsersModule,
+    RolesModule,
+    SecurityEventsModule,
+    RouterModule.register([
+      { path: 'api/v1', module: AuthenticationModule },
+      { path: 'api/v1', module: DocumentsModule },
+      { path: 'api/v1', module: InvitationsModule },
+      { path: 'api/v1', module: UsersModule },
+      { path: 'api/v1', module: RolesModule },
+      { path: 'api/v1', module: SecurityEventsModule },
+    ]),
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

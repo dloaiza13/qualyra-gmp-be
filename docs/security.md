@@ -32,6 +32,20 @@ Passwords use Argon2id. Access tokens use asymmetric RS256 signing, while refres
 
 Production hardening still requires selecting a CAPTCHA or equivalent bot-defense provider and moving email delivery to a durable outbox worker with retry and monitoring.
 
+HTTP logs remove URL query values and redact authorization, cookie, CSRF, password, token, and response-cookie fields. Production configuration also requires HTTPS origins, secure `__Host-` cookie names, and SMTP TLS.
+
+## Authorization controls
+
+Protected operations resolve the caller's current roles and permissions from PostgreSQL instead of trusting stale permission claims in access tokens. Tenant-scoped application checks, composite foreign keys, and RLS provide layered isolation.
+
+Membership onboarding for an existing organization is invitation-only. Public creation of a new organization is controlled independently by `PUBLIC_REGISTRATION_ENABLED`. Raw invitation tokens are delivered by email and only their hashes are stored; resending an invitation rotates the token and invalidates the previous link. Acceptance, role assignment, user creation, and session creation are atomic. A serialized last-administrator check prevents an organization from losing its final active administrator. See [authorization, users, roles, and invitations](authorization.md).
+
 ## Compliance statement
 
 These controls support future validation and traceability. They do not by themselves make the system GMP compliant, ISO certified, FDA approved, or 21 CFR Part 11 compliant.
+
+## Operational security documents
+
+- [Phase 6 security review](security-review.md)
+- [Threat model](threat-model.md)
+- [Production readiness checklist](production-checklist.md)
