@@ -127,6 +127,35 @@ export class DocumentReleaseResponseDto {
   recordHash!: string;
 }
 
+export class DocumentObsolescenceResponseDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ format: 'uuid' })
+  documentVersionId!: string;
+
+  @ApiProperty({ minimum: 1 })
+  versionNumber!: number;
+
+  @ApiProperty({ enum: ['DOCUMENT_OBSOLESCENCE'] })
+  meaning!: string;
+
+  @ApiProperty({ enum: ['PASSWORD_REAUTHENTICATION'] })
+  authenticationMethod!: string;
+
+  @ApiProperty()
+  reason!: string;
+
+  @ApiProperty({ type: DocumentUserSummaryDto })
+  obsoletedBy!: DocumentUserSummaryDto;
+
+  @ApiProperty({ format: 'date-time' })
+  obsoletedAt!: string;
+
+  @ApiProperty({ pattern: '^[0-9a-f]{64}$' })
+  recordHash!: string;
+}
+
 export class DocumentSummaryResponseDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
@@ -168,4 +197,7 @@ export class DocumentDetailResponseDto extends DocumentSummaryResponseDto {
 
   @ApiProperty({ type: DocumentReleaseResponseDto, isArray: true })
   releases!: DocumentReleaseResponseDto[];
+
+  @ApiProperty({ type: DocumentObsolescenceResponseDto, isArray: true })
+  obsolescences!: DocumentObsolescenceResponseDto[];
 }

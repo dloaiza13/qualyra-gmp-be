@@ -29,6 +29,7 @@ import {
   CreateDocumentVersionDto,
   DocumentDecisionDto,
   DocumentListQueryDto,
+  ObsoleteDocumentDto,
   ReleaseDocumentDto,
   RequestDocumentReviewDto,
 } from '../application/dto/document-request.dto.js';
@@ -155,6 +156,24 @@ export class DocumentsController {
     @Req() request: Request & RequestWithContext,
   ): Promise<DocumentDetailResponseDto> {
     return this.documents.release(
+      principal,
+      documentId,
+      input,
+      requestMetadata(request),
+    );
+  }
+
+  @Post(':documentId/obsolete')
+  @Permissions('documents.release')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @ApiCreatedResponse({ type: DocumentDetailResponseDto })
+  obsolete(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+    @Param('documentId', new ParseUUIDPipe()) documentId: string,
+    @Body() input: ObsoleteDocumentDto,
+    @Req() request: Request & RequestWithContext,
+  ): Promise<DocumentDetailResponseDto> {
+    return this.documents.obsolete(
       principal,
       documentId,
       input,

@@ -826,6 +826,51 @@
         ]
       }
     },
+    "/api/v1/documents/{documentId}/obsolete": {
+      "post": {
+        "operationId": "DocumentsController_obsolete",
+        "parameters": [
+          {
+            "name": "documentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ObsoleteDocumentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
     "/api/v1/users/invitations": {
       "post": {
         "operationId": "UserInvitationsController_create",
@@ -2024,6 +2069,60 @@
           "recordHash"
         ]
       },
+      "DocumentObsolescenceResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "documentVersionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionNumber": {
+            "type": "number",
+            "minimum": 1
+          },
+          "meaning": {
+            "type": "string",
+            "enum": [
+              "DOCUMENT_OBSOLESCENCE"
+            ]
+          },
+          "authenticationMethod": {
+            "type": "string",
+            "enum": [
+              "PASSWORD_REAUTHENTICATION"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "obsoletedBy": {
+            "$ref": "#/components/schemas/DocumentUserSummaryDto"
+          },
+          "obsoletedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "recordHash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        "required": [
+          "id",
+          "documentVersionId",
+          "versionNumber",
+          "meaning",
+          "authenticationMethod",
+          "reason",
+          "obsoletedBy",
+          "obsoletedAt",
+          "recordHash"
+        ]
+      },
       "DocumentDetailResponseDto": {
         "type": "object",
         "properties": {
@@ -2093,6 +2192,12 @@
             "items": {
               "$ref": "#/components/schemas/DocumentReleaseResponseDto"
             }
+          },
+          "obsolescences": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DocumentObsolescenceResponseDto"
+            }
           }
         },
         "required": [
@@ -2108,7 +2213,8 @@
           "updatedAt",
           "versions",
           "workflows",
-          "releases"
+          "releases",
+          "obsolescences"
         ]
       },
       "CreateDocumentDto": {
@@ -2247,6 +2353,30 @@
         },
         "required": [
           "effectiveAt",
+          "reason",
+          "password",
+          "attestationAccepted"
+        ]
+      },
+      "ObsoleteDocumentDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "example": "Withdrawn after replacement by the validated global procedure."
+          },
+          "password": {
+            "type": "string",
+            "example": "current account password",
+            "writeOnly": true
+          },
+          "attestationAccepted": {
+            "type": "boolean",
+            "example": true,
+            "description": "Explicit acknowledgement that the effective document becomes obsolete."
+          }
+        },
+        "required": [
           "reason",
           "password",
           "attestationAccepted"

@@ -15,6 +15,7 @@ interface Fixture {
 }
 
 const tenantScopedTables = [
+  'document_obsolescences',
   'document_releases',
   'document_versions',
   'document_workflows',
@@ -245,6 +246,52 @@ describeDatabase('PostgreSQL tenant isolation', () => {
         can_delete: false,
       },
     ]);
+  });
+
+  it('allows obsolescence evidence insertion but not mutation or deletion', async () => {
+    const result = await applicationPool.query<{
+      can_select: boolean;
+      can_insert: boolean;
+      can_update: boolean;
+      can_delete: boolean;
+    }>(
+      `SELECT
+         has_table_privilege(current_user, 'document_obsolescences', 'SELECT') AS can_select,
+         has_table_privilege(current_user, 'document_obsolescences', 'INSERT') AS can_insert,
+         has_table_privilege(current_user, 'document_obsolescences', 'UPDATE') AS can_update,
+         has_table_privilege(current_user, 'document_obsolescences', 'DELETE') AS can_delete`,
+    );
+
+    expect(result.rows).toEqual([
+      {
+        can_select: true,
+        can_insert: true,
+        can_update: false,
+        can_delete: false,
+      },
+    ]);
+  });
+
+  it('constrains lifecycle signature meanings to their record type', async () => {
+    const result = await ownerPool.query<{
+      conname: string;
+      definition: string;
+    }>(
+      `SELECT conname, pg_get_constraintdef(oid) AS definition
+       FROM pg_constraint
+       WHERE conname = ANY($1::text[])
+       ORDER BY conname`,
+      [
+        [
+          'document_obsolescences_meaning_check',
+          'document_releases_meaning_check',
+        ],
+      ],
+    );
+
+    expect(result.rows).toHaveLength(2);
+    expect(result.rows[0]?.definition).toContain('DOCUMENT_OBSOLESCENCE');
+    expect(result.rows[1]?.definition).toContain('DOCUMENT_RELEASE');
   });
 });
 

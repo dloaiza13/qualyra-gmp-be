@@ -88,6 +88,7 @@ enum DocumentWorkflowStatus {
 
 enum DocumentSignatureMeaning {
   DOCUMENT_RELEASE
+  DOCUMENT_OBSOLESCENCE
 }
 
 enum DocumentAuthenticationMethod {
@@ -118,6 +119,7 @@ model Tenant {
   documentVersions        DocumentVersion[]
   documentWorkflows       DocumentWorkflow[]
   documentReleases        DocumentRelease[]
+  documentObsolescences   DocumentObsolescence[]
 
   @@map("tenants")
 }
@@ -151,6 +153,7 @@ model User {
   documentReviewAssignments   DocumentWorkflow[]       @relation("DocumentWorkflowReviewer")
   documentApprovalAssignments DocumentWorkflow[]       @relation("DocumentWorkflowApprover")
   documentReleases            DocumentRelease[]        @relation("DocumentReleaseSigner")
+  documentObsolescences       DocumentObsolescence[]   @relation("DocumentObsolescenceSigner")
 
   @@unique([tenantId, id], map: "users_tenant_id_id_key")
   @@unique([tenantId, email], map: "users_tenant_id_email_key")
@@ -215,21 +218,22 @@ model UserRole {
 }
 
 model Session {
-  id               String            @id @default(uuid()) @db.Uuid
-  tenantId         String            @map("tenant_id") @db.Uuid
-  userId           String            @map("user_id") @db.Uuid
-  status           SessionStatus     @default(ACTIVE)
-  userAgent        String?           @map("user_agent") @db.VarChar(1024)
-  ipAddress        String?           @map("ip_address") @db.Inet
-  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
-  lastUsedAt       DateTime          @default(now()) @map("last_used_at") @db.Timestamptz(3)
-  expiresAt        DateTime          @map("expires_at") @db.Timestamptz(3)
-  revokedAt        DateTime?         @map("revoked_at") @db.Timestamptz(3)
-  revokeReason     String?           @map("revoke_reason") @db.VarChar(300)
-  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  user             User              @relation(fields: [tenantId, userId], references: [tenantId, id], onDelete: Restrict)
-  refreshTokens    RefreshToken[]
-  documentReleases DocumentRelease[] @relation("DocumentReleaseSession")
+  id                    String                 @id @default(uuid()) @db.Uuid
+  tenantId              String                 @map("tenant_id") @db.Uuid
+  userId                String                 @map("user_id") @db.Uuid
+  status                SessionStatus          @default(ACTIVE)
+  userAgent             String?                @map("user_agent") @db.VarChar(1024)
+  ipAddress             String?                @map("ip_address") @db.Inet
+  createdAt             DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastUsedAt            DateTime               @default(now()) @map("last_used_at") @db.Timestamptz(3)
+  expiresAt             DateTime               @map("expires_at") @db.Timestamptz(3)
+  revokedAt             DateTime?              @map("revoked_at") @db.Timestamptz(3)
+  revokeReason          String?                @map("revoke_reason") @db.VarChar(300)
+  tenant                Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user                  User                   @relation(fields: [tenantId, userId], references: [tenantId, id], onDelete: Restrict)
+  refreshTokens         RefreshToken[]
+  documentReleases      DocumentRelease[]      @relation("DocumentReleaseSession")
+  documentObsolescences DocumentObsolescence[] @relation("DocumentObsolescenceSession")
 
   @@unique([tenantId, userId, id], map: "sessions_tenant_id_user_id_id_key")
   @@index([tenantId, userId, status], map: "sessions_tenant_id_user_id_status_idx")
@@ -370,22 +374,23 @@ model OutboxMessage {
 }
 
 model Document {
-  id                   String             @id @default(uuid()) @db.Uuid
-  tenantId             String             @map("tenant_id") @db.Uuid
-  code                 String             @db.VarChar(50)
+  id                   String                 @id @default(uuid()) @db.Uuid
+  tenantId             String                 @map("tenant_id") @db.Uuid
+  code                 String                 @db.VarChar(50)
   type                 DocumentType
-  status               DocumentStatus     @default(DRAFT)
-  currentVersionNumber Int                @default(1) @map("current_version_number")
-  ownerUserId          String             @map("owner_user_id") @db.Uuid
-  createdByUserId      String             @map("created_by_user_id") @db.Uuid
-  createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt            DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
-  tenant               Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  ownerUser            User               @relation("DocumentOwner", fields: [tenantId, ownerUserId], references: [tenantId, id], onDelete: Restrict)
-  createdByUser        User               @relation("DocumentCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
+  status               DocumentStatus         @default(DRAFT)
+  currentVersionNumber Int                    @default(1) @map("current_version_number")
+  ownerUserId          String                 @map("owner_user_id") @db.Uuid
+  createdByUserId      String                 @map("created_by_user_id") @db.Uuid
+  createdAt            DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant               Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  ownerUser            User                   @relation("DocumentOwner", fields: [tenantId, ownerUserId], references: [tenantId, id], onDelete: Restrict)
+  createdByUser        User                   @relation("DocumentCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
   versions             DocumentVersion[]
   workflows            DocumentWorkflow[]
   releases             DocumentRelease[]
+  obsolescences        DocumentObsolescence[]
 
   @@unique([tenantId, id], map: "documents_tenant_id_id_key")
   @@unique([tenantId, code], map: "documents_tenant_id_code_key")
@@ -411,6 +416,7 @@ model DocumentVersion {
   createdByUser   User                  @relation("DocumentVersionCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
   workflow        DocumentWorkflow?
   release         DocumentRelease?
+  obsolescence    DocumentObsolescence?
 
   @@unique([tenantId, id], map: "document_versions_tenant_id_id_key")
   @@unique([tenantId, documentId, id], map: "document_versions_tenant_document_id_id_key")
@@ -476,4 +482,30 @@ model DocumentRelease {
   @@index([tenantId, documentId, releasedAt], map: "document_releases_tenant_document_released_idx")
   @@index([tenantId, effectiveAt], map: "document_releases_tenant_effective_at_idx")
   @@map("document_releases")
+}
+
+model DocumentObsolescence {
+  id                   String                       @id @default(uuid()) @db.Uuid
+  tenantId             String                       @map("tenant_id") @db.Uuid
+  documentId           String                       @map("document_id") @db.Uuid
+  documentVersionId    String                       @map("document_version_id") @db.Uuid
+  obsoletedByUserId    String                       @map("obsoleted_by_user_id") @db.Uuid
+  sessionId            String                       @map("session_id") @db.Uuid
+  meaning              DocumentSignatureMeaning     @default(DOCUMENT_OBSOLESCENCE)
+  authenticationMethod DocumentAuthenticationMethod @default(PASSWORD_REAUTHENTICATION) @map("authentication_method")
+  reason               String                       @db.VarChar(500)
+  obsoletedAt          DateTime                     @default(now()) @map("obsoleted_at") @db.Timestamptz(3)
+  recordHash           String                       @map("record_hash") @db.Char(64)
+  tenant               Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  document             Document                     @relation(fields: [tenantId, documentId], references: [tenantId, id], onDelete: Restrict)
+  documentVersion      DocumentVersion              @relation(fields: [tenantId, documentId, documentVersionId], references: [tenantId, documentId, id], onDelete: Restrict)
+  obsoletedByUser      User                         @relation("DocumentObsolescenceSigner", fields: [tenantId, obsoletedByUserId], references: [tenantId, id], onDelete: Restrict)
+  session              Session                      @relation("DocumentObsolescenceSession", fields: [tenantId, obsoletedByUserId, sessionId], references: [tenantId, userId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id], map: "document_obsolescences_tenant_id_id_key")
+  @@unique([tenantId, documentId], map: "document_obsolescences_tenant_document_key")
+  @@unique([tenantId, documentVersionId], map: "document_obsolescences_tenant_version_key")
+  @@unique([tenantId, documentId, documentVersionId], map: "document_obsolescences_tenant_document_version_id_key")
+  @@index([tenantId, obsoletedAt], map: "document_obsolescences_tenant_obsoleted_at_idx")
+  @@map("document_obsolescences")
 }

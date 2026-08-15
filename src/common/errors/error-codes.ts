@@ -5,6 +5,8 @@ export const ErrorCode = {
   DocumentCodeExists: 'DOCUMENT_CODE_EXISTS',
   DocumentInvalid: 'DOCUMENT_INVALID',
   DocumentNotFound: 'DOCUMENT_NOT_FOUND',
+  DocumentObsolescenceConflict: 'DOCUMENT_OBSOLESCENCE_CONFLICT',
+  DocumentObsolescenceInvalid: 'DOCUMENT_OBSOLESCENCE_INVALID',
   DocumentReleaseConflict: 'DOCUMENT_RELEASE_CONFLICT',
   DocumentReleaseInvalid: 'DOCUMENT_RELEASE_INVALID',
   DocumentDecisionForbidden: 'DOCUMENT_DECISION_FORBIDDEN',

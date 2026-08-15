@@ -56,6 +56,15 @@ interface DocumentBody {
     releasedAt: string;
     recordHash: string;
   }[];
+  obsolescences: {
+    versionNumber: number;
+    meaning: string;
+    authenticationMethod: string;
+    reason: string;
+    obsoletedBy: { id: string };
+    obsoletedAt: string;
+    recordHash: string;
+  }[];
 }
 
 interface ErrorBody {
@@ -449,6 +458,136 @@ describeDatabase('Document control foundation', () => {
     });
     expect(released.releases[0]?.recordHash).toMatch(/^[0-9a-f]{64}$/);
 
+    const revision = bodyAs<DocumentBody>(
+      await request(server)
+        .post(`/api/v1/documents/${created.id}/versions`)
+        .set(authA)
+        .send(versionInput('Revised after controlled effectiveness.'))
+        .expect(201),
+    );
+    expect(revision).toMatchObject({
+      status: 'EFFECTIVE',
+      currentVersionNumber: 4,
+      currentVersion: { versionNumber: 4, status: 'DRAFT' },
+    });
+    expect(
+      revision.versions.find(({ versionNumber }) => versionNumber === 3)
+        ?.status,
+    ).toBe('EFFECTIVE');
+
+    await request(server)
+      .post(`/api/v1/documents/${created.id}/obsolete`)
+      .set(bearer(releaser.accessToken))
+      .send(obsolescenceInput('Qualified assignee passphrase! 2026'))
+      .expect(409)
+      .expect(({ body }: { body: ErrorBody }) => {
+        expect(body.code).toBe('DOCUMENT_OBSOLESCENCE_CONFLICT');
+      });
+
+    await request(server)
+      .post(`/api/v1/documents/${created.id}/review-request`)
+      .set(authA)
+      .send({
+        reviewerUserId: reviewer.user.id,
+        approverUserId: approver.user.id,
+      })
+      .expect(201)
+      .expect(({ body }: { body: DocumentBody }) => {
+        expect(body.status).toBe('EFFECTIVE');
+        expect(body.currentVersion.status).toBe('IN_REVIEW');
+      });
+    await request(server)
+      .post(`/api/v1/documents/${created.id}/review-decision`)
+      .set(bearer(reviewer.accessToken))
+      .send({ decision: 'APPROVE', comment: 'Revision review completed.' })
+      .expect(201);
+    await request(server)
+      .post(`/api/v1/documents/${created.id}/approval-decision`)
+      .set(bearer(approver.accessToken))
+      .send({ decision: 'APPROVE', comment: 'Revision approved.' })
+      .expect(201)
+      .expect(({ body }: { body: DocumentBody }) => {
+        expect(body.status).toBe('EFFECTIVE');
+        expect(body.currentVersion.status).toBe('APPROVED');
+        expect(
+          body.versions.find(({ versionNumber }) => versionNumber === 3)
+            ?.status,
+        ).toBe('EFFECTIVE');
+      });
+
+    const replacement = bodyAs<DocumentBody>(
+      await request(server)
+        .post(`/api/v1/documents/${created.id}/release`)
+        .set(bearer(releaser.accessToken))
+        .send(releaseInput('Qualified assignee passphrase! 2026'))
+        .expect(201),
+    );
+    expect(replacement).toMatchObject({
+      status: 'EFFECTIVE',
+      currentVersion: { versionNumber: 4, status: 'EFFECTIVE' },
+    });
+    expect(replacement.releases).toHaveLength(2);
+    expect(
+      replacement.versions.find(({ versionNumber }) => versionNumber === 3)
+        ?.status,
+    ).toBe('SUPERSEDED');
+
+    await request(server)
+      .post(`/api/v1/documents/${created.id}/obsolete`)
+      .set(bearer(releaser.accessToken))
+      .send(obsolescenceInput('incorrect obsolescence password'))
+      .expect(403)
+      .expect(({ body }: { body: ErrorBody }) => {
+        expect(body.code).toBe('REAUTHENTICATION_FAILED');
+      });
+    await request(server)
+      .post(`/api/v1/documents/${created.id}/obsolete`)
+      .set(authA)
+      .send(obsolescenceInput('Administration passphrase! 2026'))
+      .expect(400)
+      .expect(({ body }: { body: ErrorBody }) => {
+        expect(body.code).toBe('DOCUMENT_OBSOLESCENCE_INVALID');
+      });
+
+    const obsolescences = await Promise.all([
+      request(server)
+        .post(`/api/v1/documents/${created.id}/obsolete`)
+        .set(bearer(releaser.accessToken))
+        .send(obsolescenceInput('Qualified assignee passphrase! 2026')),
+      request(server)
+        .post(`/api/v1/documents/${created.id}/obsolete`)
+        .set(bearer(releaser.accessToken))
+        .send(obsolescenceInput('Qualified assignee passphrase! 2026')),
+    ]);
+    expect(obsolescences.map(({ status }) => status).sort()).toEqual([
+      201, 409,
+    ]);
+    const obsoleteResponse = obsolescences.find(({ status }) => status === 201);
+    if (!obsoleteResponse) throw new Error('Document was not obsoleted.');
+    const obsolete = bodyAs<DocumentBody>(obsoleteResponse);
+    expect(obsolete).toMatchObject({
+      status: 'OBSOLETE',
+      currentVersion: { versionNumber: 4, status: 'OBSOLETE' },
+      obsolescences: [
+        {
+          versionNumber: 4,
+          meaning: 'DOCUMENT_OBSOLESCENCE',
+          authenticationMethod: 'PASSWORD_REAUTHENTICATION',
+          obsoletedBy: { id: releaser.user.id },
+        },
+      ],
+    });
+    expect(obsolete.obsolescences[0]?.recordHash).toMatch(/^[0-9a-f]{64}$/);
+
+    await request(server)
+      .post(`/api/v1/documents/${created.id}/versions`)
+      .set(authA)
+      .send(versionInput('Forbidden revision after obsolescence.'))
+      .expect(409)
+      .expect(({ body }: { body: ErrorBody }) => {
+        expect(body.code).toBe('DOCUMENT_VERSION_CONFLICT');
+      });
+
     const rejectedDocument = bodyAs<DocumentBody>(
       await request(server)
         .post('/api/v1/documents')
@@ -521,6 +660,10 @@ describeDatabase('Document control foundation', () => {
         'DOCUMENT_REVIEW_REJECTED',
         'DOCUMENT_RELEASE_REAUTHENTICATION_FAILED',
         'DOCUMENT_RELEASED',
+        'DOCUMENT_REVISION_STARTED',
+        'DOCUMENT_VERSION_SUPERSEDED',
+        'DOCUMENT_OBSOLESCENCE_REAUTHENTICATION_FAILED',
+        'DOCUMENT_OBSOLETED',
       ]),
     );
   }, 120_000);
@@ -597,6 +740,14 @@ function releaseInput(
   return {
     effectiveAt,
     reason: 'Released after approval and metadata verification.',
+    password,
+    attestationAccepted: true,
+  };
+}
+
+function obsolescenceInput(password: string) {
+  return {
+    reason: 'Obsoleted after replacement and controlled lifecycle review.',
     password,
     attestationAccepted: true,
   };

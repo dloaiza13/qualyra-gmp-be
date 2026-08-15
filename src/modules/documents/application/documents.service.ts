@@ -13,11 +13,13 @@ import type {
   CreateDocumentVersionDto,
   DocumentDecisionDto,
   DocumentListQueryDto,
+  ObsoleteDocumentDto,
   ReleaseDocumentDto,
   RequestDocumentReviewDto,
 } from './dto/document-request.dto.js';
 import type {
   DocumentDetailResponseDto,
+  DocumentObsolescenceResponseDto,
   DocumentReleaseResponseDto,
   DocumentSummaryResponseDto,
   DocumentUserSummaryDto,
@@ -62,6 +64,13 @@ const documentDetails = {
       releasedByUser: { select: userSummary },
     },
   },
+  obsolescences: {
+    orderBy: { obsoletedAt: 'desc' as const },
+    include: {
+      documentVersion: { select: { id: true, versionNumber: true } },
+      obsoletedByUser: { select: userSummary },
+    },
+  },
 } satisfies Prisma.DocumentInclude;
 
 type DocumentSummaryRecord = Prisma.DocumentGetPayload<{
@@ -73,6 +82,7 @@ type DocumentDetailRecord = Prisma.DocumentGetPayload<{
 type DocumentVersionRecord = DocumentDetailRecord['versions'][number];
 type DocumentWorkflowRecord = DocumentDetailRecord['workflows'][number];
 type DocumentReleaseRecord = DocumentDetailRecord['releases'][number];
+type DocumentObsolescenceRecord = DocumentDetailRecord['obsolescences'][number];
 
 @Injectable()
 export class DocumentsService {
@@ -217,29 +227,69 @@ export class DocumentsService {
           select: { id: true, status: true, currentVersionNumber: true },
         });
         if (!existing) throw documentNotFound();
-        if (existing.status !== 'DRAFT') throw documentVersionConflict();
+        if (existing.status !== 'DRAFT' && existing.status !== 'EFFECTIVE') {
+          throw documentVersionConflict();
+        }
+
+        const currentVersion = await transaction.documentVersion.findFirst({
+          where: {
+            tenantId: principal.tenantId,
+            documentId,
+            versionNumber: existing.currentVersionNumber,
+          },
+          select: { id: true, status: true },
+        });
+        if (
+          !currentVersion ||
+          (currentVersion.status !== 'DRAFT' &&
+            currentVersion.status !== 'EFFECTIVE')
+        ) {
+          throw documentVersionConflict();
+        }
+        if (
+          currentVersion.status === 'EFFECTIVE' &&
+          existing.status !== 'EFFECTIVE'
+        ) {
+          throw documentVersionConflict();
+        }
+
+        const effectiveVersion =
+          existing.status === 'EFFECTIVE'
+            ? await transaction.documentVersion.findFirst({
+                where: {
+                  tenantId: principal.tenantId,
+                  documentId,
+                  status: 'EFFECTIVE',
+                },
+                select: { id: true, versionNumber: true },
+              })
+            : null;
+        if (existing.status === 'EFFECTIVE' && !effectiveVersion) {
+          throw documentVersionConflict();
+        }
 
         const claimed = await transaction.document.updateMany({
           where: {
             id: documentId,
             tenantId: principal.tenantId,
-            status: 'DRAFT',
+            status: existing.status,
             currentVersionNumber: existing.currentVersionNumber,
           },
           data: { currentVersionNumber: { increment: 1 } },
         });
         if (claimed.count !== 1) throw documentVersionConflict();
 
-        const previous = await transaction.documentVersion.updateMany({
-          where: {
-            tenantId: principal.tenantId,
-            documentId,
-            versionNumber: existing.currentVersionNumber,
-            status: 'DRAFT',
-          },
-          data: { status: 'SUPERSEDED' },
-        });
-        if (previous.count !== 1) throw documentVersionConflict();
+        if (currentVersion.status === 'DRAFT') {
+          const previous = await transaction.documentVersion.updateMany({
+            where: {
+              id: currentVersion.id,
+              tenantId: principal.tenantId,
+              status: 'DRAFT',
+            },
+            data: { status: 'SUPERSEDED' },
+          });
+          if (previous.count !== 1) throw documentVersionConflict();
+        }
 
         const nextVersionNumber = existing.currentVersionNumber + 1;
         await transaction.documentVersion.create({
@@ -257,10 +307,16 @@ export class DocumentsService {
         await appendSecurityEvent(transaction, {
           tenantId: principal.tenantId,
           actorUserId: principal.userId,
-          eventType: 'DOCUMENT_VERSION_CREATED',
+          eventType: effectiveVersion
+            ? 'DOCUMENT_REVISION_STARTED'
+            : 'DOCUMENT_VERSION_CREATED',
           outcome: 'SUCCESS',
           request,
-          metadata: { documentId, versionNumber: nextVersionNumber },
+          metadata: {
+            documentId,
+            versionNumber: nextVersionNumber,
+            effectiveVersionNumber: effectiveVersion?.versionNumber,
+          },
         });
 
         const document = await transaction.document.findUniqueOrThrow({
@@ -286,7 +342,9 @@ export class DocumentsService {
           select: { id: true, status: true, currentVersionNumber: true },
         });
         if (!document) throw documentNotFound();
-        if (document.status !== 'DRAFT') throw documentWorkflowConflict();
+        if (document.status !== 'DRAFT' && document.status !== 'EFFECTIVE') {
+          throw documentWorkflowConflict();
+        }
         if (input.reviewerUserId === input.approverUserId) {
           throw documentWorkflowInvalid(
             'The reviewer and approver must be different users.',
@@ -345,10 +403,12 @@ export class DocumentsService {
           where: {
             id: documentId,
             tenantId: principal.tenantId,
-            status: 'DRAFT',
+            status: document.status,
             currentVersionNumber: document.currentVersionNumber,
           },
-          data: { status: 'IN_REVIEW' },
+          data: {
+            status: document.status === 'EFFECTIVE' ? 'EFFECTIVE' : 'IN_REVIEW',
+          },
         });
         const claimedVersion = await transaction.documentVersion.updateMany({
           where: {
@@ -505,13 +565,16 @@ export class DocumentsService {
         if (claimed.count !== 1) throw documentWorkflowConflict();
 
         const nextStatus = accepted ? 'APPROVED' : 'DRAFT';
+        const nextDocumentStatus =
+          context.document.status === 'EFFECTIVE' ? 'EFFECTIVE' : nextStatus;
         const updatedDocument = await transaction.document.updateMany({
           where: {
             id: documentId,
             tenantId: principal.tenantId,
-            status: 'IN_REVIEW',
+            status: context.document.status,
+            currentVersionNumber: context.document.currentVersionNumber,
           },
-          data: { status: nextStatus },
+          data: { status: nextDocumentStatus },
         });
         const updatedVersion = await transaction.documentVersion.updateMany({
           where: {
@@ -597,7 +660,28 @@ export class DocumentsService {
           },
         });
         if (!document) throw documentNotFound();
-        if (document.status !== 'APPROVED') throw documentReleaseConflict();
+        if (document.status !== 'APPROVED' && document.status !== 'EFFECTIVE') {
+          throw documentReleaseConflict();
+        }
+
+        const effectiveVersion = await transaction.documentVersion.findFirst({
+          where: {
+            tenantId: principal.tenantId,
+            documentId,
+            status: 'EFFECTIVE',
+          },
+          select: {
+            id: true,
+            versionNumber: true,
+            release: { select: { id: true, recordHash: true } },
+          },
+        });
+        if (
+          (document.status === 'EFFECTIVE' && !effectiveVersion?.release) ||
+          (document.status === 'APPROVED' && effectiveVersion)
+        ) {
+          throw documentReleaseConflict();
+        }
 
         const version = await transaction.documentVersion.findFirst({
           where: {
@@ -680,7 +764,7 @@ export class DocumentsService {
         });
         if (existingRelease) throw documentReleaseConflict();
 
-        const recordHash = hashReleaseRecord({
+        const recordHash = hashDocumentLifecycleRecord({
           schemaVersion: 1,
           documentId,
           documentVersionId: version.id,
@@ -700,13 +784,15 @@ export class DocumentsService {
           reason: input.reason,
           effectiveAt: effectiveAt.toISOString(),
           releasedAt: now.toISOString(),
+          supersedesVersionNumber: effectiveVersion?.versionNumber ?? null,
+          supersedesReleaseHash: effectiveVersion?.release?.recordHash ?? null,
         });
 
         const claimedDocument = await transaction.document.updateMany({
           where: {
             id: documentId,
             tenantId: principal.tenantId,
-            status: 'APPROVED',
+            status: document.status,
             currentVersionNumber: document.currentVersionNumber,
           },
           data: { status: 'EFFECTIVE' },
@@ -719,7 +805,21 @@ export class DocumentsService {
           },
           data: { status: 'EFFECTIVE' },
         });
-        if (claimedDocument.count !== 1 || claimedVersion.count !== 1) {
+        const supersededVersion = effectiveVersion
+          ? await transaction.documentVersion.updateMany({
+              where: {
+                id: effectiveVersion.id,
+                tenantId: principal.tenantId,
+                status: 'EFFECTIVE',
+              },
+              data: { status: 'SUPERSEDED' },
+            })
+          : null;
+        if (
+          claimedDocument.count !== 1 ||
+          claimedVersion.count !== 1 ||
+          (supersededVersion && supersededVersion.count !== 1)
+        ) {
           throw documentReleaseConflict();
         }
 
@@ -760,6 +860,241 @@ export class DocumentsService {
             meaning: 'DOCUMENT_RELEASE',
             authenticationMethod: 'PASSWORD_REAUTHENTICATION',
             recordHash,
+            supersededVersionNumber: effectiveVersion?.versionNumber,
+            supersededReleaseId: effectiveVersion?.release?.id,
+          },
+        });
+        if (effectiveVersion) {
+          await appendSecurityEvent(transaction, {
+            tenantId: principal.tenantId,
+            actorUserId: principal.userId,
+            eventType: 'DOCUMENT_VERSION_SUPERSEDED',
+            outcome: 'SUCCESS',
+            request,
+            metadata: {
+              documentId,
+              supersededDocumentVersionId: effectiveVersion.id,
+              supersededVersionNumber: effectiveVersion.versionNumber,
+              replacementDocumentVersionId: version.id,
+              replacementVersionNumber: version.versionNumber,
+            },
+          });
+        }
+        return readDocument(transaction, principal.tenantId, documentId);
+      },
+    );
+  }
+
+  async obsolete(
+    principal: AuthenticatedPrincipal,
+    documentId: string,
+    input: ObsoleteDocumentDto,
+    request: RequestMetadata,
+  ): Promise<DocumentDetailResponseDto> {
+    const signer = await this.tenantUnitOfWork.execute(
+      principal.tenantId,
+      (transaction) =>
+        transaction.user.findFirst({
+          where: {
+            id: principal.userId,
+            tenantId: principal.tenantId,
+            status: 'ACTIVE',
+          },
+          select: { passwordHash: true },
+        }),
+    );
+    const passwordMatches = signer
+      ? await this.passwordHasher
+          .verify(signer.passwordHash, input.password)
+          .catch(() => false)
+      : false;
+    if (!passwordMatches) {
+      await this.tenantUnitOfWork.execute(principal.tenantId, (transaction) =>
+        appendSecurityEvent(transaction, {
+          tenantId: principal.tenantId,
+          actorUserId: principal.userId,
+          eventType: 'DOCUMENT_OBSOLESCENCE_REAUTHENTICATION_FAILED',
+          outcome: 'FAILURE',
+          request,
+          metadata: { documentId },
+        }),
+      );
+      throw reauthenticationFailed();
+    }
+
+    return this.tenantUnitOfWork.execute(
+      principal.tenantId,
+      async (transaction) => {
+        const now = new Date();
+        const document = await transaction.document.findFirst({
+          where: { id: documentId, tenantId: principal.tenantId },
+          select: {
+            id: true,
+            code: true,
+            type: true,
+            status: true,
+            currentVersionNumber: true,
+          },
+        });
+        if (!document) throw documentNotFound();
+        if (document.status !== 'EFFECTIVE') {
+          throw documentObsolescenceConflict();
+        }
+
+        const version = await transaction.documentVersion.findFirst({
+          where: {
+            tenantId: principal.tenantId,
+            documentId,
+            status: 'EFFECTIVE',
+          },
+          select: {
+            id: true,
+            versionNumber: true,
+            title: true,
+            description: true,
+            content: true,
+            changeSummary: true,
+            createdByUserId: true,
+            workflow: {
+              select: { approverUserId: true, approvedAt: true },
+            },
+            release: {
+              select: { id: true, recordHash: true, effectiveAt: true },
+            },
+          },
+        });
+        if (
+          !version?.workflow?.approvedAt ||
+          !version.release ||
+          version.versionNumber !== document.currentVersionNumber
+        ) {
+          throw documentObsolescenceConflict(
+            'Resolve the active revision before obsoleting this document.',
+          );
+        }
+        if (
+          principal.userId === version.createdByUserId ||
+          principal.userId === version.workflow.approverUserId
+        ) {
+          throw documentObsolescenceInvalid(
+            'The version author and approver cannot obsolete the document.',
+          );
+        }
+
+        const currentSigner = await transaction.user.findFirst({
+          where: {
+            id: principal.userId,
+            tenantId: principal.tenantId,
+            status: 'ACTIVE',
+          },
+          select: { passwordHash: true },
+        });
+        const session = await transaction.session.findFirst({
+          where: {
+            id: principal.sessionId,
+            tenantId: principal.tenantId,
+            userId: principal.userId,
+            status: 'ACTIVE',
+            expiresAt: { gt: now },
+          },
+          select: { id: true },
+        });
+        if (
+          !currentSigner ||
+          currentSigner.passwordHash !== signer?.passwordHash ||
+          !session
+        ) {
+          throw reauthenticationFailed();
+        }
+
+        const existing = await transaction.documentObsolescence.findFirst({
+          where: { tenantId: principal.tenantId, documentId },
+          select: { id: true },
+        });
+        if (existing) throw documentObsolescenceConflict();
+
+        const recordHash = hashDocumentLifecycleRecord({
+          schemaVersion: 1,
+          documentId,
+          documentVersionId: version.id,
+          versionNumber: version.versionNumber,
+          code: document.code,
+          type: document.type,
+          title: version.title,
+          description: version.description,
+          content: version.content,
+          changeSummary: version.changeSummary,
+          approvedAt: version.workflow.approvedAt.toISOString(),
+          effectiveAt: version.release.effectiveAt.toISOString(),
+          releaseRecordHash: version.release.recordHash,
+          obsoletedByUserId: principal.userId,
+          sessionId: principal.sessionId,
+          meaning: 'DOCUMENT_OBSOLESCENCE',
+          authenticationMethod: 'PASSWORD_REAUTHENTICATION',
+          attestationAccepted: true,
+          reason: input.reason,
+          obsoletedAt: now.toISOString(),
+        });
+
+        const claimedDocument = await transaction.document.updateMany({
+          where: {
+            id: documentId,
+            tenantId: principal.tenantId,
+            status: 'EFFECTIVE',
+            currentVersionNumber: document.currentVersionNumber,
+          },
+          data: { status: 'OBSOLETE' },
+        });
+        const claimedVersion = await transaction.documentVersion.updateMany({
+          where: {
+            id: version.id,
+            tenantId: principal.tenantId,
+            status: 'EFFECTIVE',
+          },
+          data: { status: 'OBSOLETE' },
+        });
+        if (claimedDocument.count !== 1 || claimedVersion.count !== 1) {
+          throw documentObsolescenceConflict();
+        }
+
+        let obsolescenceId: string;
+        try {
+          const obsolescence = await transaction.documentObsolescence.create({
+            data: {
+              tenantId: principal.tenantId,
+              documentId,
+              documentVersionId: version.id,
+              obsoletedByUserId: principal.userId,
+              sessionId: principal.sessionId,
+              reason: input.reason,
+              obsoletedAt: now,
+              recordHash,
+            },
+            select: { id: true },
+          });
+          obsolescenceId = obsolescence.id;
+        } catch (error: unknown) {
+          if (isUniqueConstraintError(error)) {
+            throw documentObsolescenceConflict();
+          }
+          throw error;
+        }
+
+        await appendSecurityEvent(transaction, {
+          tenantId: principal.tenantId,
+          actorUserId: principal.userId,
+          eventType: 'DOCUMENT_OBSOLETED',
+          outcome: 'SUCCESS',
+          request,
+          metadata: {
+            documentId,
+            documentVersionId: version.id,
+            versionNumber: version.versionNumber,
+            releaseId: version.release.id,
+            obsolescenceId,
+            meaning: 'DOCUMENT_OBSOLESCENCE',
+            authenticationMethod: 'PASSWORD_REAUTHENTICATION',
+            recordHash,
           },
         });
         return readDocument(transaction, principal.tenantId, documentId);
@@ -798,6 +1133,23 @@ function mapDocumentDetail(
     versions: document.versions.map(mapVersion),
     workflows: document.workflows.map(mapWorkflow),
     releases: document.releases.map(mapRelease),
+    obsolescences: document.obsolescences.map(mapObsolescence),
+  };
+}
+
+function mapObsolescence(
+  obsolescence: DocumentObsolescenceRecord,
+): DocumentObsolescenceResponseDto {
+  return {
+    id: obsolescence.id,
+    documentVersionId: obsolescence.documentVersion.id,
+    versionNumber: obsolescence.documentVersion.versionNumber,
+    meaning: obsolescence.meaning,
+    authenticationMethod: obsolescence.authenticationMethod,
+    reason: obsolescence.reason,
+    obsoletedBy: mapUser(obsolescence.obsoletedByUser),
+    obsoletedAt: obsolescence.obsoletedAt.toISOString(),
+    recordHash: obsolescence.recordHash,
   };
 }
 
@@ -937,6 +1289,24 @@ function documentReleaseConflict(): ApplicationError {
   );
 }
 
+function documentObsolescenceInvalid(message: string): ApplicationError {
+  return new ApplicationError(
+    ErrorCode.DocumentObsolescenceInvalid,
+    message,
+    HttpStatus.BAD_REQUEST,
+  );
+}
+
+function documentObsolescenceConflict(
+  message = 'The document obsolescence changed. Reload and try again.',
+): ApplicationError {
+  return new ApplicationError(
+    ErrorCode.DocumentObsolescenceConflict,
+    message,
+    HttpStatus.CONFLICT,
+  );
+}
+
 function reauthenticationFailed(): ApplicationError {
   return new ApplicationError(
     ErrorCode.ReauthenticationFailed,
@@ -979,7 +1349,7 @@ async function decisionContext(
 ) {
   const document = await transaction.document.findFirst({
     where: { id: documentId, tenantId },
-    select: { id: true, currentVersionNumber: true },
+    select: { id: true, status: true, currentVersionNumber: true },
   });
   if (!document) throw documentNotFound();
   const version = await transaction.documentVersion.findFirst({
@@ -1001,7 +1371,7 @@ async function decisionContext(
     },
   });
   if (!workflow) throw documentWorkflowConflict();
-  return { version, workflow };
+  return { document, version, workflow };
 }
 
 async function restoreDraft(
@@ -1010,9 +1380,27 @@ async function restoreDraft(
   documentId: string,
   documentVersionId: string,
 ): Promise<void> {
+  const currentDocument = await transaction.document.findFirst({
+    where: { id: documentId, tenantId },
+    select: { status: true, currentVersionNumber: true },
+  });
+  if (
+    !currentDocument ||
+    (currentDocument.status !== 'IN_REVIEW' &&
+      currentDocument.status !== 'EFFECTIVE')
+  ) {
+    throw documentWorkflowConflict();
+  }
   const document = await transaction.document.updateMany({
-    where: { id: documentId, tenantId, status: 'IN_REVIEW' },
-    data: { status: 'DRAFT' },
+    where: {
+      id: documentId,
+      tenantId,
+      status: currentDocument.status,
+      currentVersionNumber: currentDocument.currentVersionNumber,
+    },
+    data: {
+      status: currentDocument.status === 'EFFECTIVE' ? 'EFFECTIVE' : 'DRAFT',
+    },
   });
   const version = await transaction.documentVersion.updateMany({
     where: { id: documentVersionId, tenantId, status: 'IN_REVIEW' },
@@ -1036,7 +1424,7 @@ async function readDocument(
   return mapDocumentDetail(document);
 }
 
-function hashReleaseRecord(record: Record<string, unknown>): string {
+function hashDocumentLifecycleRecord(record: Record<string, unknown>): string {
   return createHash('sha256')
     .update(JSON.stringify(record), 'utf8')
     .digest('hex');

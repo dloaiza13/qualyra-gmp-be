@@ -64,6 +64,7 @@ The backend is a modular NestJS monolith with pragmatic ports and adapters, tena
 - [ADR-008: controlled-document versioning](docs/adr/ADR-008-controlled-document-versioning.md)
 - [ADR-009: document review and approval workflow](docs/adr/ADR-009-document-review-approval-workflow.md)
 - [ADR-010: password-reauthenticated document release](docs/adr/ADR-010-password-reauthenticated-document-release.md)
+- [ADR-011: effective revision, supersession, and obsolescence](docs/adr/ADR-011-effective-revision-supersession-obsolescence.md)
 - [Threat model](docs/threat-model.md)
 - [Production readiness checklist](docs/production-checklist.md)
 

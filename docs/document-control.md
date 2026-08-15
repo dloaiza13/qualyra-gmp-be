@@ -1,6 +1,6 @@
 # Controlled document lifecycle
 
-Phase 8 introduced immutable tenant-scoped document versions. Phase 9 added assigned review and approval decisions. Phase 10 adds immediate controlled release with password reauthentication and immutable evidence.
+Phase 8 introduced immutable tenant-scoped document versions. Phase 9 added assigned review and approval decisions. Phase 10 added immediate controlled release with password reauthentication and immutable evidence. Phase 11 completes the post-release lifecycle for effective revisions, atomic supersession, and controlled obsolescence.
 
 ## Scope
 
@@ -23,6 +23,11 @@ This phase provides:
 - an immutable release record tied to user and active session;
 - an SHA-256 fingerprint over the version and release evidence;
 - immediate transition from `APPROVED` to `EFFECTIVE`.
+- a new revision can be drafted and reviewed without withdrawing the previously effective version;
+- document-level status remains `EFFECTIVE` while its working version moves through draft, review, and approval;
+- releasing an approved revision atomically changes the prior effective version to `SUPERSEDED`;
+- obsolescence is restricted to an effective document without an open revision;
+- obsolescence requires password reauthentication, explicit intent, segregation of duties, a reason, and immutable SHA-256 evidence.
 
 Creating a new draft version marks the previous draft as `SUPERSEDED`. Hard deletion is not exposed and the runtime database role has no delete privilege on either document table.
 
@@ -40,6 +45,7 @@ All routes use the `/api/v1` prefix.
 | `POST` | `/documents/:documentId/review-decision`   | `documents.review`  | Accept or reject the review           |
 | `POST` | `/documents/:documentId/approval-decision` | `documents.approve` | Accept or reject final approval       |
 | `POST` | `/documents/:documentId/release`           | `documents.release` | Reauthenticate, release, and activate |
+| `POST` | `/documents/:documentId/obsolete`          | `documents.release` | Reauthenticate and withdraw from use  |
 
 The list endpoint supports `limit`, `type`, `status`, and `search`. Document codes are normalized to uppercase and are unique only within the authenticated tenant.
 
@@ -57,9 +63,21 @@ Phase 10 supports immediate effectiveness only: the timestamp must fall between 
 
 The release stores its fixed meaning (`DOCUMENT_RELEASE`), authentication method (`PASSWORD_REAUTHENTICATION`), actor, session link, timestamps, reason, and a canonical SHA-256 record fingerprint. The runtime role can insert and read release evidence but cannot update or delete it.
 
+## Effective revision and supersession
+
+Creating a version from an effective document starts a revision but does not mutate or withdraw the released version. The document remains `EFFECTIVE`; the latest working version independently moves through `DRAFT`, `IN_REVIEW`, and `APPROVED`. The API exposes both records in the immutable version history, allowing operators to identify what is currently in use and what is being prepared.
+
+When the approved revision is released, one transaction claims the revision, changes it to `EFFECTIVE`, and changes exactly one prior effective version to `SUPERSEDED`. The new release hash links to the prior release fingerprint and version number. Conditional updates reject concurrent or replayed release attempts.
+
+## Obsolescence rules
+
+Obsolescence is an immediate controlled withdrawal, not a replacement. It is allowed only when the latest version is also the effective version; an open draft, review, or approved revision must be resolved first. The signer needs `documents.release`, must differ from the version author and approver, must use an active session, and must re-enter the current password with explicit intent and a reason.
+
+The immutable `document_obsolescences` record links the document, effective version, signer, session, timestamp, reason, authentication method, prior release fingerprint, and its own canonical SHA-256 fingerprint. The runtime database role can select and insert this evidence but cannot update or delete it. A successful action changes both document and version to `OBSOLETE` atomically.
+
 ## Compliance boundary
 
-Phase 10 captures several electronic-signature building blocks, but Qualyra still does not claim 21 CFR Part 11 compliance. Formal validation, signed-record manifestations and exports, identity-proofing policy, trusted time controls, retention, operational procedures, and regulatory assessment remain required. Future scheduling, revision of effective documents, obsolescence, and periodic review are also out of scope.
+Phases 10 and 11 capture several electronic-signature and lifecycle building blocks, but Qualyra still does not claim 21 CFR Part 11 compliance. Formal validation, signed-record manifestations and exports, identity-proofing policy, trusted time controls, retention, operational procedures, and regulatory assessment remain required. Future scheduling, revision cancellation, periodic review, and automated review reminders remain out of scope.
 
 Binary files and object storage are also out of scope. Text content is limited to 100,000 characters so the aggregate can be exercised without storing blobs in PostgreSQL or selecting an object-storage provider prematurely.
 

@@ -165,6 +165,29 @@ export class ReleaseDocumentDto {
   attestationAccepted!: true;
 }
 
+export class ObsoleteDocumentDto {
+  @ApiProperty({
+    example: 'Withdrawn after replacement by the validated global procedure.',
+  })
+  @Transform(trimString)
+  @IsString()
+  @Length(3, 500)
+  reason!: string;
+
+  @ApiProperty({ example: 'current account password', writeOnly: true })
+  @IsString()
+  @Length(1, 128)
+  password!: string;
+
+  @ApiProperty({
+    example: true,
+    description:
+      'Explicit acknowledgement that the effective document becomes obsolete.',
+  })
+  @Equals(true)
+  attestationAccepted!: true;
+}
+
 export class DocumentListQueryDto {
   @ApiPropertyOptional({ minimum: 1, maximum: 200, default: 100 })
   @Type(() => Number)
