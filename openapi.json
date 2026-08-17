@@ -1247,6 +1247,245 @@
         ]
       }
     },
+    "/api/v1/deviations": {
+      "get": {
+        "operationId": "DeviationsController_list",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 200,
+              "default": 100,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "REPORTED",
+                "UNDER_INVESTIGATION",
+                "CANCELLED"
+              ]
+            }
+          },
+          {
+            "name": "severity",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "MINOR",
+                "MAJOR",
+                "CRITICAL"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeviationSummaryResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Deviations"
+        ]
+      },
+      "post": {
+        "operationId": "DeviationsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDeviationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviationDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Deviations"
+        ]
+      }
+    },
+    "/api/v1/deviations/{deviationId}": {
+      "get": {
+        "operationId": "DeviationsController_get",
+        "parameters": [
+          {
+            "name": "deviationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviationDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Deviations"
+        ]
+      }
+    },
+    "/api/v1/deviations/{deviationId}/triage": {
+      "post": {
+        "operationId": "DeviationsController_triage",
+        "parameters": [
+          {
+            "name": "deviationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TriageDeviationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviationDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Deviations"
+        ]
+      }
+    },
+    "/api/v1/deviations/{deviationId}/cancel": {
+      "post": {
+        "operationId": "DeviationsController_cancel",
+        "parameters": [
+          {
+            "name": "deviationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelDeviationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviationDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Deviations"
+        ]
+      }
+    },
     "/api/v1/users/invitations": {
       "post": {
         "operationId": "UserInvitationsController_create",
@@ -3292,6 +3531,308 @@
           "reason": {
             "type": "string",
             "example": "Assignment replaced after a training impact reassessment."
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "DeviationUserSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "email"
+        ]
+      },
+      "DeviationSummaryResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "example": "DEV-2026-0001"
+          },
+          "title": {
+            "type": "string"
+          },
+          "area": {
+            "type": "string"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "REPORTED",
+              "UNDER_INVESTIGATION",
+              "CANCELLED"
+            ]
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "MINOR",
+              "MAJOR",
+              "CRITICAL"
+            ],
+            "nullable": true
+          },
+          "dueState": {
+            "type": "string",
+            "enum": [
+              "NOT_APPLICABLE",
+              "ON_TRACK",
+              "DUE_SOON",
+              "OVERDUE"
+            ]
+          },
+          "reportedBy": {
+            "$ref": "#/components/schemas/DeviationUserSummaryDto"
+          },
+          "investigator": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DeviationUserSummaryDto"
+              }
+            ]
+          },
+          "investigationDueAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "title",
+          "area",
+          "occurredAt",
+          "status",
+          "dueState",
+          "reportedBy",
+          "createdAt"
+        ]
+      },
+      "DeviationDetailResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "example": "DEV-2026-0001"
+          },
+          "title": {
+            "type": "string"
+          },
+          "area": {
+            "type": "string"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "REPORTED",
+              "UNDER_INVESTIGATION",
+              "CANCELLED"
+            ]
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "MINOR",
+              "MAJOR",
+              "CRITICAL"
+            ],
+            "nullable": true
+          },
+          "dueState": {
+            "type": "string",
+            "enum": [
+              "NOT_APPLICABLE",
+              "ON_TRACK",
+              "DUE_SOON",
+              "OVERDUE"
+            ]
+          },
+          "reportedBy": {
+            "$ref": "#/components/schemas/DeviationUserSummaryDto"
+          },
+          "investigator": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DeviationUserSummaryDto"
+              }
+            ]
+          },
+          "investigationDueAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "description": {
+            "type": "string"
+          },
+          "impactAssessment": {
+            "type": "object",
+            "nullable": true
+          },
+          "containmentAction": {
+            "type": "object",
+            "nullable": true
+          },
+          "triagedBy": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DeviationUserSummaryDto"
+              }
+            ]
+          },
+          "triagedAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          },
+          "cancelledBy": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DeviationUserSummaryDto"
+              }
+            ]
+          },
+          "cancelledAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          },
+          "cancellationReason": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "title",
+          "area",
+          "occurredAt",
+          "status",
+          "dueState",
+          "reportedBy",
+          "createdAt",
+          "description"
+        ]
+      },
+      "CreateDeviationDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": "Temperature excursion during material staging"
+          },
+          "description": {
+            "type": "string",
+            "example": "The staging area exceeded its approved limit."
+          },
+          "area": {
+            "type": "string",
+            "example": "Warehouse"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "title",
+          "description",
+          "area",
+          "occurredAt"
+        ]
+      },
+      "TriageDeviationDto": {
+        "type": "object",
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": [
+              "MINOR",
+              "MAJOR",
+              "CRITICAL"
+            ]
+          },
+          "investigatorUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "investigationDueAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "impactAssessment": {
+            "type": "string",
+            "example": "Potential impact is limited to the staged lot."
+          },
+          "containmentAction": {
+            "type": "string",
+            "example": "The affected material was segregated and labelled."
+          }
+        },
+        "required": [
+          "severity",
+          "investigatorUserId",
+          "investigationDueAt",
+          "impactAssessment",
+          "containmentAction"
+        ]
+      },
+      "CancelDeviationDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "example": "The report was confirmed as a duplicate."
           }
         },
         "required": [

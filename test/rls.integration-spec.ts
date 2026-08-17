@@ -15,6 +15,8 @@ interface Fixture {
 }
 
 const tenantScopedTables = [
+  'deviation_sequences',
+  'deviations',
   'document_obsolescences',
   'document_periodic_reviews',
   'document_releases',
@@ -376,6 +378,71 @@ describeDatabase('PostgreSQL tenant isolation', () => {
     ]);
     expect(index.rows).toHaveLength(1);
     expect(index.rows[0]?.indexdef).toContain("WHERE (status = 'ASSIGNED'");
+  });
+
+  it('protects deviation intake, transitions, and tenant sequences', async () => {
+    const privileges = await applicationPool.query<{
+      table_name: string;
+      can_select: boolean;
+      can_insert: boolean;
+      can_update: boolean;
+      can_delete: boolean;
+    }>(
+      `SELECT
+         table_name,
+         has_table_privilege(current_user, table_name, 'SELECT') AS can_select,
+         has_table_privilege(current_user, table_name, 'INSERT') AS can_insert,
+         has_table_privilege(current_user, table_name, 'UPDATE') AS can_update,
+         has_table_privilege(current_user, table_name, 'DELETE') AS can_delete
+       FROM unnest(ARRAY['deviation_sequences', 'deviations']) AS table_name
+       ORDER BY table_name`,
+    );
+    const triggers = await ownerPool.query<{
+      table_name: string;
+      trigger_name: string;
+      function_name: string;
+    }>(
+      `SELECT
+         trigger.tgrelid::regclass::text AS table_name,
+         trigger.tgname AS trigger_name,
+         function.proname AS function_name
+       FROM pg_trigger AS trigger
+       JOIN pg_proc AS function ON function.oid = trigger.tgfoid
+       WHERE trigger.tgrelid = ANY(
+         ARRAY['deviation_sequences'::regclass, 'deviations'::regclass]
+       )
+         AND NOT trigger.tgisinternal
+       ORDER BY table_name`,
+    );
+
+    expect(privileges.rows).toEqual([
+      {
+        table_name: 'deviation_sequences',
+        can_select: true,
+        can_insert: true,
+        can_update: true,
+        can_delete: false,
+      },
+      {
+        table_name: 'deviations',
+        can_select: true,
+        can_insert: true,
+        can_update: true,
+        can_delete: false,
+      },
+    ]);
+    expect(triggers.rows).toEqual([
+      {
+        table_name: 'deviation_sequences',
+        trigger_name: 'deviation_sequences_update_guard',
+        function_name: 'guard_deviation_sequence_update',
+      },
+      {
+        table_name: 'deviations',
+        trigger_name: 'deviations_transition_guard',
+        function_name: 'guard_deviation_transition',
+      },
+    ]);
   });
 
   it('constrains lifecycle signature meanings to their record type', async () => {

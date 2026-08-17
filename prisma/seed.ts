@@ -25,6 +25,9 @@ const permissions = [
   ['training.read', 'View training records.'],
   ['training.assign', 'Assign training.'],
   ['training.complete', 'Complete assigned training.'],
+  ['deviations.read', 'View deviations.'],
+  ['deviations.create', 'Report deviations.'],
+  ['deviations.triage', 'Triage and cancel reported deviations.'],
   ['audit.read', 'View audit information.'],
 ] as const;
 

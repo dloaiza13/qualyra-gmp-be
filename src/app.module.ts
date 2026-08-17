@@ -24,6 +24,7 @@ import { PrismaModule } from './infrastructure/database/prisma/prisma.module.js'
 import { EmailModule } from './infrastructure/email/email.module.js';
 import { AuthenticationModule } from './modules/authentication/authentication.module.js';
 import { DocumentsModule } from './modules/documents/documents.module.js';
+import { DeviationsModule } from './modules/deviations/deviations.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { InvitationsModule } from './modules/invitations/invitations.module.js';
 import { RolesModule } from './modules/roles/roles.module.js';
@@ -91,6 +92,7 @@ import { TrainingModule } from './modules/training/training.module.js';
     AuthenticationModule,
     DocumentsModule,
     TrainingModule,
+    DeviationsModule,
     InvitationsModule,
     UsersModule,
     RolesModule,
@@ -99,6 +101,7 @@ import { TrainingModule } from './modules/training/training.module.js';
       { path: 'api/v1', module: AuthenticationModule },
       { path: 'api/v1', module: DocumentsModule },
       { path: 'api/v1', module: TrainingModule },
+      { path: 'api/v1', module: DeviationsModule },
       { path: 'api/v1', module: InvitationsModule },
       { path: 'api/v1', module: UsersModule },
       { path: 'api/v1', module: RolesModule },

@@ -41,6 +41,7 @@ This checklist is a release gate. Repository controls marked complete still requ
 - [ ] Define rotation frequency, emergency rotation, and access-review ownership.
 - [ ] Send structured logs to access-controlled storage and verify exporter-side redaction.
 - [ ] Alert on login abuse, token reuse, tenant-isolation failures, email failures, elevated 5xx rates, database saturation, and backup failures.
+- [ ] Alert quality owners on overdue or critical deviations and define acknowledged escalation paths.
 - [ ] Define retention, deletion, privacy, and incident-evidence policies.
 
 ## Email and asynchronous work

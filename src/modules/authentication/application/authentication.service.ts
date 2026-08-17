@@ -50,6 +50,9 @@ const initialRolePermissions: Record<(typeof initialRoles)[number], string[]> =
       'training.read',
       'training.assign',
       'training.complete',
+      'deviations.read',
+      'deviations.create',
+      'deviations.triage',
     ],
     'Document Controller': [
       'documents.read',
@@ -59,13 +62,22 @@ const initialRolePermissions: Record<(typeof initialRoles)[number], string[]> =
       'documents.release',
       'training.read',
       'training.complete',
+      'deviations.read',
+      'deviations.create',
     ],
-    Operator: ['documents.read', 'training.read', 'training.complete'],
+    Operator: [
+      'documents.read',
+      'training.read',
+      'training.complete',
+      'deviations.read',
+      'deviations.create',
+    ],
     Auditor: [
       'documents.read',
       'security.events.read',
       'training.read',
       'training.complete',
+      'deviations.read',
       'audit.read',
     ],
   };

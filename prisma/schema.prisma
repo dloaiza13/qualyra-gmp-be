@@ -120,6 +120,18 @@ enum TrainingAuthenticationMethod {
   PASSWORD_REAUTHENTICATION
 }
 
+enum DeviationStatus {
+  REPORTED
+  UNDER_INVESTIGATION
+  CANCELLED
+}
+
+enum DeviationSeverity {
+  MINOR
+  MAJOR
+  CRITICAL
+}
+
 model Tenant {
   id                      String                   @id @default(uuid()) @db.Uuid
   name                    String                   @db.VarChar(200)
@@ -147,6 +159,8 @@ model Tenant {
   documentObsolescences   DocumentObsolescence[]
   documentPeriodicReviews DocumentPeriodicReview[]
   trainingAssignments     TrainingAssignment[]
+  deviationSequences      DeviationSequence[]
+  deviations              Deviation[]
 
   @@map("tenants")
 }
@@ -187,6 +201,10 @@ model User {
   trainingAssignmentsReceived       TrainingAssignment[]     @relation("TrainingAssignmentAssignee")
   trainingAssignmentsCreated        TrainingAssignment[]     @relation("TrainingAssignmentCreator")
   trainingAssignmentsCancelled      TrainingAssignment[]     @relation("TrainingAssignmentCanceller")
+  deviationsReported                Deviation[]               @relation("DeviationReporter")
+  deviationInvestigations           Deviation[]               @relation("DeviationInvestigator")
+  deviationsTriaged                 Deviation[]               @relation("DeviationTriager")
+  deviationsCancelled               Deviation[]               @relation("DeviationCanceller")
 
   @@unique([tenantId, id], map: "users_tenant_id_id_key")
   @@unique([tenantId, email], map: "users_tenant_id_email_key")
@@ -615,4 +633,51 @@ model TrainingAssignment {
   @@index([tenantId, documentId, documentVersionId], map: "training_assignments_document_version_idx")
   @@index([tenantId, status, dueAt], map: "training_assignments_status_due_idx")
   @@map("training_assignments")
+}
+
+model DeviationSequence {
+  tenantId   String   @map("tenant_id") @db.Uuid
+  year       Int
+  lastNumber Int      @default(0) @map("last_number")
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@id([tenantId, year])
+  @@map("deviation_sequences")
+}
+
+model Deviation {
+  id                    String             @id @default(uuid()) @db.Uuid
+  tenantId              String             @map("tenant_id") @db.Uuid
+  code                  String             @db.VarChar(24)
+  title                 String             @db.VarChar(200)
+  description           String             @db.VarChar(5000)
+  area                  String             @db.VarChar(120)
+  occurredAt            DateTime           @map("occurred_at") @db.Timestamptz(3)
+  reportedByUserId      String             @map("reported_by_user_id") @db.Uuid
+  status                DeviationStatus    @default(REPORTED)
+  severity              DeviationSeverity?
+  investigatorUserId    String?            @map("investigator_user_id") @db.Uuid
+  investigationDueAt    DateTime?          @map("investigation_due_at") @db.Timestamptz(3)
+  impactAssessment      String?            @map("impact_assessment") @db.VarChar(2000)
+  containmentAction     String?            @map("containment_action") @db.VarChar(2000)
+  triagedByUserId       String?            @map("triaged_by_user_id") @db.Uuid
+  triagedAt             DateTime?          @map("triaged_at") @db.Timestamptz(3)
+  cancelledByUserId     String?            @map("cancelled_by_user_id") @db.Uuid
+  cancelledAt           DateTime?          @map("cancelled_at") @db.Timestamptz(3)
+  cancellationReason    String?            @map("cancellation_reason") @db.VarChar(500)
+  createdAt             DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant                Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  reportedByUser        User               @relation("DeviationReporter", fields: [tenantId, reportedByUserId], references: [tenantId, id], onDelete: Restrict)
+  investigatorUser      User?              @relation("DeviationInvestigator", fields: [tenantId, investigatorUserId], references: [tenantId, id], onDelete: Restrict)
+  triagedByUser         User?              @relation("DeviationTriager", fields: [tenantId, triagedByUserId], references: [tenantId, id], onDelete: Restrict)
+  cancelledByUser       User?              @relation("DeviationCanceller", fields: [tenantId, cancelledByUserId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id], map: "deviations_tenant_id_id_key")
+  @@unique([tenantId, code], map: "deviations_tenant_id_code_key")
+  @@index([tenantId, status, createdAt], map: "deviations_tenant_status_created_idx")
+  @@index([tenantId, severity, investigationDueAt], map: "deviations_tenant_severity_due_idx")
+  @@index([tenantId, investigatorUserId, status], map: "deviations_tenant_investigator_status_idx")
+  @@map("deviations")
 }
