@@ -16,6 +16,7 @@ interface Fixture {
 
 const tenantScopedTables = [
   'capa_actions',
+  'capa_effectiveness_reviews',
   'capa_sequences',
   'capas',
   'deviation_investigations',
@@ -479,12 +480,19 @@ describeDatabase('PostgreSQL tenant isolation', () => {
          has_table_privilege(current_user, table_name, 'INSERT') AS can_insert,
          has_table_privilege(current_user, table_name, 'UPDATE') AS can_update,
          has_table_privilege(current_user, table_name, 'DELETE') AS can_delete
-       FROM unnest(ARRAY['capa_actions', 'capa_sequences', 'capas']) AS table_name
+       FROM unnest(ARRAY['capa_actions', 'capa_effectiveness_reviews', 'capa_sequences', 'capas']) AS table_name
        ORDER BY table_name`,
     );
     expect(privileges.rows).toEqual([
       {
         table_name: 'capa_actions',
+        can_select: true,
+        can_insert: true,
+        can_update: true,
+        can_delete: false,
+      },
+      {
+        table_name: 'capa_effectiveness_reviews',
         can_select: true,
         can_insert: true,
         can_update: true,
@@ -520,6 +528,7 @@ describeDatabase('PostgreSQL tenant isolation', () => {
        WHERE NOT trigger.tgisinternal
          AND trigger.tgrelid IN (
            'capa_actions'::regclass,
+           'capa_effectiveness_reviews'::regclass,
            'capa_sequences'::regclass,
            'capas'::regclass
          )
@@ -536,6 +545,21 @@ describeDatabase('PostgreSQL tenant isolation', () => {
           table_name: 'capa_actions',
           trigger_name: 'capa_actions_transition_guard',
           function_name: 'guard_capa_action_transition',
+        },
+        {
+          table_name: 'capa_effectiveness_reviews',
+          trigger_name: 'capa_effectiveness_reviews_insert_guard',
+          function_name: 'guard_capa_effectiveness_insert',
+        },
+        {
+          table_name: 'capa_effectiveness_reviews',
+          trigger_name: 'capa_effectiveness_reviews_prevent_delete',
+          function_name: 'prevent_capa_effectiveness_delete',
+        },
+        {
+          table_name: 'capa_effectiveness_reviews',
+          trigger_name: 'capa_effectiveness_reviews_transition_guard',
+          function_name: 'guard_capa_effectiveness_transition',
         },
         {
           table_name: 'capa_sequences',

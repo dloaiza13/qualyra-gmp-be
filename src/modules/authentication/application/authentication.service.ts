@@ -57,6 +57,8 @@ const initialRolePermissions: Record<(typeof initialRoles)[number], string[]> =
       'capas.read',
       'capas.create',
       'capas.execute',
+      'capas.schedule_effectiveness',
+      'capas.verify_effectiveness',
     ],
     'Document Controller': [
       'documents.read',

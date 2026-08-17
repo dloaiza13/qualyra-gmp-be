@@ -29,6 +29,13 @@ const deviationInclude = {
   investigation: {
     include: { completedByUser: { select: userSummary } },
   },
+  capa: {
+    include: {
+      effectivenessReview: {
+        include: { assignedToUser: { select: userSummary } },
+      },
+    },
+  },
 } satisfies Prisma.DeviationInclude;
 type DeviationRecord = Prisma.DeviationGetPayload<{
   include: typeof deviationInclude;
@@ -526,6 +533,23 @@ function mapDetail(deviation: DeviationRecord): DeviationDetailResponseDto {
           recordHash: deviation.investigation.recordHash,
         }
       : null,
+    closure:
+      deviation.status === 'CLOSED' &&
+      deviation.capa?.effectivenessReview?.status === 'COMPLETED' &&
+      deviation.capa.effectivenessReview.decision === 'EFFECTIVE' &&
+      deviation.capa.effectivenessReview.completedAt &&
+      deviation.capa.effectivenessReview.recordHash
+        ? {
+            capaId: deviation.capa.id,
+            capaCode: deviation.capa.code,
+            effectivenessReviewId: deviation.capa.effectivenessReview.id,
+            closedBy: deviation.capa.effectivenessReview.assignedToUser,
+            decision: 'EFFECTIVE',
+            closedAt:
+              deviation.capa.effectivenessReview.completedAt.toISOString(),
+            recordHash: deviation.capa.effectivenessReview.recordHash,
+          }
+        : null,
   };
 }
 
@@ -534,7 +558,8 @@ function dueState(
   now: Date,
   status: string,
 ): 'NOT_APPLICABLE' | 'ON_TRACK' | 'DUE_SOON' | 'OVERDUE' | 'COMPLETED' {
-  if (status === 'INVESTIGATION_COMPLETED') return 'COMPLETED';
+  if (status === 'INVESTIGATION_COMPLETED' || status === 'CLOSED')
+    return 'COMPLETED';
   if (!dueAt) return 'NOT_APPLICABLE';
   if (dueAt.getTime() < now.getTime()) return 'OVERDUE';
   const dueSoonThreshold = now.getTime() + 7 * 24 * 60 * 60 * 1000;

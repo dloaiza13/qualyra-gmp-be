@@ -25,6 +25,12 @@ interface RoleBody {
 
 interface DeviationBody {
   id: string;
+  status?: string;
+  closure?: {
+    capaId: string;
+    decision: string;
+    recordHash: string;
+  } | null;
 }
 
 interface CapaBody {
@@ -44,6 +50,15 @@ interface CapaBody {
     authenticationMethod: string | null;
     recordHash: string | null;
   }[];
+  effectivenessReview?: {
+    id: string;
+    status: string;
+    decision: string | null;
+    assignedTo: { id: string };
+    meaning: string | null;
+    authenticationMethod: string | null;
+    recordHash: string | null;
+  } | null;
 }
 
 interface ErrorBody {
@@ -101,10 +116,15 @@ describeDatabase('CAPA planning and action execution', () => {
     );
     const controllerRole = requiredRole(roles, 'Document Controller');
     const operatorRole = requiredRole(roles, 'Operator');
-    expect(
-      requiredRole(roles, 'QA Manager').permissions.map(({ code }) => code),
-    ).toEqual(
-      expect.arrayContaining(['capas.read', 'capas.create', 'capas.execute']),
+    const qaManagerRole = requiredRole(roles, 'QA Manager');
+    expect(qaManagerRole.permissions.map(({ code }) => code)).toEqual(
+      expect.arrayContaining([
+        'capas.read',
+        'capas.create',
+        'capas.execute',
+        'capas.schedule_effectiveness',
+        'capas.verify_effectiveness',
+      ]),
     );
     expect(controllerRole.permissions.map(({ code }) => code)).toEqual(
       expect.arrayContaining(['capas.read', 'capas.execute']),
@@ -130,6 +150,15 @@ describeDatabase('CAPA planning and action execution', () => {
       `capa-operator-${suffix}@example.test`,
       'CAPA Operator',
       'CAPA operator passphrase 2026',
+    );
+    const reviewer = await inviteAndAccept(
+      server,
+      authA,
+      notifier,
+      qaManagerRole.id,
+      `capa-reviewer-${suffix}@example.test`,
+      'CAPA Effectiveness Reviewer',
+      'CAPA reviewer passphrase 2026',
     );
 
     const deviation = bodyAs<DeviationBody>(
@@ -299,6 +328,101 @@ describeDatabase('CAPA planning and action execution', () => {
       completedActionCount: 2,
     });
 
+    await request(server)
+      .post(`/api/v1/capas/${created.id}/effectiveness-review`)
+      .set(authA)
+      .send({
+        criterion:
+          'Verify three consecutive staging cycles without relay alarms or temperature excursions.',
+        assignedToUserId: investigator.user.id,
+        dueAt: futureDate(45),
+      })
+      .expect(400)
+      .expect(({ body }: { body: ErrorBody }) => {
+        expect(body.code).toBe('CAPA_INVALID');
+      });
+
+    const scheduled = bodyAs<CapaBody>(
+      await request(server)
+        .post(`/api/v1/capas/${created.id}/effectiveness-review`)
+        .set(authA)
+        .send({
+          criterion:
+            'Verify three consecutive staging cycles without relay alarms or temperature excursions.',
+          assignedToUserId: reviewer.user.id,
+          dueAt: futureDate(45),
+        })
+        .expect(201),
+    );
+    expect(scheduled).toMatchObject({
+      status: 'EFFECTIVENESS_REVIEW',
+      effectivenessReview: {
+        status: 'SCHEDULED',
+        decision: null,
+        assignedTo: { id: reviewer.user.id },
+      },
+    });
+
+    await request(server)
+      .post(`/api/v1/capas/${created.id}/effectiveness-review/complete`)
+      .set(authA)
+      .send(effectivenessInput('Administration passphrase! 2026'))
+      .expect(403)
+      .expect(({ body }: { body: ErrorBody }) => {
+        expect(body.code).toBe('CAPA_EFFECTIVENESS_FORBIDDEN');
+      });
+    await request(server)
+      .post(`/api/v1/capas/${created.id}/effectiveness-review/complete`)
+      .set(bearer(reviewer.accessToken))
+      .send(effectivenessInput('Incorrect password'))
+      .expect(403)
+      .expect(({ body }: { body: ErrorBody }) => {
+        expect(body.code).toBe('REAUTHENTICATION_FAILED');
+      });
+
+    const verifications = await Promise.all([
+      request(server)
+        .post(`/api/v1/capas/${created.id}/effectiveness-review/complete`)
+        .set(bearer(reviewer.accessToken))
+        .send(effectivenessInput('CAPA reviewer passphrase 2026')),
+      request(server)
+        .post(`/api/v1/capas/${created.id}/effectiveness-review/complete`)
+        .set(bearer(reviewer.accessToken))
+        .send(effectivenessInput('CAPA reviewer passphrase 2026')),
+    ]);
+    expect(verifications.map(({ status }) => status).sort()).toEqual([
+      201, 409,
+    ]);
+    const verifiedResponse = verifications.find(({ status }) => status === 201);
+    if (!verifiedResponse) throw new Error('CAPA review was not completed.');
+    const verified = bodyAs<CapaBody>(verifiedResponse);
+    expect(verified).toMatchObject({
+      status: 'CLOSED_EFFECTIVE',
+      dueState: 'COMPLETED',
+      effectivenessReview: {
+        status: 'COMPLETED',
+        decision: 'EFFECTIVE',
+        meaning: 'EFFECTIVENESS_VERIFICATION',
+        authenticationMethod: 'PASSWORD_REAUTHENTICATION',
+      },
+    });
+    expect(verified.effectivenessReview?.recordHash).toMatch(/^[0-9a-f]{64}$/);
+
+    const closedDeviation = bodyAs<DeviationBody>(
+      await request(server)
+        .get(`/api/v1/deviations/${deviation.id}`)
+        .set(authA)
+        .expect(200),
+    );
+    expect(closedDeviation).toMatchObject({
+      status: 'CLOSED',
+      closure: {
+        capaId: created.id,
+        decision: 'EFFECTIVE',
+      },
+    });
+    expect(closedDeviation.closure?.recordHash).toMatch(/^[0-9a-f]{64}$/);
+
     const listed = bodyAs<CapaBody[]>(
       await request(server)
         .get('/api/v1/capas?search=relay')
@@ -325,6 +449,9 @@ describeDatabase('CAPA planning and action execution', () => {
         'CAPA_PLAN_CREATED',
         'CAPA_ACTION_REAUTHENTICATION_FAILED',
         'CAPA_ACTION_COMPLETED',
+        'CAPA_EFFECTIVENESS_REVIEW_SCHEDULED',
+        'CAPA_EFFECTIVENESS_REAUTHENTICATION_FAILED',
+        'CAPA_EFFECTIVENESS_REVIEW_COMPLETED',
       ]),
     );
   }, 120_000);
@@ -365,6 +492,16 @@ function completionInput(password: string) {
   return {
     comment:
       'Implementation evidence was reviewed and the action was completed.',
+    password,
+    attestationAccepted: true,
+  };
+}
+
+function effectivenessInput(password: string) {
+  return {
+    decision: 'EFFECTIVE',
+    evidence:
+      'Three consecutive monitored staging cycles completed without relay alarms or temperature excursions.',
     password,
     attestationAccepted: true,
   };

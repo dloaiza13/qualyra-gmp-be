@@ -1,6 +1,6 @@
 # GMP deviations
 
-Phases 14 and 15 add tenant-isolated reporting, triage, and authenticated root-cause investigation for quality deviations. Phase 16 consumes investigations requiring CAPA through the separately controlled [CAPA workflow](capa.md); effectiveness checks and controlled closure remain deferred.
+Phases 14 and 15 add tenant-isolated reporting, triage, and authenticated root-cause investigation for quality deviations. Phases 16 and 17 consume investigations requiring CAPA through the separately controlled [CAPA workflow](capa.md), independently verify effectiveness, and close the deviation only when that review is effective.
 
 ## Permissions
 
@@ -55,12 +55,16 @@ Completion reauthenticates the investigator's current password, reconfirms an ac
 
 A unique tenant/deviation constraint and conditional status transition ensure that only one concurrent completion succeeds. The database requires investigation evidence before accepting the status transition. The evidence table rejects update and delete even for the table owner, while the runtime role receives only select and insert privileges. Completed due state is `COMPLETED` rather than a time-derived overdue state.
 
+## Controlled closure
+
+A deviation requiring CAPA remains `INVESTIGATION_COMPLETED` throughout action execution and effectiveness scheduling. It can transition to `CLOSED` only in the same transaction that completes its independent CAPA review as `EFFECTIVE`. The detail response exposes the CAPA code, reviewer, closure time, and effectiveness record fingerprint. `CLOSED` is terminal and all intake, triage, and investigation evidence remains immutable.
+
 ## Isolation and evidence
 
 All three tables use forced PostgreSQL row-level security and transaction-local tenant context. Composite tenant foreign keys prevent assigning a reporter, investigator, triage actor, cancellation actor, completion actor, or session from another tenant. Successful reports, triage decisions, cancellations, failed investigation reauthentication, and investigation completion append security events with correlation and request metadata.
 
 ## Deferred scope
 
-Investigation drafts and amendments, attachments, disposition, extension approval, CAPA effectiveness checks, broader electronic-signature controls, closure approval, reminders, escalation, exports, and trend analytics are deferred. Organizations must operate investigation follow-up and due-date escalation procedurally until those controls are implemented and validated.
+Investigation drafts and amendments, attachments, disposition, extension approval, follow-up action cycles for ineffective CAPA, broader electronic-signature controls, reminders, escalation, exports, and trend analytics are deferred. Organizations must operate those follow-up and due-date escalation controls procedurally until they are implemented and validated.
 
 These controls are audit-ready building blocks and do not establish GMP, ISO, FDA, or 21 CFR Part 11 compliance.

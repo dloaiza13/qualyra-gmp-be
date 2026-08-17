@@ -26,8 +26,10 @@ import { PermissionsGuard } from '../../authorization/presentation/permissions.g
 import { CapasService } from '../application/capas.service.js';
 import {
   CapaListQueryDto,
+  CompleteCapaEffectivenessReviewDto,
   CompleteCapaActionDto,
   CreateCapaDto,
+  ScheduleCapaEffectivenessReviewDto,
 } from '../application/dto/capa-request.dto.js';
 import {
   CapaDetailResponseDto,
@@ -86,6 +88,40 @@ export class CapasController {
       principal,
       capaId,
       actionId,
+      input,
+      requestMetadata(request),
+    );
+  }
+
+  @Post(':capaId/effectiveness-review')
+  @Permissions('capas.schedule_effectiveness')
+  @ApiCreatedResponse({ type: CapaDetailResponseDto })
+  scheduleEffectivenessReview(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+    @Param('capaId', new ParseUUIDPipe()) capaId: string,
+    @Body() input: ScheduleCapaEffectivenessReviewDto,
+    @Req() request: Request & RequestWithContext,
+  ): Promise<CapaDetailResponseDto> {
+    return this.capas.scheduleEffectivenessReview(
+      principal,
+      capaId,
+      input,
+      requestMetadata(request),
+    );
+  }
+
+  @Post(':capaId/effectiveness-review/complete')
+  @Permissions('capas.verify_effectiveness')
+  @ApiCreatedResponse({ type: CapaDetailResponseDto })
+  completeEffectivenessReview(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+    @Param('capaId', new ParseUUIDPipe()) capaId: string,
+    @Body() input: CompleteCapaEffectivenessReviewDto,
+    @Req() request: Request & RequestWithContext,
+  ): Promise<CapaDetailResponseDto> {
+    return this.capas.completeEffectivenessReview(
+      principal,
+      capaId,
       input,
       requestMetadata(request),
     );

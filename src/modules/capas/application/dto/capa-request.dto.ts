@@ -19,6 +19,7 @@ import {
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export const capaActionTypes = ['CORRECTIVE', 'PREVENTIVE'] as const;
+export const capaEffectivenessDecisions = ['EFFECTIVE', 'INEFFECTIVE'] as const;
 
 function trimString({ value }: TransformFnParams): unknown {
   return typeof value === 'string' ? value.trim() : value;
@@ -86,6 +87,49 @@ export class CompleteCapaActionDto {
   @IsString()
   @Length(10, 2000)
   comment!: string;
+
+  @ApiProperty({ example: 'current account password', writeOnly: true })
+  @IsString()
+  @Length(1, 128)
+  password!: string;
+
+  @ApiProperty({ example: true })
+  @Equals(true)
+  attestationAccepted!: true;
+}
+
+export class ScheduleCapaEffectivenessReviewDto {
+  @ApiProperty({
+    example:
+      'Confirm no repeat cooling relay alarms occur during three consecutive monitored staging cycles.',
+  })
+  @Transform(trimString)
+  @IsString()
+  @Length(10, 2000)
+  criterion!: string;
+
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID('4')
+  assignedToUserId!: string;
+
+  @ApiProperty({ format: 'date-time' })
+  @IsISO8601({ strict: true })
+  dueAt!: string;
+}
+
+export class CompleteCapaEffectivenessReviewDto {
+  @ApiProperty({ enum: capaEffectivenessDecisions })
+  @IsIn(capaEffectivenessDecisions)
+  decision!: (typeof capaEffectivenessDecisions)[number];
+
+  @ApiProperty({
+    example:
+      'Three monitored staging cycles completed without relay alarms or temperature excursions.',
+  })
+  @Transform(trimString)
+  @IsString()
+  @Length(10, 5000)
+  evidence!: string;
 
   @ApiProperty({ example: 'current account password', writeOnly: true })
   @IsString()

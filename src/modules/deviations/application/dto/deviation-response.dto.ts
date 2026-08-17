@@ -81,6 +81,7 @@ export class DeviationSummaryResponseDto {
       'REPORTED',
       'UNDER_INVESTIGATION',
       'INVESTIGATION_COMPLETED',
+      'CLOSED',
       'CANCELLED',
     ],
   })
@@ -113,6 +114,29 @@ export class DeviationSummaryResponseDto {
   createdAt!: string;
 }
 
+export class DeviationClosureResponseDto {
+  @ApiProperty({ format: 'uuid' })
+  capaId!: string;
+
+  @ApiProperty({ example: 'CAPA-2026-0001' })
+  capaCode!: string;
+
+  @ApiProperty({ format: 'uuid' })
+  effectivenessReviewId!: string;
+
+  @ApiProperty({ type: DeviationUserSummaryDto })
+  closedBy!: DeviationUserSummaryDto;
+
+  @ApiProperty({ enum: ['EFFECTIVE'] })
+  decision!: 'EFFECTIVE';
+
+  @ApiProperty({ format: 'date-time' })
+  closedAt!: string;
+
+  @ApiProperty({ minLength: 64, maxLength: 64 })
+  recordHash!: string;
+}
+
 export class DeviationDetailResponseDto extends DeviationSummaryResponseDto {
   @ApiProperty()
   description!: string;
@@ -143,4 +167,7 @@ export class DeviationDetailResponseDto extends DeviationSummaryResponseDto {
     nullable: true,
   })
   investigation!: DeviationInvestigationResponseDto | null;
+
+  @ApiPropertyOptional({ type: DeviationClosureResponseDto, nullable: true })
+  closure!: DeviationClosureResponseDto | null;
 }

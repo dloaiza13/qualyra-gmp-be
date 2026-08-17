@@ -69,6 +69,50 @@ export class CapaActionResponseDto {
   createdAt!: string;
 }
 
+export class CapaEffectivenessReviewResponseDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty()
+  criterion!: string;
+
+  @ApiProperty({ type: CapaUserSummaryDto })
+  assignedTo!: CapaUserSummaryDto;
+
+  @ApiProperty({ type: CapaUserSummaryDto })
+  scheduledBy!: CapaUserSummaryDto;
+
+  @ApiProperty({ format: 'date-time' })
+  dueAt!: string;
+
+  @ApiProperty({ enum: ['SCHEDULED', 'COMPLETED'] })
+  status!: string;
+
+  @ApiProperty({ enum: ['ON_TRACK', 'DUE_SOON', 'OVERDUE', 'COMPLETED'] })
+  dueState!: string;
+
+  @ApiPropertyOptional({ enum: ['EFFECTIVE', 'INEFFECTIVE'], nullable: true })
+  decision!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  evidence!: string | null;
+
+  @ApiPropertyOptional({ enum: ['EFFECTIVENESS_VERIFICATION'], nullable: true })
+  meaning!: string | null;
+
+  @ApiPropertyOptional({ enum: ['PASSWORD_REAUTHENTICATION'], nullable: true })
+  authenticationMethod!: string | null;
+
+  @ApiPropertyOptional({ format: 'date-time', nullable: true })
+  completedAt!: string | null;
+
+  @ApiPropertyOptional({ minLength: 64, maxLength: 64, nullable: true })
+  recordHash!: string | null;
+
+  @ApiProperty({ format: 'date-time' })
+  createdAt!: string;
+}
+
 export class CapaSummaryResponseDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
@@ -79,7 +123,16 @@ export class CapaSummaryResponseDto {
   @ApiProperty()
   title!: string;
 
-  @ApiProperty({ enum: ['OPEN', 'IN_PROGRESS', 'IMPLEMENTATION_COMPLETED'] })
+  @ApiProperty({
+    enum: [
+      'OPEN',
+      'IN_PROGRESS',
+      'IMPLEMENTATION_COMPLETED',
+      'EFFECTIVENESS_REVIEW',
+      'CLOSED_EFFECTIVE',
+      'INEFFECTIVE',
+    ],
+  })
   status!: string;
 
   @ApiProperty({ enum: ['ON_TRACK', 'DUE_SOON', 'OVERDUE', 'COMPLETED'] })
@@ -99,6 +152,12 @@ export class CapaSummaryResponseDto {
 
   @ApiPropertyOptional({ format: 'date-time', nullable: true })
   nextDueAt!: string | null;
+
+  @ApiPropertyOptional({ format: 'date-time', nullable: true })
+  effectivenessDueAt!: string | null;
+
+  @ApiPropertyOptional({ enum: ['EFFECTIVE', 'INEFFECTIVE'], nullable: true })
+  effectivenessDecision!: string | null;
 
   @ApiProperty({ format: 'date-time' })
   createdAt!: string;
@@ -122,4 +181,10 @@ export class CapaDetailResponseDto extends CapaSummaryResponseDto {
 
   @ApiProperty({ type: CapaActionResponseDto, isArray: true })
   actions!: CapaActionResponseDto[];
+
+  @ApiPropertyOptional({
+    type: CapaEffectivenessReviewResponseDto,
+    nullable: true,
+  })
+  effectivenessReview!: CapaEffectivenessReviewResponseDto | null;
 }

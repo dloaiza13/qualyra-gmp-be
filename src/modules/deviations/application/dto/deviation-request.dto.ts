@@ -19,6 +19,7 @@ export const deviationStatuses = [
   'REPORTED',
   'UNDER_INVESTIGATION',
   'INVESTIGATION_COMPLETED',
+  'CLOSED',
   'CANCELLED',
 ] as const;
 export const deviationSeverities = ['MINOR', 'MAJOR', 'CRITICAL'] as const;

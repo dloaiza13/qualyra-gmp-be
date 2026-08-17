@@ -16,6 +16,7 @@ export const ErrorCode = {
   DocumentWorkflowInvalid: 'DOCUMENT_WORKFLOW_INVALID',
   DocumentVersionConflict: 'DOCUMENT_VERSION_CONFLICT',
   CapaActionForbidden: 'CAPA_ACTION_FORBIDDEN',
+  CapaEffectivenessForbidden: 'CAPA_EFFECTIVENESS_FORBIDDEN',
   CapaConflict: 'CAPA_CONFLICT',
   CapaInvalid: 'CAPA_INVALID',
   CapaNotFound: 'CAPA_NOT_FOUND',

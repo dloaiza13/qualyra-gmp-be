@@ -32,6 +32,14 @@ const permissions = [
   ['capas.read', 'View CAPA plans and action evidence.'],
   ['capas.create', 'Create CAPA plans from completed investigations.'],
   ['capas.execute', 'Complete assigned CAPA actions.'],
+  [
+    'capas.schedule_effectiveness',
+    'Schedule independent CAPA effectiveness reviews.',
+  ],
+  [
+    'capas.verify_effectiveness',
+    'Complete assigned CAPA effectiveness reviews.',
+  ],
   ['audit.read', 'View audit information.'],
 ] as const;
 
