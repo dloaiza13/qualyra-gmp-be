@@ -31,6 +31,7 @@ const tenantScopedTables = [
   'roles',
   'security_events',
   'sessions',
+  'training_assignments',
   'user_roles',
   'users',
 ] as const;
@@ -325,6 +326,56 @@ describeDatabase('PostgreSQL tenant isolation', () => {
     ]);
     expect(index.rows).toHaveLength(1);
     expect(index.rows[0]?.indexdef).toContain("WHERE (status = 'PENDING'");
+  });
+
+  it('allows training finalization but protects historical evidence', async () => {
+    const privileges = await applicationPool.query<{
+      can_select: boolean;
+      can_insert: boolean;
+      can_update: boolean;
+      can_delete: boolean;
+    }>(
+      `SELECT
+         has_table_privilege(current_user, 'training_assignments', 'SELECT') AS can_select,
+         has_table_privilege(current_user, 'training_assignments', 'INSERT') AS can_insert,
+         has_table_privilege(current_user, 'training_assignments', 'UPDATE') AS can_update,
+         has_table_privilege(current_user, 'training_assignments', 'DELETE') AS can_delete`,
+    );
+    const triggers = await ownerPool.query<{
+      trigger_name: string;
+      function_name: string;
+    }>(
+      `SELECT
+         trigger.tgname AS trigger_name,
+         function.proname AS function_name
+       FROM pg_trigger AS trigger
+       JOIN pg_proc AS function ON function.oid = trigger.tgfoid
+       WHERE trigger.tgrelid = 'training_assignments'::regclass
+         AND NOT trigger.tgisinternal`,
+    );
+    const index = await ownerPool.query<{ indexdef: string }>(
+      `SELECT indexdef
+       FROM pg_indexes
+       WHERE schemaname = 'public'
+         AND indexname = 'training_assignments_one_open_per_user_version_key'`,
+    );
+
+    expect(privileges.rows).toEqual([
+      {
+        can_select: true,
+        can_insert: true,
+        can_update: true,
+        can_delete: false,
+      },
+    ]);
+    expect(triggers.rows).toEqual([
+      {
+        trigger_name: 'training_assignments_transition_guard',
+        function_name: 'guard_training_assignment_transition',
+      },
+    ]);
+    expect(index.rows).toHaveLength(1);
+    expect(index.rows[0]?.indexdef).toContain("WHERE (status = 'ASSIGNED'");
   });
 
   it('constrains lifecycle signature meanings to their record type', async () => {

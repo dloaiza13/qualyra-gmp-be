@@ -977,6 +977,16 @@ export class DocumentsService {
               select: { id: true },
             })
           : null;
+        const openTrainingAssignments = effectiveVersion
+          ? await transaction.trainingAssignment.findMany({
+              where: {
+                tenantId: principal.tenantId,
+                documentVersionId: effectiveVersion.id,
+                status: 'ASSIGNED',
+              },
+              select: { id: true },
+            })
+          : [];
 
         const version = await transaction.documentVersion.findFirst({
           where: {
@@ -1156,11 +1166,29 @@ export class DocumentsService {
               },
             })
           : null;
+        const cancelledTrainingAssignments = openTrainingAssignments.length
+          ? await transaction.trainingAssignment.updateMany({
+              where: {
+                tenantId: principal.tenantId,
+                id: { in: openTrainingAssignments.map(({ id }) => id) },
+                status: 'ASSIGNED',
+              },
+              data: {
+                status: 'CANCELLED',
+                cancelledByUserId: principal.userId,
+                cancelledAt: now,
+                cancellationReason: 'VERSION_SUPERSEDED',
+              },
+            })
+          : null;
         if (
           claimedDocument.count !== 1 ||
           claimedVersion.count !== 1 ||
           (supersededVersion && supersededVersion.count !== 1) ||
-          (cancelledPeriodicReview && cancelledPeriodicReview.count !== 1)
+          (cancelledPeriodicReview && cancelledPeriodicReview.count !== 1) ||
+          (cancelledTrainingAssignments &&
+            cancelledTrainingAssignments.count !==
+              openTrainingAssignments.length)
         ) {
           throw documentReleaseConflict();
         }
@@ -1237,6 +1265,9 @@ export class DocumentsService {
             cancelledPeriodicReviewId: pendingPeriodicReview?.id,
             nextPeriodicReviewId,
             nextPeriodicReviewDueAt: nextPeriodicReviewDueAt?.toISOString(),
+            cancelledTrainingAssignmentIds: openTrainingAssignments.map(
+              ({ id }) => id,
+            ),
           },
         });
         if (effectiveVersion) {
@@ -1269,6 +1300,21 @@ export class DocumentsService {
               nextPeriodicReviewId,
               nextPeriodicReviewDueAt: nextPeriodicReviewDueAt?.toISOString(),
               versionNumber: version.versionNumber,
+            },
+          });
+        }
+        if (openTrainingAssignments.length) {
+          await appendSecurityEvent(transaction, {
+            tenantId: principal.tenantId,
+            actorUserId: principal.userId,
+            eventType: 'TRAINING_ASSIGNMENTS_CANCELLED',
+            outcome: 'SUCCESS',
+            request,
+            metadata: {
+              documentId,
+              documentVersionId: effectiveVersion?.id,
+              assignmentIds: openTrainingAssignments.map(({ id }) => id),
+              reason: 'VERSION_SUPERSEDED',
             },
           });
         }
@@ -1414,6 +1460,15 @@ export class DocumentsService {
             },
             select: { id: true },
           });
+        const openTrainingAssignments =
+          await transaction.trainingAssignment.findMany({
+            where: {
+              tenantId: principal.tenantId,
+              documentVersionId: version.id,
+              status: 'ASSIGNED',
+            },
+            select: { id: true },
+          });
 
         const recordHash = hashDocumentLifecycleRecord({
           schemaVersion: 1,
@@ -1481,6 +1536,28 @@ export class DocumentsService {
             throw documentObsolescenceConflict();
           }
         }
+        if (openTrainingAssignments.length) {
+          const cancelledTrainingAssignments =
+            await transaction.trainingAssignment.updateMany({
+              where: {
+                tenantId: principal.tenantId,
+                id: { in: openTrainingAssignments.map(({ id }) => id) },
+                status: 'ASSIGNED',
+              },
+              data: {
+                status: 'CANCELLED',
+                cancelledByUserId: principal.userId,
+                cancelledAt: now,
+                cancellationReason: 'DOCUMENT_OBSOLETED',
+              },
+            });
+          if (
+            cancelledTrainingAssignments.count !==
+            openTrainingAssignments.length
+          ) {
+            throw documentObsolescenceConflict();
+          }
+        }
 
         let obsolescenceId: string;
         try {
@@ -1521,6 +1598,9 @@ export class DocumentsService {
             authenticationMethod: 'PASSWORD_REAUTHENTICATION',
             recordHash,
             cancelledPeriodicReviewId: pendingPeriodicReview?.id,
+            cancelledTrainingAssignmentIds: openTrainingAssignments.map(
+              ({ id }) => id,
+            ),
           },
         });
         if (pendingPeriodicReview) {
@@ -1534,6 +1614,21 @@ export class DocumentsService {
               documentId,
               documentVersionId: version.id,
               periodicReviewId: pendingPeriodicReview.id,
+              reason: 'DOCUMENT_OBSOLETED',
+            },
+          });
+        }
+        if (openTrainingAssignments.length) {
+          await appendSecurityEvent(transaction, {
+            tenantId: principal.tenantId,
+            actorUserId: principal.userId,
+            eventType: 'TRAINING_ASSIGNMENTS_CANCELLED',
+            outcome: 'SUCCESS',
+            request,
+            metadata: {
+              documentId,
+              documentVersionId: version.id,
+              assignmentIds: openTrainingAssignments.map(({ id }) => id),
               reason: 'DOCUMENT_OBSOLETED',
             },
           });

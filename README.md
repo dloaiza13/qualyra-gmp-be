@@ -59,6 +59,7 @@ The backend is a modular NestJS monolith with pragmatic ports and adapters, tena
 - [Authentication](docs/authentication.md)
 - [Authorization, users, roles, and invitations](docs/authorization.md)
 - [Controlled document lifecycle](docs/document-control.md)
+- [Document training](docs/training.md)
 - [Phase 8 security review](docs/security-review.md)
 - [ADR-006: invitation-only organization membership](docs/adr/ADR-006-invitation-only-user-onboarding.md)
 - [ADR-008: controlled-document versioning](docs/adr/ADR-008-controlled-document-versioning.md)
@@ -66,6 +67,7 @@ The backend is a modular NestJS monolith with pragmatic ports and adapters, tena
 - [ADR-010: password-reauthenticated document release](docs/adr/ADR-010-password-reauthenticated-document-release.md)
 - [ADR-011: effective revision, supersession, and obsolescence](docs/adr/ADR-011-effective-revision-supersession-obsolescence.md)
 - [ADR-012: recurring periodic review of effective documents](docs/adr/ADR-012-recurring-periodic-document-review.md)
+- [ADR-013: version-bound document training acknowledgement](docs/adr/ADR-013-version-bound-document-training-acknowledgement.md)
 - [Threat model](docs/threat-model.md)
 - [Production readiness checklist](docs/production-checklist.md)
 

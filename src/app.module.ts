@@ -29,6 +29,7 @@ import { InvitationsModule } from './modules/invitations/invitations.module.js';
 import { RolesModule } from './modules/roles/roles.module.js';
 import { SecurityEventsModule } from './modules/security-events/security-events.module.js';
 import { UsersModule } from './modules/users/users.module.js';
+import { TrainingModule } from './modules/training/training.module.js';
 
 @Module({
   imports: [
@@ -89,6 +90,7 @@ import { UsersModule } from './modules/users/users.module.js';
     HealthModule,
     AuthenticationModule,
     DocumentsModule,
+    TrainingModule,
     InvitationsModule,
     UsersModule,
     RolesModule,
@@ -96,6 +98,7 @@ import { UsersModule } from './modules/users/users.module.js';
     RouterModule.register([
       { path: 'api/v1', module: AuthenticationModule },
       { path: 'api/v1', module: DocumentsModule },
+      { path: 'api/v1', module: TrainingModule },
       { path: 'api/v1', module: InvitationsModule },
       { path: 'api/v1', module: UsersModule },
       { path: 'api/v1', module: RolesModule },

@@ -1,6 +1,6 @@
 # Controlled document lifecycle
 
-Phase 8 introduced immutable tenant-scoped document versions. Phase 9 added assigned review and approval decisions. Phase 10 added immediate controlled release with password reauthentication and immutable evidence. Phase 11 completed effective revisions, atomic supersession, and controlled obsolescence. Phase 12 adds recurring review of effective documents with due-state visibility and preserved decisions.
+Phase 8 introduced immutable tenant-scoped document versions. Phase 9 added assigned review and approval decisions. Phase 10 added immediate controlled release with password reauthentication and immutable evidence. Phase 11 completed effective revisions, atomic supersession, and controlled obsolescence. Phase 12 added recurring review of effective documents with due-state visibility and preserved decisions. Phase 13 adds version-bound document-training acknowledgement.
 
 ## Scope
 
@@ -33,6 +33,9 @@ This phase provides:
 - assigned decisions to confirm effectiveness or require a revision;
 - automatic next-cycle creation after confirmation and transfer to a newly released version;
 - immutable completed and cancelled cycle history protected by a database transition trigger.
+- version-bound training assignments for active, permission-qualified participants;
+- due-state visibility and authenticated reading acknowledgement with immutable SHA-256 evidence;
+- automatic cancellation of open training when its assigned version is superseded or withdrawn.
 
 Creating a new draft version marks the previous draft as `SUPERSEDED`. Hard deletion is not exposed and the runtime database role has no delete privilege on either document table.
 
@@ -74,13 +77,13 @@ The release stores its fixed meaning (`DOCUMENT_RELEASE`), authentication method
 
 Creating a version from an effective document starts a revision but does not mutate or withdraw the released version. The document remains `EFFECTIVE`; the latest working version independently moves through `DRAFT`, `IN_REVIEW`, and `APPROVED`. The API exposes both records in the immutable version history, allowing operators to identify what is currently in use and what is being prepared.
 
-When the approved revision is released, one transaction claims the revision, changes it to `EFFECTIVE`, and changes exactly one prior effective version to `SUPERSEDED`. The new release hash links to the prior release fingerprint and version number. Conditional updates reject concurrent or replayed release attempts.
+When the approved revision is released, one transaction claims the revision, changes it to `EFFECTIVE`, and changes exactly one prior effective version to `SUPERSEDED`. The new release hash links to the prior release fingerprint and version number. Conditional updates reject concurrent or replayed release attempts. Open training assignments for the replaced version are cancelled as `VERSION_SUPERSEDED` in the same transaction; completed acknowledgements remain immutable.
 
 ## Obsolescence rules
 
 Obsolescence is an immediate controlled withdrawal, not a replacement. It is allowed only when the latest version is also the effective version; an open draft, review, or approved revision must be resolved first. The signer needs `documents.release`, must differ from the version author and approver, must use an active session, and must re-enter the current password with explicit intent and a reason.
 
-The immutable `document_obsolescences` record links the document, effective version, signer, session, timestamp, reason, authentication method, prior release fingerprint, and its own canonical SHA-256 fingerprint. The runtime database role can select and insert this evidence but cannot update or delete it. A successful action changes both document and version to `OBSOLETE` atomically.
+The immutable `document_obsolescences` record links the document, effective version, signer, session, timestamp, reason, authentication method, prior release fingerprint, and its own canonical SHA-256 fingerprint. The runtime database role can select and insert this evidence but cannot update or delete it. A successful action changes both document and version to `OBSOLETE` atomically and cancels its open training assignments as `DOCUMENT_OBSOLETED`.
 
 ## Periodic review rules
 
@@ -94,7 +97,7 @@ Finalized cycle identity, schedule, decision, and cancellation evidence cannot b
 
 ## Compliance boundary
 
-Phases 10 through 12 capture several electronic-signature and lifecycle building blocks, but Qualyra still does not claim 21 CFR Part 11 compliance. Formal validation, signed-record manifestations and exports, identity-proofing policy, trusted time controls, retention, operational procedures, and regulatory assessment remain required. Revision cancellation, durable reminder delivery, escalation, and notification retry monitoring remain out of scope.
+Phases 10 through 13 capture several electronic-signature and lifecycle building blocks, but Qualyra still does not claim 21 CFR Part 11 compliance. Formal validation, signed-record manifestations and exports, identity-proofing policy, trusted time controls, retention, operational procedures, and regulatory assessment remain required. Training acknowledgement is not proof of competence. Revision cancellation, durable reminder delivery, escalation, assessment, and notification retry monitoring remain out of scope.
 
 Binary files and object storage are also out of scope. Text content is limited to 100,000 characters so the aggregate can be exercised without storing blobs in PostgreSQL or selecting an object-storage provider prematurely.
 

@@ -969,6 +969,284 @@
         ]
       }
     },
+    "/api/v1/training/assignments/my": {
+      "get": {
+        "operationId": "TrainingController_listMine",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 200,
+              "default": 100,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ASSIGNED",
+                "COMPLETED",
+                "CANCELLED"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TrainingAssignmentSummaryResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Training"
+        ]
+      }
+    },
+    "/api/v1/training/assignments": {
+      "get": {
+        "operationId": "TrainingController_listAll",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 200,
+              "default": 100,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ASSIGNED",
+                "COMPLETED",
+                "CANCELLED"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TrainingAssignmentSummaryResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Training"
+        ]
+      },
+      "post": {
+        "operationId": "TrainingController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTrainingAssignmentsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TrainingAssignmentSummaryResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Training"
+        ]
+      }
+    },
+    "/api/v1/training/assignments/{assignmentId}": {
+      "get": {
+        "operationId": "TrainingController_get",
+        "parameters": [
+          {
+            "name": "assignmentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrainingAssignmentDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Training"
+        ]
+      }
+    },
+    "/api/v1/training/assignments/{assignmentId}/complete": {
+      "post": {
+        "operationId": "TrainingController_complete",
+        "parameters": [
+          {
+            "name": "assignmentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteTrainingAssignmentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrainingAssignmentDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Training"
+        ]
+      }
+    },
+    "/api/v1/training/assignments/{assignmentId}/cancel": {
+      "post": {
+        "operationId": "TrainingController_cancel",
+        "parameters": [
+          {
+            "name": "assignmentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelTrainingAssignmentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrainingAssignmentDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Training"
+        ]
+      }
+    },
     "/api/v1/users/invitations": {
       "post": {
         "operationId": "UserInvitationsController_create",
@@ -2664,6 +2942,360 @@
           "reason",
           "password",
           "attestationAccepted"
+        ]
+      },
+      "TrainingUserSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "email"
+        ]
+      },
+      "TrainingDocumentSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "type",
+          "status"
+        ]
+      },
+      "TrainingDocumentVersionSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionNumber": {
+            "type": "number",
+            "minimum": 1
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "object",
+            "nullable": true
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "versionNumber",
+          "title",
+          "status"
+        ]
+      },
+      "TrainingAssignmentSummaryResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ASSIGNED",
+              "COMPLETED",
+              "CANCELLED"
+            ]
+          },
+          "dueState": {
+            "type": "string",
+            "enum": [
+              "ON_TRACK",
+              "DUE_SOON",
+              "OVERDUE",
+              "COMPLETED",
+              "CANCELLED"
+            ]
+          },
+          "dueAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "assignedTo": {
+            "$ref": "#/components/schemas/TrainingUserSummaryDto"
+          },
+          "assignedBy": {
+            "$ref": "#/components/schemas/TrainingUserSummaryDto"
+          },
+          "document": {
+            "$ref": "#/components/schemas/TrainingDocumentSummaryDto"
+          },
+          "documentVersion": {
+            "$ref": "#/components/schemas/TrainingDocumentVersionSummaryDto"
+          },
+          "meaning": {
+            "type": "string",
+            "enum": [
+              "TRAINING_ACKNOWLEDGEMENT"
+            ],
+            "nullable": true
+          },
+          "authenticationMethod": {
+            "type": "string",
+            "enum": [
+              "PASSWORD_REAUTHENTICATION"
+            ],
+            "nullable": true
+          },
+          "completionComment": {
+            "type": "object",
+            "nullable": true
+          },
+          "completedAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          },
+          "cancelledBy": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TrainingUserSummaryDto"
+              }
+            ]
+          },
+          "cancelledAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          },
+          "cancellationReason": {
+            "type": "object",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "dueState",
+          "dueAt",
+          "reason",
+          "assignedTo",
+          "assignedBy",
+          "document",
+          "documentVersion",
+          "createdAt"
+        ]
+      },
+      "TrainingAssignmentDetailResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ASSIGNED",
+              "COMPLETED",
+              "CANCELLED"
+            ]
+          },
+          "dueState": {
+            "type": "string",
+            "enum": [
+              "ON_TRACK",
+              "DUE_SOON",
+              "OVERDUE",
+              "COMPLETED",
+              "CANCELLED"
+            ]
+          },
+          "dueAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "assignedTo": {
+            "$ref": "#/components/schemas/TrainingUserSummaryDto"
+          },
+          "assignedBy": {
+            "$ref": "#/components/schemas/TrainingUserSummaryDto"
+          },
+          "document": {
+            "$ref": "#/components/schemas/TrainingDocumentSummaryDto"
+          },
+          "documentVersion": {
+            "$ref": "#/components/schemas/TrainingDocumentVersionSummaryDto"
+          },
+          "meaning": {
+            "type": "string",
+            "enum": [
+              "TRAINING_ACKNOWLEDGEMENT"
+            ],
+            "nullable": true
+          },
+          "authenticationMethod": {
+            "type": "string",
+            "enum": [
+              "PASSWORD_REAUTHENTICATION"
+            ],
+            "nullable": true
+          },
+          "completionComment": {
+            "type": "object",
+            "nullable": true
+          },
+          "completedAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          },
+          "cancelledBy": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TrainingUserSummaryDto"
+              }
+            ]
+          },
+          "cancelledAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          },
+          "cancellationReason": {
+            "type": "object",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "content": {
+            "type": "string"
+          },
+          "recordHash": {
+            "type": "object",
+            "pattern": "^[0-9a-f]{64}$",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "dueState",
+          "dueAt",
+          "reason",
+          "assignedTo",
+          "assignedBy",
+          "document",
+          "documentVersion",
+          "createdAt",
+          "content"
+        ]
+      },
+      "CreateTrainingAssignmentsDto": {
+        "type": "object",
+        "properties": {
+          "documentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "assigneeUserIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "dueAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": "string",
+            "example": "Required reading after controlled release."
+          }
+        },
+        "required": [
+          "documentId",
+          "assigneeUserIds",
+          "dueAt",
+          "reason"
+        ]
+      },
+      "CompleteTrainingAssignmentDto": {
+        "type": "object",
+        "properties": {
+          "comment": {
+            "type": "string",
+            "example": "I reviewed the effective procedure and its responsibilities."
+          },
+          "password": {
+            "type": "string",
+            "example": "current account password",
+            "writeOnly": true
+          },
+          "attestationAccepted": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "comment",
+          "password",
+          "attestationAccepted"
+        ]
+      },
+      "CancelTrainingAssignmentDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "example": "Assignment replaced after a training impact reassessment."
+          }
+        },
+        "required": [
+          "reason"
         ]
       },
       "CreateInvitationDto": {

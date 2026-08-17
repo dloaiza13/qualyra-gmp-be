@@ -106,6 +106,20 @@ enum DocumentPeriodicReviewDecision {
   REVISION_REQUIRED
 }
 
+enum TrainingAssignmentStatus {
+  ASSIGNED
+  COMPLETED
+  CANCELLED
+}
+
+enum TrainingSignatureMeaning {
+  TRAINING_ACKNOWLEDGEMENT
+}
+
+enum TrainingAuthenticationMethod {
+  PASSWORD_REAUTHENTICATION
+}
+
 model Tenant {
   id                      String                   @id @default(uuid()) @db.Uuid
   name                    String                   @db.VarChar(200)
@@ -132,6 +146,7 @@ model Tenant {
   documentReleases        DocumentRelease[]
   documentObsolescences   DocumentObsolescence[]
   documentPeriodicReviews DocumentPeriodicReview[]
+  trainingAssignments     TrainingAssignment[]
 
   @@map("tenants")
 }
@@ -169,6 +184,9 @@ model User {
   documentsPeriodicReviewConfigured Document[]               @relation("DocumentPeriodicReviewConfiguration")
   documentPeriodicReviewAssignments DocumentPeriodicReview[] @relation("DocumentPeriodicReviewAssignee")
   documentPeriodicReviewsScheduled  DocumentPeriodicReview[] @relation("DocumentPeriodicReviewScheduler")
+  trainingAssignmentsReceived       TrainingAssignment[]     @relation("TrainingAssignmentAssignee")
+  trainingAssignmentsCreated        TrainingAssignment[]     @relation("TrainingAssignmentCreator")
+  trainingAssignmentsCancelled      TrainingAssignment[]     @relation("TrainingAssignmentCanceller")
 
   @@unique([tenantId, id], map: "users_tenant_id_id_key")
   @@unique([tenantId, email], map: "users_tenant_id_email_key")
@@ -249,6 +267,7 @@ model Session {
   refreshTokens         RefreshToken[]
   documentReleases      DocumentRelease[]      @relation("DocumentReleaseSession")
   documentObsolescences DocumentObsolescence[] @relation("DocumentObsolescenceSession")
+  trainingCompletions   TrainingAssignment[]   @relation("TrainingCompletionSession")
 
   @@unique([tenantId, userId, id], map: "sessions_tenant_id_user_id_id_key")
   @@index([tenantId, userId, status], map: "sessions_tenant_id_user_id_status_idx")
@@ -410,6 +429,7 @@ model Document {
   releases                     DocumentRelease[]
   obsolescences                DocumentObsolescence[]
   periodicReviews              DocumentPeriodicReview[]
+  trainingAssignments          TrainingAssignment[]
 
   @@unique([tenantId, id], map: "documents_tenant_id_id_key")
   @@unique([tenantId, code], map: "documents_tenant_id_code_key")
@@ -419,24 +439,25 @@ model Document {
 }
 
 model DocumentVersion {
-  id              String                   @id @default(uuid()) @db.Uuid
-  tenantId        String                   @map("tenant_id") @db.Uuid
-  documentId      String                   @map("document_id") @db.Uuid
-  versionNumber   Int                      @map("version_number")
-  title           String                   @db.VarChar(300)
-  description     String?                  @db.VarChar(2000)
-  content         String
-  changeSummary   String                   @map("change_summary") @db.VarChar(500)
-  status          DocumentVersionStatus    @default(DRAFT)
-  createdByUserId String                   @map("created_by_user_id") @db.Uuid
-  createdAt       DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
-  tenant          Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  document        Document                 @relation(fields: [tenantId, documentId], references: [tenantId, id], onDelete: Restrict)
-  createdByUser   User                     @relation("DocumentVersionCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
-  workflow        DocumentWorkflow?
-  release         DocumentRelease?
-  obsolescence    DocumentObsolescence?
-  periodicReviews DocumentPeriodicReview[]
+  id                  String                   @id @default(uuid()) @db.Uuid
+  tenantId            String                   @map("tenant_id") @db.Uuid
+  documentId          String                   @map("document_id") @db.Uuid
+  versionNumber       Int                      @map("version_number")
+  title               String                   @db.VarChar(300)
+  description         String?                  @db.VarChar(2000)
+  content             String
+  changeSummary       String                   @map("change_summary") @db.VarChar(500)
+  status              DocumentVersionStatus    @default(DRAFT)
+  createdByUserId     String                   @map("created_by_user_id") @db.Uuid
+  createdAt           DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant              Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  document            Document                 @relation(fields: [tenantId, documentId], references: [tenantId, id], onDelete: Restrict)
+  createdByUser       User                     @relation("DocumentVersionCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
+  workflow            DocumentWorkflow?
+  release             DocumentRelease?
+  obsolescence        DocumentObsolescence?
+  periodicReviews     DocumentPeriodicReview[]
+  trainingAssignments TrainingAssignment[]
 
   @@unique([tenantId, id], map: "document_versions_tenant_id_id_key")
   @@unique([tenantId, documentId, id], map: "document_versions_tenant_document_id_id_key")
@@ -558,4 +579,40 @@ model DocumentPeriodicReview {
   @@index([tenantId, assignedToUserId, status, dueAt], map: "document_periodic_reviews_assignee_status_due_idx")
   @@index([tenantId, status, dueAt], map: "document_periodic_reviews_status_due_idx")
   @@map("document_periodic_reviews")
+}
+
+model TrainingAssignment {
+  id                   String                        @id @default(uuid()) @db.Uuid
+  tenantId             String                        @map("tenant_id") @db.Uuid
+  documentId           String                        @map("document_id") @db.Uuid
+  documentVersionId    String                        @map("document_version_id") @db.Uuid
+  assignedToUserId     String                        @map("assigned_to_user_id") @db.Uuid
+  assignedByUserId     String                        @map("assigned_by_user_id") @db.Uuid
+  status               TrainingAssignmentStatus      @default(ASSIGNED)
+  dueAt                DateTime                      @map("due_at") @db.Timestamptz(3)
+  reason               String                        @db.VarChar(500)
+  meaning              TrainingSignatureMeaning?
+  authenticationMethod TrainingAuthenticationMethod? @map("authentication_method")
+  completionSessionId  String?                       @map("completion_session_id") @db.Uuid
+  completionComment    String?                       @map("completion_comment") @db.VarChar(2000)
+  completedAt          DateTime?                     @map("completed_at") @db.Timestamptz(3)
+  recordHash           String?                       @map("record_hash") @db.Char(64)
+  cancelledByUserId    String?                       @map("cancelled_by_user_id") @db.Uuid
+  cancelledAt          DateTime?                     @map("cancelled_at") @db.Timestamptz(3)
+  cancellationReason   String?                       @map("cancellation_reason") @db.VarChar(500)
+  createdAt            DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime                      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant               Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  document             Document                      @relation(fields: [tenantId, documentId], references: [tenantId, id], onDelete: Restrict)
+  documentVersion      DocumentVersion               @relation(fields: [tenantId, documentId, documentVersionId], references: [tenantId, documentId, id], onDelete: Restrict)
+  assignedToUser       User                          @relation("TrainingAssignmentAssignee", fields: [tenantId, assignedToUserId], references: [tenantId, id], onDelete: Restrict)
+  assignedByUser       User                          @relation("TrainingAssignmentCreator", fields: [tenantId, assignedByUserId], references: [tenantId, id], onDelete: Restrict)
+  cancelledByUser      User?                         @relation("TrainingAssignmentCanceller", fields: [tenantId, cancelledByUserId], references: [tenantId, id], onDelete: Restrict)
+  completionSession    Session?                      @relation("TrainingCompletionSession", fields: [tenantId, assignedToUserId, completionSessionId], references: [tenantId, userId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id], map: "training_assignments_tenant_id_id_key")
+  @@index([tenantId, assignedToUserId, status, dueAt], map: "training_assignments_assignee_status_due_idx")
+  @@index([tenantId, documentId, documentVersionId], map: "training_assignments_document_version_idx")
+  @@index([tenantId, status, dueAt], map: "training_assignments_status_due_idx")
+  @@map("training_assignments")
 }
