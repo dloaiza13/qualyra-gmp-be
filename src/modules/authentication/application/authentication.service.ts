@@ -54,6 +54,9 @@ const initialRolePermissions: Record<(typeof initialRoles)[number], string[]> =
       'deviations.create',
       'deviations.triage',
       'deviations.investigate',
+      'capas.read',
+      'capas.create',
+      'capas.execute',
     ],
     'Document Controller': [
       'documents.read',
@@ -66,6 +69,8 @@ const initialRolePermissions: Record<(typeof initialRoles)[number], string[]> =
       'deviations.read',
       'deviations.create',
       'deviations.investigate',
+      'capas.read',
+      'capas.execute',
     ],
     Operator: [
       'documents.read',
@@ -73,6 +78,8 @@ const initialRolePermissions: Record<(typeof initialRoles)[number], string[]> =
       'training.complete',
       'deviations.read',
       'deviations.create',
+      'capas.read',
+      'capas.execute',
     ],
     Auditor: [
       'documents.read',
@@ -80,6 +87,7 @@ const initialRolePermissions: Record<(typeof initialRoles)[number], string[]> =
       'training.read',
       'training.complete',
       'deviations.read',
+      'capas.read',
       'audit.read',
     ],
   };

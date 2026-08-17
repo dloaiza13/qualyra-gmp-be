@@ -15,6 +15,9 @@ interface Fixture {
 }
 
 const tenantScopedTables = [
+  'capa_actions',
+  'capa_sequences',
+  'capas',
   'deviation_investigations',
   'deviation_sequences',
   'deviations',
@@ -460,6 +463,102 @@ describeDatabase('PostgreSQL tenant isolation', () => {
         function_name: 'guard_deviation_transition',
       },
     ]);
+  });
+
+  it('isolates CAPA data and guards plan and action evidence', async () => {
+    const privileges = await applicationPool.query<{
+      table_name: string;
+      can_select: boolean;
+      can_insert: boolean;
+      can_update: boolean;
+      can_delete: boolean;
+    }>(
+      `SELECT
+         table_name,
+         has_table_privilege(current_user, table_name, 'SELECT') AS can_select,
+         has_table_privilege(current_user, table_name, 'INSERT') AS can_insert,
+         has_table_privilege(current_user, table_name, 'UPDATE') AS can_update,
+         has_table_privilege(current_user, table_name, 'DELETE') AS can_delete
+       FROM unnest(ARRAY['capa_actions', 'capa_sequences', 'capas']) AS table_name
+       ORDER BY table_name`,
+    );
+    expect(privileges.rows).toEqual([
+      {
+        table_name: 'capa_actions',
+        can_select: true,
+        can_insert: true,
+        can_update: true,
+        can_delete: false,
+      },
+      {
+        table_name: 'capa_sequences',
+        can_select: true,
+        can_insert: true,
+        can_update: true,
+        can_delete: false,
+      },
+      {
+        table_name: 'capas',
+        can_select: true,
+        can_insert: true,
+        can_update: true,
+        can_delete: false,
+      },
+    ]);
+
+    const triggers = await ownerPool.query<{
+      table_name: string;
+      trigger_name: string;
+      function_name: string;
+    }>(
+      `SELECT
+         trigger.tgrelid::regclass::text AS table_name,
+         trigger.tgname AS trigger_name,
+         procedure.proname AS function_name
+       FROM pg_trigger trigger
+       JOIN pg_proc procedure ON procedure.oid = trigger.tgfoid
+       WHERE NOT trigger.tgisinternal
+         AND trigger.tgrelid IN (
+           'capa_actions'::regclass,
+           'capa_sequences'::regclass,
+           'capas'::regclass
+         )
+       ORDER BY table_name, trigger_name`,
+    );
+    expect(triggers.rows).toEqual(
+      expect.arrayContaining([
+        {
+          table_name: 'capa_actions',
+          trigger_name: 'capa_actions_insert_guard',
+          function_name: 'guard_capa_action_insert',
+        },
+        {
+          table_name: 'capa_actions',
+          trigger_name: 'capa_actions_transition_guard',
+          function_name: 'guard_capa_action_transition',
+        },
+        {
+          table_name: 'capa_sequences',
+          trigger_name: 'capa_sequences_update_guard',
+          function_name: 'guard_capa_sequence_update',
+        },
+        {
+          table_name: 'capas',
+          trigger_name: 'capas_insert_guard',
+          function_name: 'guard_capa_insert',
+        },
+        {
+          table_name: 'capas',
+          trigger_name: 'capas_prevent_update_delete',
+          function_name: 'prevent_capa_mutation',
+        },
+        {
+          table_name: 'capas',
+          trigger_name: 'capas_require_actions',
+          function_name: 'assert_capa_has_actions',
+        },
+      ]),
+    );
   });
 
   it('constrains lifecycle signature meanings to their record type', async () => {

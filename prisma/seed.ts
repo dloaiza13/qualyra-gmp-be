@@ -29,6 +29,9 @@ const permissions = [
   ['deviations.create', 'Report deviations.'],
   ['deviations.triage', 'Triage and cancel reported deviations.'],
   ['deviations.investigate', 'Complete assigned deviation investigations.'],
+  ['capas.read', 'View CAPA plans and action evidence.'],
+  ['capas.create', 'Create CAPA plans from completed investigations.'],
+  ['capas.execute', 'Complete assigned CAPA actions.'],
   ['audit.read', 'View audit information.'],
 ] as const;
 

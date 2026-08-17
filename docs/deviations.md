@@ -1,6 +1,6 @@
 # GMP deviations
 
-Phases 14 and 15 add tenant-isolated reporting, triage, and authenticated root-cause investigation for quality deviations. The scope ends at the immutable investigation conclusion and CAPA assessment; CAPA execution, effectiveness checks, and controlled closure remain deferred.
+Phases 14 and 15 add tenant-isolated reporting, triage, and authenticated root-cause investigation for quality deviations. Phase 16 consumes investigations requiring CAPA through the separately controlled [CAPA workflow](capa.md); effectiveness checks and controlled closure remain deferred.
 
 ## Permissions
 
@@ -61,6 +61,6 @@ All three tables use forced PostgreSQL row-level security and transaction-local 
 
 ## Deferred scope
 
-Investigation drafts and amendments, attachments, disposition, CAPA creation and linkage, extension approval, effectiveness checks, broader electronic-signature controls, closure approval, reminders, escalation, exports, and trend analytics are deferred. Organizations must operate investigation follow-up and due-date escalation procedurally until those controls are implemented and validated.
+Investigation drafts and amendments, attachments, disposition, extension approval, CAPA effectiveness checks, broader electronic-signature controls, closure approval, reminders, escalation, exports, and trend analytics are deferred. Organizations must operate investigation follow-up and due-date escalation procedurally until those controls are implemented and validated.
 
 These controls are audit-ready building blocks and do not establish GMP, ISO, FDA, or 21 CFR Part 11 compliance.

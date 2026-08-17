@@ -23,6 +23,7 @@ import { CryptoModule } from './infrastructure/crypto/crypto.module.js';
 import { PrismaModule } from './infrastructure/database/prisma/prisma.module.js';
 import { EmailModule } from './infrastructure/email/email.module.js';
 import { AuthenticationModule } from './modules/authentication/authentication.module.js';
+import { CapasModule } from './modules/capas/capas.module.js';
 import { DocumentsModule } from './modules/documents/documents.module.js';
 import { DeviationsModule } from './modules/deviations/deviations.module.js';
 import { HealthModule } from './modules/health/health.module.js';
@@ -90,6 +91,7 @@ import { TrainingModule } from './modules/training/training.module.js';
     PrismaModule,
     HealthModule,
     AuthenticationModule,
+    CapasModule,
     DocumentsModule,
     TrainingModule,
     DeviationsModule,
@@ -99,6 +101,7 @@ import { TrainingModule } from './modules/training/training.module.js';
     SecurityEventsModule,
     RouterModule.register([
       { path: 'api/v1', module: AuthenticationModule },
+      { path: 'api/v1', module: CapasModule },
       { path: 'api/v1', module: DocumentsModule },
       { path: 'api/v1', module: TrainingModule },
       { path: 'api/v1', module: DeviationsModule },

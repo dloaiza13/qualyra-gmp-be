@@ -61,6 +61,7 @@ The backend is a modular NestJS monolith with pragmatic ports and adapters, tena
 - [Controlled document lifecycle](docs/document-control.md)
 - [Document training](docs/training.md)
 - [GMP deviations](docs/deviations.md)
+- [Corrective and preventive actions (CAPA)](docs/capa.md)
 - [Phase 8 security review](docs/security-review.md)
 - [ADR-006: invitation-only organization membership](docs/adr/ADR-006-invitation-only-user-onboarding.md)
 - [ADR-008: controlled-document versioning](docs/adr/ADR-008-controlled-document-versioning.md)
@@ -71,6 +72,7 @@ The backend is a modular NestJS monolith with pragmatic ports and adapters, tena
 - [ADR-013: version-bound document training acknowledgement](docs/adr/ADR-013-version-bound-document-training-acknowledgement.md)
 - [ADR-014: immutable deviation intake and triage](docs/adr/ADR-014-immutable-deviation-intake-and-triage.md)
 - [ADR-015: authenticated immutable root-cause investigation](docs/adr/ADR-015-authenticated-immutable-root-cause-investigation.md)
+- [ADR-016: immutable CAPA plan and authenticated action execution](docs/adr/ADR-016-immutable-capa-plan-authenticated-action-execution.md)
 - [Threat model](docs/threat-model.md)
 - [Production readiness checklist](docs/production-checklist.md)
 

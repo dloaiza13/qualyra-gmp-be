@@ -148,6 +148,24 @@ enum DeviationAuthenticationMethod {
   PASSWORD_REAUTHENTICATION
 }
 
+enum CapaActionType {
+  CORRECTIVE
+  PREVENTIVE
+}
+
+enum CapaActionStatus {
+  OPEN
+  COMPLETED
+}
+
+enum CapaSignatureMeaning {
+  ACTION_COMPLETION
+}
+
+enum CapaAuthenticationMethod {
+  PASSWORD_REAUTHENTICATION
+}
+
 model Tenant {
   id                      String                   @id @default(uuid()) @db.Uuid
   name                    String                   @db.VarChar(200)
@@ -178,6 +196,9 @@ model Tenant {
   deviationSequences      DeviationSequence[]
   deviations              Deviation[]
   deviationInvestigations DeviationInvestigation[]
+  capaSequences           CapaSequence[]
+  capas                   Capa[]
+  capaActions             CapaAction[]
 
   @@map("tenants")
 }
@@ -218,11 +239,13 @@ model User {
   trainingAssignmentsReceived       TrainingAssignment[]     @relation("TrainingAssignmentAssignee")
   trainingAssignmentsCreated        TrainingAssignment[]     @relation("TrainingAssignmentCreator")
   trainingAssignmentsCancelled      TrainingAssignment[]     @relation("TrainingAssignmentCanceller")
-  deviationsReported                Deviation[]               @relation("DeviationReporter")
-  deviationInvestigations           Deviation[]               @relation("DeviationInvestigator")
-  deviationsTriaged                 Deviation[]               @relation("DeviationTriager")
-  deviationsCancelled               Deviation[]               @relation("DeviationCanceller")
-  deviationInvestigationsCompleted  DeviationInvestigation[]  @relation("DeviationInvestigationCompleter")
+  deviationsReported                Deviation[]              @relation("DeviationReporter")
+  deviationInvestigations           Deviation[]              @relation("DeviationInvestigator")
+  deviationsTriaged                 Deviation[]              @relation("DeviationTriager")
+  deviationsCancelled               Deviation[]              @relation("DeviationCanceller")
+  deviationInvestigationsCompleted  DeviationInvestigation[] @relation("DeviationInvestigationCompleter")
+  capasCreated                      Capa[]                   @relation("CapaCreator")
+  capaActionsAssigned               CapaAction[]             @relation("CapaActionAssignee")
 
   @@unique([tenantId, id], map: "users_tenant_id_id_key")
   @@unique([tenantId, email], map: "users_tenant_id_email_key")
@@ -287,24 +310,25 @@ model UserRole {
 }
 
 model Session {
-  id                    String                 @id @default(uuid()) @db.Uuid
-  tenantId              String                 @map("tenant_id") @db.Uuid
-  userId                String                 @map("user_id") @db.Uuid
-  status                SessionStatus          @default(ACTIVE)
-  userAgent             String?                @map("user_agent") @db.VarChar(1024)
-  ipAddress             String?                @map("ip_address") @db.Inet
-  createdAt             DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
-  lastUsedAt            DateTime               @default(now()) @map("last_used_at") @db.Timestamptz(3)
-  expiresAt             DateTime               @map("expires_at") @db.Timestamptz(3)
-  revokedAt             DateTime?              @map("revoked_at") @db.Timestamptz(3)
-  revokeReason          String?                @map("revoke_reason") @db.VarChar(300)
-  tenant                Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  user                  User                   @relation(fields: [tenantId, userId], references: [tenantId, id], onDelete: Restrict)
-  refreshTokens         RefreshToken[]
-  documentReleases      DocumentRelease[]      @relation("DocumentReleaseSession")
-  documentObsolescences DocumentObsolescence[] @relation("DocumentObsolescenceSession")
-  trainingCompletions   TrainingAssignment[]   @relation("TrainingCompletionSession")
+  id                                String                   @id @default(uuid()) @db.Uuid
+  tenantId                          String                   @map("tenant_id") @db.Uuid
+  userId                            String                   @map("user_id") @db.Uuid
+  status                            SessionStatus            @default(ACTIVE)
+  userAgent                         String?                  @map("user_agent") @db.VarChar(1024)
+  ipAddress                         String?                  @map("ip_address") @db.Inet
+  createdAt                         DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastUsedAt                        DateTime                 @default(now()) @map("last_used_at") @db.Timestamptz(3)
+  expiresAt                         DateTime                 @map("expires_at") @db.Timestamptz(3)
+  revokedAt                         DateTime?                @map("revoked_at") @db.Timestamptz(3)
+  revokeReason                      String?                  @map("revoke_reason") @db.VarChar(300)
+  tenant                            Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user                              User                     @relation(fields: [tenantId, userId], references: [tenantId, id], onDelete: Restrict)
+  refreshTokens                     RefreshToken[]
+  documentReleases                  DocumentRelease[]        @relation("DocumentReleaseSession")
+  documentObsolescences             DocumentObsolescence[]   @relation("DocumentObsolescenceSession")
+  trainingCompletions               TrainingAssignment[]     @relation("TrainingCompletionSession")
   deviationInvestigationCompletions DeviationInvestigation[] @relation("DeviationInvestigationSession")
+  capaActionCompletions             CapaAction[]             @relation("CapaActionCompletionSession")
 
   @@unique([tenantId, userId, id], map: "sessions_tenant_id_user_id_id_key")
   @@index([tenantId, userId, status], map: "sessions_tenant_id_user_id_status_idx")
@@ -666,33 +690,34 @@ model DeviationSequence {
 }
 
 model Deviation {
-  id                    String             @id @default(uuid()) @db.Uuid
-  tenantId              String             @map("tenant_id") @db.Uuid
-  code                  String             @db.VarChar(24)
-  title                 String             @db.VarChar(200)
-  description           String             @db.VarChar(5000)
-  area                  String             @db.VarChar(120)
-  occurredAt            DateTime           @map("occurred_at") @db.Timestamptz(3)
-  reportedByUserId      String             @map("reported_by_user_id") @db.Uuid
-  status                DeviationStatus    @default(REPORTED)
-  severity              DeviationSeverity?
-  investigatorUserId    String?            @map("investigator_user_id") @db.Uuid
-  investigationDueAt    DateTime?          @map("investigation_due_at") @db.Timestamptz(3)
-  impactAssessment      String?            @map("impact_assessment") @db.VarChar(2000)
-  containmentAction     String?            @map("containment_action") @db.VarChar(2000)
-  triagedByUserId       String?            @map("triaged_by_user_id") @db.Uuid
-  triagedAt             DateTime?          @map("triaged_at") @db.Timestamptz(3)
-  cancelledByUserId     String?            @map("cancelled_by_user_id") @db.Uuid
-  cancelledAt           DateTime?          @map("cancelled_at") @db.Timestamptz(3)
-  cancellationReason    String?            @map("cancellation_reason") @db.VarChar(500)
-  createdAt             DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt             DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
-  tenant                Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  reportedByUser        User               @relation("DeviationReporter", fields: [tenantId, reportedByUserId], references: [tenantId, id], onDelete: Restrict)
-  investigatorUser      User?              @relation("DeviationInvestigator", fields: [tenantId, investigatorUserId], references: [tenantId, id], onDelete: Restrict)
-  triagedByUser         User?              @relation("DeviationTriager", fields: [tenantId, triagedByUserId], references: [tenantId, id], onDelete: Restrict)
-  cancelledByUser       User?              @relation("DeviationCanceller", fields: [tenantId, cancelledByUserId], references: [tenantId, id], onDelete: Restrict)
-  investigation         DeviationInvestigation?
+  id                 String                  @id @default(uuid()) @db.Uuid
+  tenantId           String                  @map("tenant_id") @db.Uuid
+  code               String                  @db.VarChar(24)
+  title              String                  @db.VarChar(200)
+  description        String                  @db.VarChar(5000)
+  area               String                  @db.VarChar(120)
+  occurredAt         DateTime                @map("occurred_at") @db.Timestamptz(3)
+  reportedByUserId   String                  @map("reported_by_user_id") @db.Uuid
+  status             DeviationStatus         @default(REPORTED)
+  severity           DeviationSeverity?
+  investigatorUserId String?                 @map("investigator_user_id") @db.Uuid
+  investigationDueAt DateTime?               @map("investigation_due_at") @db.Timestamptz(3)
+  impactAssessment   String?                 @map("impact_assessment") @db.VarChar(2000)
+  containmentAction  String?                 @map("containment_action") @db.VarChar(2000)
+  triagedByUserId    String?                 @map("triaged_by_user_id") @db.Uuid
+  triagedAt          DateTime?               @map("triaged_at") @db.Timestamptz(3)
+  cancelledByUserId  String?                 @map("cancelled_by_user_id") @db.Uuid
+  cancelledAt        DateTime?               @map("cancelled_at") @db.Timestamptz(3)
+  cancellationReason String?                 @map("cancellation_reason") @db.VarChar(500)
+  createdAt          DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant             Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  reportedByUser     User                    @relation("DeviationReporter", fields: [tenantId, reportedByUserId], references: [tenantId, id], onDelete: Restrict)
+  investigatorUser   User?                   @relation("DeviationInvestigator", fields: [tenantId, investigatorUserId], references: [tenantId, id], onDelete: Restrict)
+  triagedByUser      User?                   @relation("DeviationTriager", fields: [tenantId, triagedByUserId], references: [tenantId, id], onDelete: Restrict)
+  cancelledByUser    User?                   @relation("DeviationCanceller", fields: [tenantId, cancelledByUserId], references: [tenantId, id], onDelete: Restrict)
+  investigation      DeviationInvestigation?
+  capa               Capa?
 
   @@unique([tenantId, id], map: "deviations_tenant_id_id_key")
   @@unique([tenantId, code], map: "deviations_tenant_id_code_key")
@@ -726,10 +751,76 @@ model DeviationInvestigation {
   deviation            Deviation                     @relation(fields: [tenantId, deviationId], references: [tenantId, id], onDelete: Restrict)
   completedByUser      User                          @relation("DeviationInvestigationCompleter", fields: [tenantId, completedByUserId], references: [tenantId, id], onDelete: Restrict)
   completionSession    Session                       @relation("DeviationInvestigationSession", fields: [tenantId, completedByUserId, completionSessionId], references: [tenantId, userId, id], onDelete: Restrict)
+  capa                 Capa?
 
   @@unique([tenantId, id], map: "deviation_investigations_tenant_id_id_key")
   @@unique([tenantId, deviationId], map: "deviation_investigations_tenant_deviation_key")
   @@index([tenantId, completedByUserId, completedAt], map: "deviation_investigations_completer_completed_idx")
   @@index([tenantId, requiresCapa, completedAt], map: "deviation_investigations_capa_completed_idx")
   @@map("deviation_investigations")
+}
+
+model CapaSequence {
+  tenantId   String   @map("tenant_id") @db.Uuid
+  year       Int
+  lastNumber Int      @default(0) @map("last_number")
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@id([tenantId, year])
+  @@map("capa_sequences")
+}
+
+model Capa {
+  id              String                 @id @default(uuid()) @db.Uuid
+  tenantId        String                 @map("tenant_id") @db.Uuid
+  deviationId     String                 @map("deviation_id") @db.Uuid
+  investigationId String                 @map("investigation_id") @db.Uuid
+  code            String                 @db.VarChar(25)
+  title           String                 @db.VarChar(200)
+  objective       String                 @db.VarChar(2000)
+  createdByUserId String                 @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  lockedAt        DateTime?              @map("locked_at") @db.Timestamptz(3)
+  tenant          Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  deviation       Deviation              @relation(fields: [tenantId, deviationId], references: [tenantId, id], onDelete: Restrict)
+  investigation   DeviationInvestigation @relation(fields: [tenantId, investigationId], references: [tenantId, id], onDelete: Restrict)
+  createdByUser   User                   @relation("CapaCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
+  actions         CapaAction[]
+
+  @@unique([tenantId, id], map: "capas_tenant_id_id_key")
+  @@unique([tenantId, code], map: "capas_tenant_id_code_key")
+  @@unique([tenantId, deviationId], map: "capas_tenant_deviation_key")
+  @@unique([tenantId, investigationId], map: "capas_tenant_investigation_key")
+  @@index([tenantId, createdAt], map: "capas_tenant_created_idx")
+  @@map("capas")
+}
+
+model CapaAction {
+  id                   String                    @id @default(uuid()) @db.Uuid
+  tenantId             String                    @map("tenant_id") @db.Uuid
+  capaId               String                    @map("capa_id") @db.Uuid
+  type                 CapaActionType
+  title                String                    @db.VarChar(200)
+  description          String                    @db.VarChar(2000)
+  assignedToUserId     String                    @map("assigned_to_user_id") @db.Uuid
+  dueAt                DateTime                  @map("due_at") @db.Timestamptz(3)
+  status               CapaActionStatus          @default(OPEN)
+  completionSessionId  String?                   @map("completion_session_id") @db.Uuid
+  meaning              CapaSignatureMeaning?
+  authenticationMethod CapaAuthenticationMethod? @map("authentication_method")
+  completionComment    String?                   @map("completion_comment") @db.VarChar(2000)
+  completedAt          DateTime?                 @map("completed_at") @db.Timestamptz(3)
+  recordHash           String?                   @map("record_hash") @db.Char(64)
+  createdAt            DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant               Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  capa                 Capa                      @relation(fields: [tenantId, capaId], references: [tenantId, id], onDelete: Restrict)
+  assignedToUser       User                      @relation("CapaActionAssignee", fields: [tenantId, assignedToUserId], references: [tenantId, id], onDelete: Restrict)
+  completionSession    Session?                  @relation("CapaActionCompletionSession", fields: [tenantId, assignedToUserId, completionSessionId], references: [tenantId, userId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id], map: "capa_actions_tenant_id_id_key")
+  @@index([tenantId, capaId, status, dueAt], map: "capa_actions_capa_status_due_idx")
+  @@index([tenantId, assignedToUserId, status, dueAt], map: "capa_actions_assignee_status_due_idx")
+  @@index([tenantId, status, dueAt], map: "capa_actions_status_due_idx")
+  @@map("capa_actions")
 }
