@@ -70,6 +70,7 @@ The backend is a modular NestJS monolith with pragmatic ports and adapters, tena
 - [ADR-012: recurring periodic review of effective documents](docs/adr/ADR-012-recurring-periodic-document-review.md)
 - [ADR-013: version-bound document training acknowledgement](docs/adr/ADR-013-version-bound-document-training-acknowledgement.md)
 - [ADR-014: immutable deviation intake and triage](docs/adr/ADR-014-immutable-deviation-intake-and-triage.md)
+- [ADR-015: authenticated immutable root-cause investigation](docs/adr/ADR-015-authenticated-immutable-root-cause-investigation.md)
 - [Threat model](docs/threat-model.md)
 - [Production readiness checklist](docs/production-checklist.md)
 

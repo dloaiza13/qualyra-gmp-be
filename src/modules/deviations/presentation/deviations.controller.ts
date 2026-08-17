@@ -25,6 +25,7 @@ import { Permissions } from '../../authorization/presentation/permissions.decora
 import { PermissionsGuard } from '../../authorization/presentation/permissions.guard.js';
 import {
   CancelDeviationDto,
+  CompleteDeviationInvestigationDto,
   CreateDeviationDto,
   DeviationListQueryDto,
   TriageDeviationDto,
@@ -100,6 +101,23 @@ export class DeviationsController {
     @Req() request: Request & RequestWithContext,
   ): Promise<DeviationDetailResponseDto> {
     return this.deviations.cancel(
+      principal,
+      deviationId,
+      input,
+      requestMetadata(request),
+    );
+  }
+
+  @Post(':deviationId/investigation/complete')
+  @Permissions('deviations.investigate')
+  @ApiCreatedResponse({ type: DeviationDetailResponseDto })
+  completeInvestigation(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+    @Param('deviationId', new ParseUUIDPipe()) deviationId: string,
+    @Body() input: CompleteDeviationInvestigationDto,
+    @Req() request: Request & RequestWithContext,
+  ): Promise<DeviationDetailResponseDto> {
+    return this.deviations.completeInvestigation(
       principal,
       deviationId,
       input,

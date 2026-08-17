@@ -28,6 +28,7 @@ const permissions = [
   ['deviations.read', 'View deviations.'],
   ['deviations.create', 'Report deviations.'],
   ['deviations.triage', 'Triage and cancel reported deviations.'],
+  ['deviations.investigate', 'Complete assigned deviation investigations.'],
   ['audit.read', 'View audit information.'],
 ] as const;
 

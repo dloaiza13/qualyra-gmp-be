@@ -15,6 +15,7 @@ interface Fixture {
 }
 
 const tenantScopedTables = [
+  'deviation_investigations',
   'deviation_sequences',
   'deviations',
   'document_obsolescences',
@@ -394,7 +395,7 @@ describeDatabase('PostgreSQL tenant isolation', () => {
          has_table_privilege(current_user, table_name, 'INSERT') AS can_insert,
          has_table_privilege(current_user, table_name, 'UPDATE') AS can_update,
          has_table_privilege(current_user, table_name, 'DELETE') AS can_delete
-       FROM unnest(ARRAY['deviation_sequences', 'deviations']) AS table_name
+       FROM unnest(ARRAY['deviation_investigations', 'deviation_sequences', 'deviations']) AS table_name
        ORDER BY table_name`,
     );
     const triggers = await ownerPool.query<{
@@ -409,13 +410,24 @@ describeDatabase('PostgreSQL tenant isolation', () => {
        FROM pg_trigger AS trigger
        JOIN pg_proc AS function ON function.oid = trigger.tgfoid
        WHERE trigger.tgrelid = ANY(
-         ARRAY['deviation_sequences'::regclass, 'deviations'::regclass]
+         ARRAY[
+           'deviation_investigations'::regclass,
+           'deviation_sequences'::regclass,
+           'deviations'::regclass
+         ]
        )
          AND NOT trigger.tgisinternal
        ORDER BY table_name`,
     );
 
     expect(privileges.rows).toEqual([
+      {
+        table_name: 'deviation_investigations',
+        can_select: true,
+        can_insert: true,
+        can_update: false,
+        can_delete: false,
+      },
       {
         table_name: 'deviation_sequences',
         can_select: true,
@@ -432,6 +444,11 @@ describeDatabase('PostgreSQL tenant isolation', () => {
       },
     ]);
     expect(triggers.rows).toEqual([
+      {
+        table_name: 'deviation_investigations',
+        trigger_name: 'deviation_investigations_prevent_update_delete',
+        function_name: 'prevent_deviation_investigation_mutation',
+      },
       {
         table_name: 'deviation_sequences',
         trigger_name: 'deviation_sequences_update_guard',

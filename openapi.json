@@ -1275,6 +1275,7 @@
               "enum": [
                 "REPORTED",
                 "UNDER_INVESTIGATION",
+                "INVESTIGATION_COMPLETED",
                 "CANCELLED"
               ]
             }
@@ -1460,6 +1461,51 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/CancelDeviationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviationDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Deviations"
+        ]
+      }
+    },
+    "/api/v1/deviations/{deviationId}/investigation/complete": {
+      "post": {
+        "operationId": "DeviationsController_completeInvestigation",
+        "parameters": [
+          {
+            "name": "deviationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteDeviationInvestigationDto"
               }
             }
           }
@@ -3584,6 +3630,7 @@
             "enum": [
               "REPORTED",
               "UNDER_INVESTIGATION",
+              "INVESTIGATION_COMPLETED",
               "CANCELLED"
             ]
           },
@@ -3602,7 +3649,8 @@
               "NOT_APPLICABLE",
               "ON_TRACK",
               "DUE_SOON",
-              "OVERDUE"
+              "OVERDUE",
+              "COMPLETED"
             ]
           },
           "reportedBy": {
@@ -3622,6 +3670,15 @@
             "format": "date-time",
             "nullable": true
           },
+          "requiresCapa": {
+            "type": "object",
+            "nullable": true
+          },
+          "investigationCompletedAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -3637,6 +3694,89 @@
           "dueState",
           "reportedBy",
           "createdAt"
+        ]
+      },
+      "DeviationInvestigationResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "FIVE_WHYS",
+              "ISHIKAWA",
+              "FAULT_TREE_ANALYSIS",
+              "OTHER"
+            ]
+          },
+          "problemStatement": {
+            "type": "string"
+          },
+          "chronology": {
+            "type": "string"
+          },
+          "immediateCause": {
+            "type": "string"
+          },
+          "rootCause": {
+            "type": "string"
+          },
+          "contributingFactors": {
+            "type": "string"
+          },
+          "productImpact": {
+            "type": "string"
+          },
+          "requiresCapa": {
+            "type": "boolean"
+          },
+          "capaRationale": {
+            "type": "string"
+          },
+          "completedBy": {
+            "$ref": "#/components/schemas/DeviationUserSummaryDto"
+          },
+          "meaning": {
+            "type": "string",
+            "enum": [
+              "INVESTIGATION_COMPLETION"
+            ]
+          },
+          "authenticationMethod": {
+            "type": "string",
+            "enum": [
+              "PASSWORD_REAUTHENTICATION"
+            ]
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "recordHash": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "id",
+          "method",
+          "problemStatement",
+          "chronology",
+          "immediateCause",
+          "rootCause",
+          "contributingFactors",
+          "productImpact",
+          "requiresCapa",
+          "capaRationale",
+          "completedBy",
+          "meaning",
+          "authenticationMethod",
+          "completedAt",
+          "recordHash"
         ]
       },
       "DeviationDetailResponseDto": {
@@ -3665,6 +3805,7 @@
             "enum": [
               "REPORTED",
               "UNDER_INVESTIGATION",
+              "INVESTIGATION_COMPLETED",
               "CANCELLED"
             ]
           },
@@ -3683,7 +3824,8 @@
               "NOT_APPLICABLE",
               "ON_TRACK",
               "DUE_SOON",
-              "OVERDUE"
+              "OVERDUE",
+              "COMPLETED"
             ]
           },
           "reportedBy": {
@@ -3699,6 +3841,15 @@
             ]
           },
           "investigationDueAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          },
+          "requiresCapa": {
+            "type": "object",
+            "nullable": true
+          },
+          "investigationCompletedAt": {
             "type": "object",
             "format": "date-time",
             "nullable": true
@@ -3749,6 +3900,15 @@
           "cancellationReason": {
             "type": "object",
             "nullable": true
+          },
+          "investigation": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DeviationInvestigationResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -3837,6 +3997,73 @@
         },
         "required": [
           "reason"
+        ]
+      },
+      "CompleteDeviationInvestigationDto": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "FIVE_WHYS",
+              "ISHIKAWA",
+              "FAULT_TREE_ANALYSIS",
+              "OTHER"
+            ]
+          },
+          "problemStatement": {
+            "type": "string",
+            "example": "The warehouse temperature exceeded its approved limit."
+          },
+          "chronology": {
+            "type": "string",
+            "example": "08:00 material staged; 08:10 alarm recorded; 08:20 material segregated."
+          },
+          "immediateCause": {
+            "type": "string",
+            "example": "The cooling unit stopped after a protection relay opened."
+          },
+          "rootCause": {
+            "type": "string",
+            "example": "Preventive maintenance did not include relay degradation checks."
+          },
+          "contributingFactors": {
+            "type": "string",
+            "example": "Alarm escalation instructions were not available at the staging point."
+          },
+          "productImpact": {
+            "type": "string",
+            "example": "Stability data support the recorded duration and temperature range."
+          },
+          "requiresCapa": {
+            "type": "boolean"
+          },
+          "capaRationale": {
+            "type": "string",
+            "example": "A CAPA is required to revise maintenance and escalation controls."
+          },
+          "password": {
+            "type": "string",
+            "example": "current account password",
+            "writeOnly": true
+          },
+          "attestationAccepted": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "method",
+          "problemStatement",
+          "chronology",
+          "immediateCause",
+          "rootCause",
+          "contributingFactors",
+          "productImpact",
+          "requiresCapa",
+          "capaRationale",
+          "password",
+          "attestationAccepted"
         ]
       },
       "CreateInvitationDto": {

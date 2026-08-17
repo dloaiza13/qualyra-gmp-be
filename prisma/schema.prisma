@@ -123,6 +123,7 @@ enum TrainingAuthenticationMethod {
 enum DeviationStatus {
   REPORTED
   UNDER_INVESTIGATION
+  INVESTIGATION_COMPLETED
   CANCELLED
 }
 
@@ -130,6 +131,21 @@ enum DeviationSeverity {
   MINOR
   MAJOR
   CRITICAL
+}
+
+enum DeviationRootCauseMethod {
+  FIVE_WHYS
+  ISHIKAWA
+  FAULT_TREE_ANALYSIS
+  OTHER
+}
+
+enum DeviationSignatureMeaning {
+  INVESTIGATION_COMPLETION
+}
+
+enum DeviationAuthenticationMethod {
+  PASSWORD_REAUTHENTICATION
 }
 
 model Tenant {
@@ -161,6 +177,7 @@ model Tenant {
   trainingAssignments     TrainingAssignment[]
   deviationSequences      DeviationSequence[]
   deviations              Deviation[]
+  deviationInvestigations DeviationInvestigation[]
 
   @@map("tenants")
 }
@@ -205,6 +222,7 @@ model User {
   deviationInvestigations           Deviation[]               @relation("DeviationInvestigator")
   deviationsTriaged                 Deviation[]               @relation("DeviationTriager")
   deviationsCancelled               Deviation[]               @relation("DeviationCanceller")
+  deviationInvestigationsCompleted  DeviationInvestigation[]  @relation("DeviationInvestigationCompleter")
 
   @@unique([tenantId, id], map: "users_tenant_id_id_key")
   @@unique([tenantId, email], map: "users_tenant_id_email_key")
@@ -286,6 +304,7 @@ model Session {
   documentReleases      DocumentRelease[]      @relation("DocumentReleaseSession")
   documentObsolescences DocumentObsolescence[] @relation("DocumentObsolescenceSession")
   trainingCompletions   TrainingAssignment[]   @relation("TrainingCompletionSession")
+  deviationInvestigationCompletions DeviationInvestigation[] @relation("DeviationInvestigationSession")
 
   @@unique([tenantId, userId, id], map: "sessions_tenant_id_user_id_id_key")
   @@index([tenantId, userId, status], map: "sessions_tenant_id_user_id_status_idx")
@@ -673,6 +692,7 @@ model Deviation {
   investigatorUser      User?              @relation("DeviationInvestigator", fields: [tenantId, investigatorUserId], references: [tenantId, id], onDelete: Restrict)
   triagedByUser         User?              @relation("DeviationTriager", fields: [tenantId, triagedByUserId], references: [tenantId, id], onDelete: Restrict)
   cancelledByUser       User?              @relation("DeviationCanceller", fields: [tenantId, cancelledByUserId], references: [tenantId, id], onDelete: Restrict)
+  investigation         DeviationInvestigation?
 
   @@unique([tenantId, id], map: "deviations_tenant_id_id_key")
   @@unique([tenantId, code], map: "deviations_tenant_id_code_key")
@@ -680,4 +700,36 @@ model Deviation {
   @@index([tenantId, severity, investigationDueAt], map: "deviations_tenant_severity_due_idx")
   @@index([tenantId, investigatorUserId, status], map: "deviations_tenant_investigator_status_idx")
   @@map("deviations")
+}
+
+model DeviationInvestigation {
+  id                   String                        @id @default(uuid()) @db.Uuid
+  tenantId             String                        @map("tenant_id") @db.Uuid
+  deviationId          String                        @map("deviation_id") @db.Uuid
+  method               DeviationRootCauseMethod
+  problemStatement     String                        @map("problem_statement") @db.VarChar(2000)
+  chronology           String                        @db.VarChar(5000)
+  immediateCause       String                        @map("immediate_cause") @db.VarChar(2000)
+  rootCause            String                        @map("root_cause") @db.VarChar(5000)
+  contributingFactors  String                        @map("contributing_factors") @db.VarChar(5000)
+  productImpact        String                        @map("product_impact") @db.VarChar(5000)
+  requiresCapa         Boolean                       @map("requires_capa")
+  capaRationale        String                        @map("capa_rationale") @db.VarChar(2000)
+  completedByUserId    String                        @map("completed_by_user_id") @db.Uuid
+  completionSessionId  String                        @map("completion_session_id") @db.Uuid
+  meaning              DeviationSignatureMeaning
+  authenticationMethod DeviationAuthenticationMethod @map("authentication_method")
+  completedAt          DateTime                      @map("completed_at") @db.Timestamptz(3)
+  recordHash           String                        @map("record_hash") @db.Char(64)
+  createdAt            DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant               Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  deviation            Deviation                     @relation(fields: [tenantId, deviationId], references: [tenantId, id], onDelete: Restrict)
+  completedByUser      User                          @relation("DeviationInvestigationCompleter", fields: [tenantId, completedByUserId], references: [tenantId, id], onDelete: Restrict)
+  completionSession    Session                       @relation("DeviationInvestigationSession", fields: [tenantId, completedByUserId, completionSessionId], references: [tenantId, userId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id], map: "deviation_investigations_tenant_id_id_key")
+  @@unique([tenantId, deviationId], map: "deviation_investigations_tenant_deviation_key")
+  @@index([tenantId, completedByUserId, completedAt], map: "deviation_investigations_completer_completed_idx")
+  @@index([tenantId, requiresCapa, completedAt], map: "deviation_investigations_capa_completed_idx")
+  @@map("deviation_investigations")
 }

@@ -32,10 +32,21 @@ interface DeviationBody {
   reportedBy: { id: string };
   investigator: { id: string } | null;
   investigationDueAt: string | null;
+  requiresCapa?: boolean | null;
+  investigationCompletedAt?: string | null;
   description?: string;
   impactAssessment?: string | null;
   containmentAction?: string | null;
   cancellationReason?: string | null;
+  investigation?: {
+    method: string;
+    rootCause: string;
+    requiresCapa: boolean;
+    completedBy: { id: string };
+    meaning: string;
+    authenticationMethod: string;
+    recordHash: string;
+  } | null;
 }
 
 interface ErrorBody {
@@ -99,10 +110,14 @@ describeDatabase('Deviation intake and triage', () => {
         'deviations.read',
         'deviations.create',
         'deviations.triage',
+        'deviations.investigate',
       ]),
     );
     expect(operatorRole.permissions.map(({ code }) => code)).toEqual(
       expect.arrayContaining(['deviations.read', 'deviations.create']),
+    );
+    expect(controllerRole.permissions.map(({ code }) => code)).toEqual(
+      expect.arrayContaining(['deviations.read', 'deviations.investigate']),
     );
 
     const reporter = await inviteAndAccept(
@@ -213,6 +228,63 @@ describeDatabase('Deviation intake and triage', () => {
       .set(authA)
       .send({ reason: 'Triaged evidence cannot be cancelled.' })
       .expect(409);
+
+    await request(server)
+      .post(`/api/v1/deviations/${first.id}/investigation/complete`)
+      .set(bearer(reporter.accessToken))
+      .send(investigationInput('Deviation reporter passphrase 2026'))
+      .expect(403);
+    await request(server)
+      .post(`/api/v1/deviations/${first.id}/investigation/complete`)
+      .set(authA)
+      .send(investigationInput('Administration passphrase! 2026'))
+      .expect(403)
+      .expect(({ body }: { body: ErrorBody }) => {
+        expect(body.code).toBe('DEVIATION_INVESTIGATION_FORBIDDEN');
+      });
+    await request(server)
+      .post(`/api/v1/deviations/${first.id}/investigation/complete`)
+      .set(bearer(investigator.accessToken))
+      .send(investigationInput('Incorrect investigator password'))
+      .expect(403)
+      .expect(({ body }: { body: ErrorBody }) => {
+        expect(body.code).toBe('REAUTHENTICATION_FAILED');
+      });
+
+    const completions = await Promise.all([
+      request(server)
+        .post(`/api/v1/deviations/${first.id}/investigation/complete`)
+        .set(bearer(investigator.accessToken))
+        .send(investigationInput('Deviation investigator passphrase 2026')),
+      request(server)
+        .post(`/api/v1/deviations/${first.id}/investigation/complete`)
+        .set(bearer(investigator.accessToken))
+        .send(investigationInput('Deviation investigator passphrase 2026')),
+    ]);
+    expect(completions.map(({ status }) => status).sort()).toEqual([201, 409]);
+    const successfulCompletion = completions.find(
+      ({ status }) => status === 201,
+    );
+    if (!successfulCompletion)
+      throw new Error('Deviation investigation was not completed.');
+    const completed = bodyAs<DeviationBody>(successfulCompletion);
+    expect(completed).toMatchObject({
+      status: 'INVESTIGATION_COMPLETED',
+      dueState: 'COMPLETED',
+      requiresCapa: true,
+      investigator: { id: investigator.user.id },
+      investigation: {
+        method: 'FIVE_WHYS',
+        rootCause:
+          'Preventive maintenance did not include relay degradation checks.',
+        requiresCapa: true,
+        completedBy: { id: investigator.user.id },
+        meaning: 'INVESTIGATION_COMPLETION',
+        authenticationMethod: 'PASSWORD_REAUTHENTICATION',
+      },
+    });
+    expect(completed.investigation?.recordHash).toMatch(/^[0-9a-f]{64}$/);
+
     await request(server)
       .post(`/api/v1/deviations/${second.id}/cancel`)
       .set(bearer(reporter.accessToken))
@@ -238,6 +310,7 @@ describeDatabase('Deviation intake and triage', () => {
     );
     expect(listed).toHaveLength(1);
     expect(JSON.stringify(listed)).not.toContain('impactAssessment');
+    expect(JSON.stringify(listed)).not.toContain('rootCause');
     await request(server)
       .get('/api/v1/deviations')
       .set(authB)
@@ -251,6 +324,7 @@ describeDatabase('Deviation intake and triage', () => {
         .expect(200),
     );
     expect(detail.description).toContain('Temperature');
+    expect(detail.investigation?.rootCause).toContain('relay degradation');
 
     const events = bodyAs<{ eventType: string }[]>(
       await request(server)
@@ -263,6 +337,8 @@ describeDatabase('Deviation intake and triage', () => {
         'DEVIATION_REPORTED',
         'DEVIATION_TRIAGED',
         'DEVIATION_CANCELLED',
+        'DEVIATION_INVESTIGATION_REAUTHENTICATION_FAILED',
+        'DEVIATION_INVESTIGATION_COMPLETED',
       ]),
     );
   }, 120_000);
@@ -286,6 +362,27 @@ function triageInput(investigatorUserId: string) {
     ).toISOString(),
     impactAssessment: 'Potential impact is limited to the staged material.',
     containmentAction: 'The affected material was segregated and labelled.',
+  };
+}
+
+function investigationInput(password: string) {
+  return {
+    method: 'FIVE_WHYS',
+    problemStatement: 'The warehouse temperature exceeded its approved limit.',
+    chronology:
+      '08:00 material staged; 08:10 alarm recorded; 08:20 material segregated.',
+    immediateCause: 'The cooling unit stopped after a protection relay opened.',
+    rootCause:
+      'Preventive maintenance did not include relay degradation checks.',
+    contributingFactors:
+      'Alarm escalation instructions were not available at the staging point.',
+    productImpact:
+      'Stability data support the recorded duration and temperature range.',
+    requiresCapa: true,
+    capaRationale:
+      'A CAPA is required to revise maintenance and alarm escalation controls.',
+    password,
+    attestationAccepted: true,
   };
 }
 

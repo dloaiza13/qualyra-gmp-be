@@ -53,6 +53,7 @@ const initialRolePermissions: Record<(typeof initialRoles)[number], string[]> =
       'deviations.read',
       'deviations.create',
       'deviations.triage',
+      'deviations.investigate',
     ],
     'Document Controller': [
       'documents.read',
@@ -64,6 +65,7 @@ const initialRolePermissions: Record<(typeof initialRoles)[number], string[]> =
       'training.complete',
       'deviations.read',
       'deviations.create',
+      'deviations.investigate',
     ],
     Operator: [
       'documents.read',

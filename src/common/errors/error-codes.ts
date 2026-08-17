@@ -16,6 +16,7 @@ export const ErrorCode = {
   DocumentWorkflowInvalid: 'DOCUMENT_WORKFLOW_INVALID',
   DocumentVersionConflict: 'DOCUMENT_VERSION_CONFLICT',
   DeviationConflict: 'DEVIATION_CONFLICT',
+  DeviationInvestigationForbidden: 'DEVIATION_INVESTIGATION_FORBIDDEN',
   DeviationInvalid: 'DEVIATION_INVALID',
   DeviationNotFound: 'DEVIATION_NOT_FOUND',
   InternalError: 'INTERNAL_ERROR',

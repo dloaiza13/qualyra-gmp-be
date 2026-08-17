@@ -1,13 +1,16 @@
+import { createHash, randomUUID } from 'node:crypto';
 import { HttpStatus, Injectable } from '@nestjs/common';
 import type { Prisma } from '../../../generated/prisma/client.js';
 import { ApplicationError } from '../../../common/errors/application-error.js';
 import { ErrorCode } from '../../../common/errors/error-codes.js';
+import { PasswordHasher } from '../../../infrastructure/crypto/password-hasher.js';
 import type { RequestMetadata } from '../../authentication/application/request-metadata.js';
 import type { AuthenticatedPrincipal } from '../../authentication/domain/authenticated-principal.js';
 import { appendSecurityEvent } from '../../security-events/application/append-security-event.js';
 import { TenantUnitOfWork } from '../../tenancy/application/ports/tenant-unit-of-work.js';
 import type {
   CancelDeviationDto,
+  CompleteDeviationInvestigationDto,
   CreateDeviationDto,
   DeviationListQueryDto,
   TriageDeviationDto,
@@ -23,6 +26,9 @@ const deviationInclude = {
   investigatorUser: { select: userSummary },
   triagedByUser: { select: userSummary },
   cancelledByUser: { select: userSummary },
+  investigation: {
+    include: { completedByUser: { select: userSummary } },
+  },
 } satisfies Prisma.DeviationInclude;
 type DeviationRecord = Prisma.DeviationGetPayload<{
   include: typeof deviationInclude;
@@ -30,7 +36,10 @@ type DeviationRecord = Prisma.DeviationGetPayload<{
 
 @Injectable()
 export class DeviationsService {
-  constructor(private readonly tenantUnitOfWork: TenantUnitOfWork) {}
+  constructor(
+    private readonly tenantUnitOfWork: TenantUnitOfWork,
+    private readonly passwordHasher: PasswordHasher,
+  ) {}
 
   list(
     principal: AuthenticatedPrincipal,
@@ -172,7 +181,7 @@ export class DeviationsService {
               some: {
                 role: {
                   rolePermissions: {
-                    some: { permission: { code: 'deviations.read' } },
+                    some: { permission: { code: 'deviations.investigate' } },
                   },
                 },
               },
@@ -182,7 +191,7 @@ export class DeviationsService {
         });
         if (!investigator) {
           throw deviationInvalid(
-            'The investigator must be active and able to read deviations.',
+            'The investigator must be active and permitted to investigate deviations.',
           );
         }
 
@@ -276,6 +285,179 @@ export class DeviationsService {
       },
     );
   }
+
+  async completeInvestigation(
+    principal: AuthenticatedPrincipal,
+    deviationId: string,
+    input: CompleteDeviationInvestigationDto,
+    request: RequestMetadata,
+  ): Promise<DeviationDetailResponseDto> {
+    const signer = await this.tenantUnitOfWork.execute(
+      principal.tenantId,
+      (transaction) =>
+        transaction.user.findFirst({
+          where: {
+            id: principal.userId,
+            tenantId: principal.tenantId,
+            status: 'ACTIVE',
+          },
+          select: { passwordHash: true },
+        }),
+    );
+    const passwordMatches = signer
+      ? await this.passwordHasher
+          .verify(signer.passwordHash, input.password)
+          .catch(() => false)
+      : false;
+    if (!passwordMatches) {
+      await this.tenantUnitOfWork.execute(principal.tenantId, (transaction) =>
+        appendSecurityEvent(transaction, {
+          tenantId: principal.tenantId,
+          actorUserId: principal.userId,
+          eventType: 'DEVIATION_INVESTIGATION_REAUTHENTICATION_FAILED',
+          outcome: 'FAILURE',
+          request,
+          metadata: { deviationId },
+        }),
+      );
+      throw reauthenticationFailed();
+    }
+
+    try {
+      return await this.tenantUnitOfWork.execute(
+        principal.tenantId,
+        async (transaction) => {
+          const now = new Date();
+          const deviation = await readDeviation(
+            transaction,
+            principal.tenantId,
+            deviationId,
+          );
+          if (deviation.status !== 'UNDER_INVESTIGATION') {
+            throw deviationConflict();
+          }
+          if (deviation.investigatorUserId !== principal.userId) {
+            throw investigationForbidden();
+          }
+
+          const currentSigner = await transaction.user.findFirst({
+            where: {
+              id: principal.userId,
+              tenantId: principal.tenantId,
+              status: 'ACTIVE',
+            },
+            select: { passwordHash: true },
+          });
+          const session = await transaction.session.findFirst({
+            where: {
+              id: principal.sessionId,
+              tenantId: principal.tenantId,
+              userId: principal.userId,
+              status: 'ACTIVE',
+              expiresAt: { gt: now },
+            },
+            select: { id: true },
+          });
+          if (
+            !currentSigner ||
+            currentSigner.passwordHash !== signer?.passwordHash ||
+            !session
+          ) {
+            throw reauthenticationFailed();
+          }
+
+          const investigationId = randomUUID();
+          const recordHash = hashRecord({
+            schemaVersion: 1,
+            investigationId,
+            deviationId: deviation.id,
+            deviationCode: deviation.code,
+            title: deviation.title,
+            occurredAt: deviation.occurredAt.toISOString(),
+            reportedByUserId: deviation.reportedByUserId,
+            severity: deviation.severity,
+            investigatorUserId: deviation.investigatorUserId,
+            investigationDueAt: deviation.investigationDueAt?.toISOString(),
+            impactAssessment: deviation.impactAssessment,
+            containmentAction: deviation.containmentAction,
+            method: input.method,
+            problemStatement: input.problemStatement,
+            chronology: input.chronology,
+            immediateCause: input.immediateCause,
+            rootCause: input.rootCause,
+            contributingFactors: input.contributingFactors,
+            productImpact: input.productImpact,
+            requiresCapa: input.requiresCapa,
+            capaRationale: input.capaRationale,
+            completedByUserId: principal.userId,
+            sessionId: principal.sessionId,
+            meaning: 'INVESTIGATION_COMPLETION',
+            authenticationMethod: 'PASSWORD_REAUTHENTICATION',
+            attestationAccepted: true,
+            completedAt: now.toISOString(),
+          });
+
+          await transaction.deviationInvestigation.create({
+            data: {
+              id: investigationId,
+              tenantId: principal.tenantId,
+              deviationId: deviation.id,
+              method: input.method,
+              problemStatement: input.problemStatement,
+              chronology: input.chronology,
+              immediateCause: input.immediateCause,
+              rootCause: input.rootCause,
+              contributingFactors: input.contributingFactors,
+              productImpact: input.productImpact,
+              requiresCapa: input.requiresCapa,
+              capaRationale: input.capaRationale,
+              completedByUserId: principal.userId,
+              completionSessionId: principal.sessionId,
+              meaning: 'INVESTIGATION_COMPLETION',
+              authenticationMethod: 'PASSWORD_REAUTHENTICATION',
+              completedAt: now,
+              recordHash,
+            },
+          });
+
+          const completed = await transaction.deviation.updateMany({
+            where: {
+              id: deviation.id,
+              tenantId: principal.tenantId,
+              status: 'UNDER_INVESTIGATION',
+              investigatorUserId: principal.userId,
+            },
+            data: { status: 'INVESTIGATION_COMPLETED' },
+          });
+          if (completed.count !== 1) throw deviationConflict();
+
+          await appendSecurityEvent(transaction, {
+            tenantId: principal.tenantId,
+            actorUserId: principal.userId,
+            subjectUserId: principal.userId,
+            eventType: 'DEVIATION_INVESTIGATION_COMPLETED',
+            outcome: 'SUCCESS',
+            request,
+            metadata: {
+              deviationId: deviation.id,
+              code: deviation.code,
+              method: input.method,
+              requiresCapa: input.requiresCapa,
+              meaning: 'INVESTIGATION_COMPLETION',
+              authenticationMethod: 'PASSWORD_REAUTHENTICATION',
+              recordHash,
+            },
+          });
+          return mapDetail(
+            await readDeviation(transaction, principal.tenantId, deviation.id),
+          );
+        },
+      );
+    } catch (error) {
+      if (isUniqueConstraintError(error)) throw deviationConflict();
+      throw error;
+    }
+  }
 }
 
 async function readDeviation(
@@ -303,10 +485,13 @@ function mapSummary(
     occurredAt: deviation.occurredAt.toISOString(),
     status: deviation.status,
     severity: deviation.severity,
-    dueState: dueState(deviation.investigationDueAt, now),
+    dueState: dueState(deviation.investigationDueAt, now, deviation.status),
     reportedBy: deviation.reportedByUser,
     investigator: deviation.investigatorUser,
     investigationDueAt: deviation.investigationDueAt?.toISOString() ?? null,
+    requiresCapa: deviation.investigation?.requiresCapa ?? null,
+    investigationCompletedAt:
+      deviation.investigation?.completedAt.toISOString() ?? null,
     createdAt: deviation.createdAt.toISOString(),
   };
 }
@@ -322,13 +507,34 @@ function mapDetail(deviation: DeviationRecord): DeviationDetailResponseDto {
     cancelledBy: deviation.cancelledByUser,
     cancelledAt: deviation.cancelledAt?.toISOString() ?? null,
     cancellationReason: deviation.cancellationReason,
+    investigation: deviation.investigation
+      ? {
+          id: deviation.investigation.id,
+          method: deviation.investigation.method,
+          problemStatement: deviation.investigation.problemStatement,
+          chronology: deviation.investigation.chronology,
+          immediateCause: deviation.investigation.immediateCause,
+          rootCause: deviation.investigation.rootCause,
+          contributingFactors: deviation.investigation.contributingFactors,
+          productImpact: deviation.investigation.productImpact,
+          requiresCapa: deviation.investigation.requiresCapa,
+          capaRationale: deviation.investigation.capaRationale,
+          completedBy: deviation.investigation.completedByUser,
+          meaning: deviation.investigation.meaning,
+          authenticationMethod: deviation.investigation.authenticationMethod,
+          completedAt: deviation.investigation.completedAt.toISOString(),
+          recordHash: deviation.investigation.recordHash,
+        }
+      : null,
   };
 }
 
 function dueState(
   dueAt: Date | null,
   now: Date,
-): 'NOT_APPLICABLE' | 'ON_TRACK' | 'DUE_SOON' | 'OVERDUE' {
+  status: string,
+): 'NOT_APPLICABLE' | 'ON_TRACK' | 'DUE_SOON' | 'OVERDUE' | 'COMPLETED' {
+  if (status === 'INVESTIGATION_COMPLETED') return 'COMPLETED';
   if (!dueAt) return 'NOT_APPLICABLE';
   if (dueAt.getTime() < now.getTime()) return 'OVERDUE';
   const dueSoonThreshold = now.getTime() + 7 * 24 * 60 * 60 * 1000;
@@ -356,5 +562,36 @@ function deviationConflict(): ApplicationError {
     ErrorCode.DeviationConflict,
     'The deviation changed. Reload and try again.',
     HttpStatus.CONFLICT,
+  );
+}
+
+function investigationForbidden(): ApplicationError {
+  return new ApplicationError(
+    ErrorCode.DeviationInvestigationForbidden,
+    'Only the assigned investigator can complete this investigation.',
+    HttpStatus.FORBIDDEN,
+  );
+}
+
+function reauthenticationFailed(): ApplicationError {
+  return new ApplicationError(
+    ErrorCode.ReauthenticationFailed,
+    'Reauthentication failed.',
+    HttpStatus.FORBIDDEN,
+  );
+}
+
+function hashRecord(record: Record<string, unknown>): string {
+  return createHash('sha256')
+    .update(JSON.stringify(record), 'utf8')
+    .digest('hex');
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return Boolean(
+    error &&
+    typeof error === 'object' &&
+    'code' in error &&
+    error.code === 'P2002',
   );
 }

@@ -11,6 +11,55 @@ export class DeviationUserSummaryDto {
   email!: string;
 }
 
+export class DeviationInvestigationResponseDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty({
+    enum: ['FIVE_WHYS', 'ISHIKAWA', 'FAULT_TREE_ANALYSIS', 'OTHER'],
+  })
+  method!: string;
+
+  @ApiProperty()
+  problemStatement!: string;
+
+  @ApiProperty()
+  chronology!: string;
+
+  @ApiProperty()
+  immediateCause!: string;
+
+  @ApiProperty()
+  rootCause!: string;
+
+  @ApiProperty()
+  contributingFactors!: string;
+
+  @ApiProperty()
+  productImpact!: string;
+
+  @ApiProperty()
+  requiresCapa!: boolean;
+
+  @ApiProperty()
+  capaRationale!: string;
+
+  @ApiProperty({ type: DeviationUserSummaryDto })
+  completedBy!: DeviationUserSummaryDto;
+
+  @ApiProperty({ enum: ['INVESTIGATION_COMPLETION'] })
+  meaning!: string;
+
+  @ApiProperty({ enum: ['PASSWORD_REAUTHENTICATION'] })
+  authenticationMethod!: string;
+
+  @ApiProperty({ format: 'date-time' })
+  completedAt!: string;
+
+  @ApiProperty({ minLength: 64, maxLength: 64 })
+  recordHash!: string;
+}
+
 export class DeviationSummaryResponseDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
@@ -27,14 +76,21 @@ export class DeviationSummaryResponseDto {
   @ApiProperty({ format: 'date-time' })
   occurredAt!: string;
 
-  @ApiProperty({ enum: ['REPORTED', 'UNDER_INVESTIGATION', 'CANCELLED'] })
+  @ApiProperty({
+    enum: [
+      'REPORTED',
+      'UNDER_INVESTIGATION',
+      'INVESTIGATION_COMPLETED',
+      'CANCELLED',
+    ],
+  })
   status!: string;
 
   @ApiPropertyOptional({ enum: ['MINOR', 'MAJOR', 'CRITICAL'], nullable: true })
   severity!: string | null;
 
   @ApiProperty({
-    enum: ['NOT_APPLICABLE', 'ON_TRACK', 'DUE_SOON', 'OVERDUE'],
+    enum: ['NOT_APPLICABLE', 'ON_TRACK', 'DUE_SOON', 'OVERDUE', 'COMPLETED'],
   })
   dueState!: string;
 
@@ -46,6 +102,12 @@ export class DeviationSummaryResponseDto {
 
   @ApiPropertyOptional({ format: 'date-time', nullable: true })
   investigationDueAt!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  requiresCapa!: boolean | null;
+
+  @ApiPropertyOptional({ format: 'date-time', nullable: true })
+  investigationCompletedAt!: string | null;
 
   @ApiProperty({ format: 'date-time' })
   createdAt!: string;
@@ -75,4 +137,10 @@ export class DeviationDetailResponseDto extends DeviationSummaryResponseDto {
 
   @ApiPropertyOptional({ nullable: true })
   cancellationReason!: string | null;
+
+  @ApiPropertyOptional({
+    type: DeviationInvestigationResponseDto,
+    nullable: true,
+  })
+  investigation!: DeviationInvestigationResponseDto | null;
 }

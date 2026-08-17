@@ -16,7 +16,7 @@ Separate immutable intake fields from a single triage transition in the `deviati
 
 Allocate `DEV-YYYY-NNNN` codes through a `deviation_sequences` row keyed by tenant and year. Increment and report creation occur in the same tenant-aware transaction. A trigger freezes sequence identity and requires each update to increment exactly once.
 
-Triage requires `deviations.triage`, severity, a future target date, initial impact assessment, containment action, and an active same-tenant investigator holding `deviations.read`. Cancellation uses the same elevated permission and requires a reason. Both operations use conditional status updates so only one concurrent transition succeeds.
+Triage requires `deviations.triage`, severity, a future target date, initial impact assessment, containment action, and an active same-tenant investigator. Phase 15 further qualifies new investigators with `deviations.investigate`. Cancellation uses the same elevated triage permission and requires a reason. Both operations use conditional status updates so only one concurrent transition succeeds.
 
 Derive `ON_TRACK`, `DUE_SOON`, and `OVERDUE` from the target timestamp on every read. Apply forced RLS, composite tenant foreign keys, no runtime delete privilege, and security events to both paths. Add new permissions to existing standard system roles in the migration without mutating custom role design.
 
@@ -27,5 +27,5 @@ Derive `ON_TRACK`, `DUE_SOON`, and `OVERDUE` from the target timestamp on every 
 - Triage is attributable, tenant-contained, and safe under concurrent requests.
 - Due-state display remains current without background mutation.
 - Cancellation preserves the report rather than erasing an erroneous or duplicate intake.
-- Investigation work cannot yet be amended or closed; root cause, CAPA, extensions, attachments, signatures, and closure require later append-only records and explicit transitions.
+- Investigation drafts cannot yet be saved or amended; CAPA, extensions, attachments, broader signatures, and closure require later append-only records and explicit transitions.
 - Database owners remain privileged, so operational access control, backups, audit export, retention, and formal validation are still required.
