@@ -183,6 +183,12 @@ enum CapaEvidenceScanStatus {
   QUARANTINED
   AVAILABLE
   REJECTED
+  PURGING
+  EXPIRED
+}
+
+enum CapaAuditExportFormat {
+  JSON
 }
 
 enum CapaNotificationSubjectType {
@@ -242,6 +248,7 @@ model Tenant {
   capaActionEvidence       CapaActionEvidenceReference[]
   capaEvidenceUploads      CapaEvidenceUpload[]
   capaNotifications        CapaNotification[]
+  capaAuditExports         CapaAuditExport[]
 
   @@map("tenants")
 }
@@ -295,6 +302,7 @@ model User {
   capaActionExtensionsApproved      CapaActionExtension[]     @relation("CapaActionExtensionApprover")
   capaEvidenceUploadsCreated        CapaEvidenceUpload[]      @relation("CapaEvidenceUploader")
   capaNotificationsReceived         CapaNotification[]        @relation("CapaNotificationRecipient")
+  capaAuditExportsCreated           CapaAuditExport[]         @relation("CapaAuditExporter")
 
   @@unique([tenantId, id], map: "users_tenant_id_id_key")
   @@unique([tenantId, email], map: "users_tenant_id_email_key")
@@ -844,6 +852,7 @@ model Capa {
   actionEvidence       CapaActionEvidenceReference[]
   evidenceUploads      CapaEvidenceUpload[]
   notifications        CapaNotification[]
+  auditExports         CapaAuditExport[]
 
   @@unique([tenantId, id], map: "capas_tenant_id_id_key")
   @@unique([tenantId, code], map: "capas_tenant_id_code_key")
@@ -1011,6 +1020,7 @@ model CapaEvidenceUpload {
   scannedAt         DateTime                     @map("scanned_at") @db.Timestamptz(3)
   consumedAt        DateTime?                    @map("consumed_at") @db.Timestamptz(3)
   expiresAt         DateTime                     @map("expires_at") @db.Timestamptz(3)
+  purgedAt          DateTime?                    @map("purged_at") @db.Timestamptz(3)
   createdAt         DateTime                     @default(now()) @map("created_at") @db.Timestamptz(3)
   tenant            Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   capa              Capa                         @relation(fields: [tenantId, capaId], references: [tenantId, id], onDelete: Restrict)
@@ -1021,6 +1031,27 @@ model CapaEvidenceUpload {
   @@unique([tenantId, id], map: "capa_evidence_uploads_tenant_id_id_key")
   @@index([tenantId, actionId, scanStatus, expiresAt], map: "capa_evidence_uploads_action_status_expiry_idx")
   @@map("capa_evidence_uploads")
+}
+
+model CapaAuditExport {
+  id               String                @id @default(uuid()) @db.Uuid
+  tenantId         String                @map("tenant_id") @db.Uuid
+  capaId           String                @map("capa_id") @db.Uuid
+  exportedByUserId String                @map("exported_by_user_id") @db.Uuid
+  format           CapaAuditExportFormat @default(JSON)
+  schemaVersion    String                @map("schema_version") @db.VarChar(30)
+  fileName         String                @map("file_name") @db.VarChar(255)
+  recordCount      Int                   @map("record_count")
+  manifest         Json                  @db.JsonB
+  manifestHash     String                @map("manifest_hash") @db.Char(64)
+  generatedAt      DateTime              @map("generated_at") @db.Timestamptz(3)
+  tenant           Tenant                @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  capa             Capa                  @relation(fields: [tenantId, capaId], references: [tenantId, id], onDelete: Restrict)
+  exportedByUser   User                  @relation("CapaAuditExporter", fields: [tenantId, exportedByUserId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id], map: "capa_audit_exports_tenant_id_id_key")
+  @@index([tenantId, capaId, generatedAt], map: "capa_audit_exports_capa_generated_idx")
+  @@map("capa_audit_exports")
 }
 
 model CapaNotification {

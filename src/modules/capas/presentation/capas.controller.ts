@@ -32,6 +32,7 @@ import { JwtAuthGuard } from '../../authentication/presentation/jwt-auth.guard.j
 import { Permissions } from '../../authorization/presentation/permissions.decorator.js';
 import { PermissionsGuard } from '../../authorization/presentation/permissions.guard.js';
 import { CapasService } from '../application/capas.service.js';
+import { CapaAuditExportService } from '../application/capa-audit-export.service.js';
 import {
   CapaEvidenceService,
   type UploadedEvidenceFile,
@@ -48,6 +49,7 @@ import {
 import {
   CapaDetailResponseDto,
   CapaAnalyticsResponseDto,
+  CapaAuditExportResponseDto,
   CapaEvidenceUploadResponseDto,
   CapaSummaryResponseDto,
 } from '../application/dto/capa-response.dto.js';
@@ -60,6 +62,7 @@ export class CapasController {
   constructor(
     private readonly capas: CapasService,
     private readonly evidence: CapaEvidenceService,
+    private readonly auditExports: CapaAuditExportService,
   ) {}
 
   @Get()
@@ -70,6 +73,21 @@ export class CapasController {
     @Query() query: CapaListQueryDto,
   ): Promise<CapaSummaryResponseDto[]> {
     return this.capas.list(principal, query);
+  }
+
+  @Post(':capaId/audit-exports')
+  @Permissions('capas.export')
+  @ApiCreatedResponse({ type: CapaAuditExportResponseDto })
+  createAuditExport(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+    @Param('capaId', new ParseUUIDPipe()) capaId: string,
+    @Req() request: Request & RequestWithContext,
+  ): Promise<CapaAuditExportResponseDto> {
+    return this.auditExports.create(
+      principal,
+      capaId,
+      requestMetadata(request),
+    );
   }
 
   @Get('analytics')

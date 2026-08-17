@@ -51,6 +51,7 @@ const environmentSchema = z
       .string()
       .regex(/^\d+(kb|mb)$/i)
       .default('1mb'),
+    CAPA_EVIDENCE_STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
     CAPA_EVIDENCE_STORAGE_ROOT: z
       .string()
       .min(1)
@@ -68,6 +69,41 @@ const environmentSchema = z
       .min(1)
       .max(168)
       .default(24),
+    CAPA_EVIDENCE_S3_ENDPOINT: z.url().default('http://localhost:9000'),
+    CAPA_EVIDENCE_S3_REGION: z.string().min(1).max(100).default('us-east-1'),
+    CAPA_EVIDENCE_S3_BUCKET: z
+      .string()
+      .regex(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/)
+      .default('qualyra-capa-evidence'),
+    CAPA_EVIDENCE_S3_ACCESS_KEY: z.string().min(3).max(200).default('qualyra'),
+    CAPA_EVIDENCE_S3_SECRET_KEY: z
+      .string()
+      .min(8)
+      .max(200)
+      .default('qualyra_dev_change_me'),
+    CAPA_EVIDENCE_S3_FORCE_PATH_STYLE: booleanValue.default(true),
+    CAPA_EVIDENCE_S3_AUTO_CREATE_BUCKET: booleanValue.default(true),
+    CAPA_EVIDENCE_SCANNER: z.enum(['built-in', 'clamav']).default('built-in'),
+    CAPA_EVIDENCE_CLAMAV_HOST: z.string().min(1).max(253).default('127.0.0.1'),
+    CAPA_EVIDENCE_CLAMAV_PORT: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(65_535)
+      .default(3310),
+    CAPA_EVIDENCE_CLAMAV_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .min(500)
+      .max(120_000)
+      .default(30_000),
+    CAPA_EVIDENCE_RETENTION_ENABLED: booleanValue.default(true),
+    CAPA_EVIDENCE_RETENTION_INTERVAL_MINUTES: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(1440)
+      .default(60),
     CAPA_MONITORING_ENABLED: booleanValue.default(true),
     CAPA_MONITORING_INTERVAL_MINUTES: z.coerce
       .number()
@@ -160,6 +196,30 @@ const environmentSchema = z
         code: 'custom',
         path: ['SMTP_REQUIRE_TLS'],
         message: 'SMTP_REQUIRE_TLS must be true in production.',
+      });
+    }
+
+    if (environment.CAPA_EVIDENCE_STORAGE_DRIVER !== 's3') {
+      context.addIssue({
+        code: 'custom',
+        path: ['CAPA_EVIDENCE_STORAGE_DRIVER'],
+        message: 'CAPA evidence must use S3-compatible storage in production.',
+      });
+    }
+
+    if (!environment.CAPA_EVIDENCE_S3_ENDPOINT.startsWith('https://')) {
+      context.addIssue({
+        code: 'custom',
+        path: ['CAPA_EVIDENCE_S3_ENDPOINT'],
+        message: 'CAPA evidence S3 transport must use HTTPS in production.',
+      });
+    }
+
+    if (environment.CAPA_EVIDENCE_SCANNER !== 'clamav') {
+      context.addIssue({
+        code: 'custom',
+        path: ['CAPA_EVIDENCE_SCANNER'],
+        message: 'CAPA evidence must use an external antivirus in production.',
       });
     }
   });

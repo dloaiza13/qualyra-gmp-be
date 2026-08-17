@@ -173,6 +173,32 @@ export class CapaEvidenceUploadResponseDto {
   expiresAt!: string;
 }
 
+export class CapaAuditExportResponseDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty()
+  fileName!: string;
+
+  @ApiProperty({ enum: ['JSON'] })
+  format!: string;
+
+  @ApiProperty({ example: 'qualyra.capa.audit.v1' })
+  schemaVersion!: string;
+
+  @ApiProperty({ minimum: 1 })
+  recordCount!: number;
+
+  @ApiProperty({ minLength: 64, maxLength: 64 })
+  manifestHash!: string;
+
+  @ApiProperty({ format: 'date-time' })
+  generatedAt!: string;
+
+  @ApiProperty({ type: 'object', additionalProperties: true })
+  manifest!: object;
+}
+
 export class CapaAnalyticsBucketDto {
   @ApiProperty()
   key!: string;

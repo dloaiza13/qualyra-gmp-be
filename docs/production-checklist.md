@@ -32,6 +32,8 @@ This checklist is a release gate. Repository controls marked complete still requ
 - [ ] Enable encrypted automated backups and point-in-time recovery.
 - [ ] Complete and record a restoration drill with measured recovery objectives.
 - [ ] Review RLS, grants, and tenant constraints for every new migration.
+- [x] Reject production CAPA evidence configuration without S3-compatible HTTPS storage and external ClamAV scanning.
+- [ ] Enable and verify object-store encryption at rest, versioning, lifecycle controls, private networking, and least-privilege credentials.
 
 ## Secrets, logs, and monitoring
 
@@ -43,6 +45,7 @@ This checklist is a release gate. Repository controls marked complete still requ
 - [ ] Alert on login abuse, token reuse, tenant-isolation failures, email failures, elevated 5xx rates, database saturation, and backup failures.
 - [ ] Alert quality owners on overdue or critical deviations and define acknowledged escalation paths.
 - [ ] Define retention, deletion, privacy, and incident-evidence policies.
+- [ ] Monitor ClamAV signature freshness, scanner health, retention failures, and orphaned `PURGING` evidence.
 
 ## Email and asynchronous work
 

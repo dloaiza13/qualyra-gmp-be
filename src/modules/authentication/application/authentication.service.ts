@@ -63,6 +63,7 @@ const initialRolePermissions: Record<(typeof initialRoles)[number], string[]> =
       'capas.verify_effectiveness',
       'capas.create_follow_up',
       'capas.approve_extensions',
+      'capas.export',
     ],
     'Document Controller': [
       'documents.read',
@@ -94,6 +95,7 @@ const initialRolePermissions: Record<(typeof initialRoles)[number], string[]> =
       'training.complete',
       'deviations.read',
       'capas.read',
+      'capas.export',
       'audit.read',
     ],
   };

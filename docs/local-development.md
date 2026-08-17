@@ -31,6 +31,17 @@ Prisma CLI commands use `MIGRATION_DATABASE_URL`. Application runtime uses `DATA
 | Redis        |         6379 | Future rate limiting and background coordination |
 | Mailpit SMTP |         1025 | Development email capture                        |
 | Mailpit UI   |         8025 | Inspect captured email                           |
+| MinIO API    |         9000 | Optional S3-compatible evidence storage          |
+| MinIO UI     |         9001 | Optional object-storage console                  |
+| ClamAV       |         3310 | Optional external evidence malware scanner       |
+
+MinIO and ClamAV are disabled during the normal lightweight startup. To run the managed-evidence integration profile:
+
+```bash
+docker compose --profile managed-evidence up --detach --wait
+```
+
+Then set `CAPA_EVIDENCE_STORAGE_DRIVER=s3` and `CAPA_EVIDENCE_SCANNER=clamav` in `.env` and restart the API. The example credentials are local placeholders. ClamAV may take several minutes on its first start while its persistent signature database initializes. When Docker Desktop's disk image is stored on drive D:, these named volumes are stored there as well; do not add hard-coded host paths to the shared Compose file.
 
 After starting the API, Swagger UI is available at `http://localhost:3000/api/docs`. See [authentication](authentication.md) for the browser cookie and CSRF flow.
 
@@ -44,7 +55,7 @@ This keeps named volumes.
 
 ## Destructive reset
 
-The following command permanently deletes local PostgreSQL and Redis volumes:
+The following command permanently deletes local PostgreSQL, Redis, MinIO, and ClamAV volumes:
 
 ```bash
 npm run infra:reset -- --confirm-data-loss

@@ -9,6 +9,7 @@ import {
   type InvitationEmail,
 } from '../src/modules/authentication/domain/ports/authentication-notifier.js';
 import { CapaMonitoringService } from '../src/modules/capas/application/capa-monitoring.service.js';
+import { CapaEvidenceRetentionService } from '../src/modules/capas/application/capa-evidence-retention.service.js';
 import {
   CapaMonitoringNotifier,
   type CapaMonitoringMessage,
@@ -92,6 +93,15 @@ interface ErrorBody {
   code: string;
 }
 
+interface CapaAuditExportBody {
+  format: string;
+  schemaVersion: string;
+  recordCount: number;
+  manifestHash: string;
+  fileName: string;
+  manifest: { capa: { id: string }; integrity: { sha256: string } };
+}
+
 class RecordingNotifier extends AuthenticationNotifier {
   readonly invitations: InvitationEmail[] = [];
 
@@ -165,6 +175,7 @@ describeDatabase('CAPA planning and action execution', () => {
         'capas.verify_effectiveness',
         'capas.create_follow_up',
         'capas.approve_extensions',
+        'capas.export',
       ]),
     );
     expect(controllerRole.permissions.map(({ code }) => code)).toEqual(
@@ -616,6 +627,18 @@ describeDatabase('CAPA planning and action execution', () => {
       Date.now(),
     );
     await request(server)
+      .post(`/api/v1/capas/${created.id}/actions/${followUpAction.id}/evidence`)
+      .set(bearer(operator.accessToken))
+      .attach(
+        'file',
+        Buffer.from('%PDF-1.7\nTemporary unconsumed evidence\n%%EOF'),
+        {
+          filename: 'temporary-unconsumed.pdf',
+          contentType: 'application/pdf',
+        },
+      )
+      .expect(201);
+    await request(server)
       .post(`/api/v1/capas/${created.id}/actions/${followUpAction.id}/complete`)
       .set(bearer(operator.accessToken))
       .send({
@@ -666,6 +689,13 @@ describeDatabase('CAPA planning and action execution', () => {
     if (!managedReference?.downloadUrl) {
       throw new Error('Managed evidence download URL was not returned.');
     }
+    const retention = app.get(CapaEvidenceRetentionService);
+    await expect(
+      retention.runTenant(
+        tenantA.tenant.id,
+        new Date(Date.now() + 48 * 60 * 60 * 1000),
+      ),
+    ).resolves.toBe(1);
     await request(server)
       .get(`/api/v1${managedReference.downloadUrl}`)
       .set(authA)
@@ -753,7 +783,12 @@ describeDatabase('CAPA planning and action execution', () => {
       .get('/api/v1/capas/analytics')
       .set(authA)
       .expect(200)
-      .expect(({ body }: { body: Record<string, unknown> }) => {
+      .expect((response: Response) => {
+        const body = bodyAs<{
+          totalCapas: number;
+          closedEffective: number;
+          effectivenessRate: number;
+        }>(response);
         expect(body).toMatchObject({
           totalCapas: 1,
           closedEffective: 1,
@@ -765,6 +800,32 @@ describeDatabase('CAPA planning and action execution', () => {
       .set(authB)
       .expect(200)
       .expect([]);
+
+    await request(server)
+      .post(`/api/v1/capas/${created.id}/audit-exports`)
+      .set(bearer(operator.accessToken))
+      .expect(403);
+    await request(server)
+      .post(`/api/v1/capas/${created.id}/audit-exports`)
+      .set(authB)
+      .expect(404);
+    await request(server)
+      .post(`/api/v1/capas/${created.id}/audit-exports`)
+      .set(authA)
+      .expect(201)
+      .expect((response: Response) => {
+        const body = bodyAs<CapaAuditExportBody>(response);
+        expect(body).toMatchObject({
+          format: 'JSON',
+          schemaVersion: 'qualyra.capa.audit.v1',
+        });
+        expect(body.manifestHash).toEqual(
+          expect.stringMatching(/^[0-9a-f]{64}$/),
+        );
+        expect(body.fileName).toEqual(expect.stringMatching(/^CAPA-.*\.json$/));
+        expect(body.manifest.capa.id).toBe(created.id);
+        expect(body.manifest.integrity.sha256).toBe(body.manifestHash);
+      });
 
     const events = bodyAs<{ eventType: string }[]>(
       await request(server)
@@ -783,6 +844,7 @@ describeDatabase('CAPA planning and action execution', () => {
         'CAPA_FOLLOW_UP_CYCLE_CREATED',
         'CAPA_ACTION_EXTENSION_APPROVED',
         'CAPA_EVIDENCE_UPLOADED',
+        'CAPA_AUDIT_EXPORT_GENERATED',
       ]),
     );
   }, 120_000);

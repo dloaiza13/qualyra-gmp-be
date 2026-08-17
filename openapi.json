@@ -535,6 +535,41 @@
         ]
       }
     },
+    "/api/v1/capas/{capaId}/audit-exports": {
+      "post": {
+        "operationId": "CapasController_createAuditExport",
+        "parameters": [
+          {
+            "name": "capaId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapaAuditExportResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "CAPA"
+        ]
+      }
+    },
     "/api/v1/capas/analytics": {
       "get": {
         "operationId": "CapasController_analytics",
@@ -3041,6 +3076,55 @@
           "currentCycleNumber",
           "followUpCycleCount",
           "createdAt"
+        ]
+      },
+      "CapaAuditExportResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "JSON"
+            ]
+          },
+          "schemaVersion": {
+            "type": "string",
+            "example": "qualyra.capa.audit.v1"
+          },
+          "recordCount": {
+            "type": "number",
+            "minimum": 1
+          },
+          "manifestHash": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "manifest": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "id",
+          "fileName",
+          "format",
+          "schemaVersion",
+          "recordCount",
+          "manifestHash",
+          "generatedAt",
+          "manifest"
         ]
       },
       "CapaAnalyticsBucketDto": {

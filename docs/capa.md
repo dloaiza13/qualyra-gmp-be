@@ -1,6 +1,6 @@
 # Corrective and preventive actions (CAPA)
 
-Phases 16 through 19 turn a completed deviation investigation into a controlled CAPA plan and carry it through repeatable independent effectiveness verification. They cover immutable planning, managed binary evidence, authenticated implementation, extensions, ineffective-result follow-up cycles, automated deadline monitoring, aggregate trends, an independent quality decision, and atomic closure of the source deviation when the result is effective.
+Phases 16 through 20 turn a completed deviation investigation into a controlled CAPA plan and carry it through repeatable independent effectiveness verification. They cover immutable planning, managed binary evidence, authenticated implementation, extensions, ineffective-result follow-up cycles, automated deadline monitoring, aggregate trends, independent quality decisions, atomic closure of the source deviation, S3-compatible custody, external malware scanning, retention, and attributable audit exports.
 
 ## Permissions
 
@@ -13,8 +13,9 @@ Phases 16 through 19 turn a completed deviation investigation into a controlled 
 | `capas.verify_effectiveness`   | Complete the assigned review with authenticated evidence   |
 | `capas.create_follow_up`       | Create a numbered action cycle after an ineffective result |
 | `capas.approve_extensions`     | Approve action due-date extensions with reauthentication   |
+| `capas.export`                 | Generate an immutable, hashed CAPA audit manifest          |
 
-Administrators and default QA Managers receive every CAPA permission. QA Managers also receive read-only user and role directory access so assignment controls are operable without user-management authority. Document Controllers and Operators can read plans and execute assigned actions. Auditors have read-only access. Existing standard roles receive additive grants in the migration; custom roles are not changed.
+Administrators and default QA Managers receive every CAPA permission. QA Managers also receive read-only user and role directory access so assignment controls are operable without user-management authority. Document Controllers and Operators can read plans and execute assigned actions. Auditors can read and export. Existing standard roles receive additive grants in the migration; custom roles are not changed.
 
 An action assignee must be active in the same tenant and hold `capas.execute`. UI visibility does not authorize an action: the API verifies tenant, permission, assignment, active session, and current password.
 
@@ -35,6 +36,7 @@ All routes use the `/api/v1` prefix.
 | `GET`  | `/capas/analytics`                             | `capas.read`                   | Read derived tenant CAPA trends and monitor history |
 | `POST` | `/capas/:capaId/actions/:actionId/evidence`    | `capas.execute`                | Analyze and stage one managed evidence file         |
 | `GET`  | `/capas/:capaId/evidence/:evidenceId/download` | `capas.read`                   | Download one authorized verified evidence file      |
+| `POST` | `/capas/:capaId/audit-exports`                 | `capas.export`                 | Create and return an immutable audit manifest       |
 
 Search matches CAPA code/title and source deviation code/title. List responses expose progress counts and the next open due date but omit root cause, action narratives, completion comments, and record hashes.
 
@@ -50,7 +52,11 @@ An open action may transition exactly once to `COMPLETED`, and only by its assig
 
 The completed row stores fixed meaning `ACTION_COMPLETION`, authentication method `PASSWORD_REAUTHENTICATION`, session, comment, timestamp, and a canonical SHA-256 fingerprint. Completion can atomically add up to ten immutable evidence references: filename, content type, byte size, SHA-256, and either an external controlled-repository reference or a Qualyra-managed upload.
 
-A managed upload is limited to the configured size and to PDF, PNG, JPEG, or UTF-8 text. Qualyra validates the claimed type against file signatures, rejects executable and known test-malware signatures, computes SHA-256, uses an opaque object key, and isolates metadata with tenant RLS. Only the assigned user can upload to an open action. A safe staged upload expires after the configured interval and can be consumed once. Completion binds it to the signed fingerprint in the same transaction. Authorized downloads reverify SHA-256 and are returned as non-cacheable attachments. The built-in analyzer does not replace a production antimalware engine.
+A managed upload is limited to the configured size and to PDF, PNG, JPEG, or UTF-8 text. Qualyra validates the claimed type against file signatures, rejects executable and known test-malware signatures, computes SHA-256, uses an opaque object key, and isolates metadata with tenant RLS. Only the assigned user can upload to an open action. Storage is selected through a port: local disk is the lightweight development default, while the S3 adapter supports AWS S3 and path-style compatible services such as MinIO. Production configuration requires S3-compatible storage over HTTPS.
+
+The scanner is independently selectable. The built-in type/signature scanner always runs; the ClamAV adapter then sends the stream through `clamd` using `INSTREAM`. Timeout, connection failure, empty response, or malformed response denies the upload. Production configuration requires the external scanner. The Compose profile binds `clamd` to loopback because that protocol has no application authentication or transport encryption.
+
+A safe staged upload expires after the configured interval and can be consumed once. Completion binds it to the signed fingerprint in the same transaction. The retention worker atomically claims expired, unconsumed uploads as `PURGING`, deletes the object idempotently, and records `EXPIRED` plus `purgedAt`. A consumed upload cannot enter the purge lifecycle. Authorized downloads reverify SHA-256 and are returned as non-cacheable attachments.
 
 The fingerprint covers the source investigation hash, plan, action definition, approved extension fingerprints, evidence-reference metadata, authenticated actor, session, intent, comment, and completion time. Database checks require either a fully open state or complete evidence; triggers reject subsequent mutation or deletion.
 
@@ -85,8 +91,14 @@ The application monitor evaluates active tenants on a configurable interval. Dur
 
 `GET /capas/analytics` derives effectiveness rate, late work, status/severity distribution, assignee workload, and recent notification evidence directly from tenant source records. It does not maintain a separate mutable reporting aggregate.
 
+## Audit exports
+
+`POST /capas/:capaId/audit-exports` captures the source deviation and investigation, action definitions and completion fingerprints, extensions, evidence metadata and scan results, every effectiveness review, follow-up cycle, and notification delivery record in one tenant transaction. The JSON manifest identifies the exporter and generation time, uses a versioned schema, and includes a SHA-256 computed over a deterministic canonical representation that excludes only the integrity block itself.
+
+The exact returned manifest is stored in `capa_audit_exports`. PostgreSQL RLS isolates it by tenant, and trigger plus runtime grants reject update or deletion. A corresponding security event records the export id and fingerprint. The manifest references evidence binaries by immutable metadata and hash; it does not embed the binaries.
+
 ## Isolation and deferred scope
 
-Every CAPA table, including follow-up cycles, extensions, evidence uploads, references, and notifications, uses forced PostgreSQL row-level security. Composite tenant foreign keys prevent cross-tenant source, creator, assignee, reviewer, approver, recipient, and session references. The runtime role cannot delete CAPA evidence, and database transition guards constrain its necessary update grants.
+Every CAPA table, including follow-up cycles, extensions, evidence uploads, references, notifications, and audit exports, uses forced PostgreSQL row-level security. Composite tenant foreign keys prevent cross-tenant source, creator, assignee, reviewer, approver, recipient, exporter, and session references. The runtime role cannot delete CAPA evidence or mutate exports, and database transition guards constrain its necessary update grants.
 
-Production-grade independent malware scanning, encrypted S3-compatible object storage, retention cleanup, backup/restore validation, plan amendments, reassignment, exports, and validated statistical process control require later explicit workflows. These controls are audit-ready building blocks and do not establish GMP, ISO, FDA, or 21 CFR Part 11 compliance.
+Production still requires managed object-store encryption at rest, private network controls, retention-policy approval, malware-signature monitoring, backup/restore validation, plan amendments, reassignment, and validated statistical process control. These controls are audit-ready building blocks and do not establish GMP, ISO, FDA, or 21 CFR Part 11 compliance.

@@ -5,7 +5,7 @@ const confirmationFlag = '--confirm-data-loss';
 if (!process.argv.includes(confirmationFlag)) {
   process.stderr.write(
     [
-      'WARNING: infra:reset permanently deletes local PostgreSQL and Redis volumes.',
+      'WARNING: infra:reset permanently deletes local PostgreSQL, Redis, MinIO, and ClamAV volumes.',
       `To confirm, run: npm run infra:reset -- ${confirmationFlag}`,
       '',
     ].join('\n'),

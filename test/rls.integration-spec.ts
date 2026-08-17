@@ -18,6 +18,7 @@ const tenantScopedTables = [
   'capa_action_evidence_references',
   'capa_action_extensions',
   'capa_actions',
+  'capa_audit_exports',
   'capa_effectiveness_reviews',
   'capa_evidence_uploads',
   'capa_follow_up_cycles',
@@ -485,7 +486,7 @@ describeDatabase('PostgreSQL tenant isolation', () => {
          has_table_privilege(current_user, table_name, 'INSERT') AS can_insert,
          has_table_privilege(current_user, table_name, 'UPDATE') AS can_update,
          has_table_privilege(current_user, table_name, 'DELETE') AS can_delete
-       FROM unnest(ARRAY['capa_actions', 'capa_effectiveness_reviews', 'capa_sequences', 'capas']) AS table_name
+       FROM unnest(ARRAY['capa_actions', 'capa_audit_exports', 'capa_effectiveness_reviews', 'capa_sequences', 'capas']) AS table_name
        ORDER BY table_name`,
     );
     expect(privileges.rows).toEqual([
@@ -494,6 +495,13 @@ describeDatabase('PostgreSQL tenant isolation', () => {
         can_select: true,
         can_insert: true,
         can_update: true,
+        can_delete: false,
+      },
+      {
+        table_name: 'capa_audit_exports',
+        can_select: true,
+        can_insert: true,
+        can_update: false,
         can_delete: false,
       },
       {
@@ -533,6 +541,7 @@ describeDatabase('PostgreSQL tenant isolation', () => {
        WHERE NOT trigger.tgisinternal
          AND trigger.tgrelid IN (
            'capa_actions'::regclass,
+           'capa_audit_exports'::regclass,
            'capa_effectiveness_reviews'::regclass,
            'capa_sequences'::regclass,
            'capas'::regclass
@@ -541,6 +550,11 @@ describeDatabase('PostgreSQL tenant isolation', () => {
     );
     expect(triggers.rows).toEqual(
       expect.arrayContaining([
+        {
+          table_name: 'capa_audit_exports',
+          trigger_name: 'capa_audit_export_mutation_guard',
+          function_name: 'guard_capa_audit_export_mutation',
+        },
         {
           table_name: 'capa_actions',
           trigger_name: 'capa_actions_insert_guard',

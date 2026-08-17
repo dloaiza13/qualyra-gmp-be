@@ -23,6 +23,14 @@ npm run start:dev
 
 The API listens on `http://localhost:3000`. Mailpit is available at `http://localhost:8025` with the example configuration.
 
+The default evidence pipeline stays lightweight (`local` storage and the built-in signature scanner). To validate the Phase 20 S3/antivirus adapters locally, start the optional profile and select it in `.env`:
+
+```bash
+docker compose --profile managed-evidence up --detach --wait
+```
+
+Set `CAPA_EVIDENCE_STORAGE_DRIVER=s3` and `CAPA_EVIDENCE_SCANNER=clamav`, then restart the API. MinIO is exposed only on loopback at `http://localhost:9000` (console `http://localhost:9001`) and ClamAV at `127.0.0.1:3310`. ClamAV is intentionally optional because its signature database has a material memory footprint.
+
 ## Verification
 
 ```bash
@@ -76,6 +84,7 @@ The backend is a modular NestJS monolith with pragmatic ports and adapters, tena
 - [ADR-017: independent CAPA effectiveness and controlled deviation closure](docs/adr/ADR-017-independent-capa-effectiveness-and-controlled-closure.md)
 - [ADR-018: controlled CAPA follow-up cycles](docs/adr/ADR-018-controlled-capa-follow-up-cycles.md)
 - [ADR-019: managed CAPA evidence, durable monitoring, and derived analytics](docs/adr/ADR-019-managed-capa-evidence-monitoring-analytics.md)
+- [ADR-020: S3 evidence custody, external malware scanning, retention, and audit exports](docs/adr/ADR-020-s3-antimalware-retention-audit-exports.md)
 - [Threat model](docs/threat-model.md)
 - [Production readiness checklist](docs/production-checklist.md)
 

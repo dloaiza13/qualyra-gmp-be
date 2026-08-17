@@ -1,3 +1,5 @@
+import { createHash, randomUUID } from 'node:crypto';
+import { basename } from 'node:path';
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Environment } from '../../../common/config/environment.js';
@@ -7,7 +9,8 @@ import type { RequestMetadata } from '../../authentication/application/request-m
 import type { AuthenticatedPrincipal } from '../../authentication/domain/authenticated-principal.js';
 import { appendSecurityEvent } from '../../security-events/application/append-security-event.js';
 import { TenantUnitOfWork } from '../../tenancy/application/ports/tenant-unit-of-work.js';
-import { LocalCapaEvidenceStorage } from '../infrastructure/local-capa-evidence-storage.js';
+import { CapaEvidenceScanner } from '../domain/ports/capa-evidence-scanner.js';
+import { CapaEvidenceStorage } from '../domain/ports/capa-evidence-storage.js';
 import type { CapaEvidenceUploadResponseDto } from './dto/capa-response.dto.js';
 
 export interface UploadedEvidenceFile {
@@ -28,7 +31,8 @@ export class CapaEvidenceService {
 
   constructor(
     private readonly tenantUnitOfWork: TenantUnitOfWork,
-    private readonly storage: LocalCapaEvidenceStorage,
+    private readonly storage: CapaEvidenceStorage,
+    private readonly scanner: CapaEvidenceScanner,
     config: ConfigService<Environment, true>,
   ) {
     this.uploadTtlHours = config.getOrThrow('CAPA_EVIDENCE_UPLOAD_TTL_HOURS', {
@@ -67,18 +71,40 @@ export class CapaEvidenceService {
       );
     }
 
-    let managed;
+    const fileName = safeFileName(file.originalname);
+    const sha256 = createHash('sha256').update(file.buffer).digest('hex');
+    const objectKey = [principal.tenantId, capaId, actionId, randomUUID()].join(
+      '/',
+    );
+    let scan;
     try {
-      managed = await this.storage.store(principal.tenantId, capaId, actionId, {
-        originalName: file.originalname,
+      scan = await this.scanner.scan({
+        fileName,
         contentType: file.mimetype,
         bytes: file.buffer,
       });
     } catch (error: unknown) {
-      throw invalidEvidence(
+      const message =
         error instanceof Error
           ? error.message
-          : 'The evidence file was rejected.',
+          : 'The evidence file was rejected.';
+      if (/unavailable|timed out|returned no result/i.test(message)) {
+        throw new ApplicationError(
+          ErrorCode.InternalError,
+          message,
+          HttpStatus.SERVICE_UNAVAILABLE,
+        );
+      }
+      throw invalidEvidence(message);
+    }
+
+    try {
+      await this.storage.store(objectKey, file.buffer, file.mimetype, sha256);
+    } catch {
+      throw new ApplicationError(
+        ErrorCode.InternalError,
+        'Managed evidence storage is unavailable.',
+        HttpStatus.SERVICE_UNAVAILABLE,
       );
     }
 
@@ -96,14 +122,14 @@ export class CapaEvidenceService {
               capaId,
               actionId,
               uploadedByUserId: principal.userId,
-              fileName: managed.fileName,
-              contentType: managed.contentType,
-              sizeBytes: managed.sizeBytes,
-              sha256: managed.sha256,
-              objectKey: managed.objectKey,
+              fileName,
+              contentType: file.mimetype,
+              sizeBytes: file.buffer.length,
+              sha256,
+              objectKey,
               scanStatus: 'AVAILABLE',
-              scanEngine: managed.scanEngine,
-              scanResult: managed.scanResult,
+              scanEngine: scan.engine,
+              scanResult: scan.result,
               scannedAt: now,
               expiresAt,
             },
@@ -139,9 +165,7 @@ export class CapaEvidenceService {
         },
       );
     } catch (error) {
-      await this.storage
-        .removeNewObject(managed.objectKey)
-        .catch(() => undefined);
+      await this.storage.remove(objectKey).catch(() => undefined);
       throw error;
     }
   }
@@ -171,7 +195,7 @@ export class CapaEvidenceService {
     }
     try {
       return {
-        bytes: await this.storage.read(
+        bytes: await this.readAndVerify(
           evidence.evidenceUpload.objectKey,
           evidence.sha256,
         ),
@@ -186,6 +210,33 @@ export class CapaEvidenceService {
       );
     }
   }
+
+  private async readAndVerify(
+    objectKey: string,
+    expectedSha256: string,
+  ): Promise<Buffer> {
+    const bytes = await this.storage.read(objectKey);
+    const actualSha256 = createHash('sha256').update(bytes).digest('hex');
+    if (actualSha256 !== expectedSha256) {
+      throw new Error('Managed evidence integrity verification failed.');
+    }
+    return bytes;
+  }
+}
+
+function safeFileName(value: string): string {
+  const fileName = basename(value.replaceAll('\\', '/'))
+    .normalize('NFC')
+    .trim();
+  if (
+    !fileName ||
+    fileName === '.' ||
+    fileName === '..' ||
+    fileName.length > 255
+  ) {
+    throw invalidEvidence('The evidence filename is invalid.');
+  }
+  return fileName;
 }
 
 function invalidEvidence(message: string): ApplicationError {
