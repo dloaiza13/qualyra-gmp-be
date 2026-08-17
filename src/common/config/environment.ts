@@ -51,6 +51,30 @@ const environmentSchema = z
       .string()
       .regex(/^\d+(kb|mb)$/i)
       .default('1mb'),
+    CAPA_EVIDENCE_STORAGE_ROOT: z
+      .string()
+      .min(1)
+      .max(500)
+      .default('./.local/evidence'),
+    CAPA_EVIDENCE_MAX_BYTES: z.coerce
+      .number()
+      .int()
+      .min(1024)
+      .max(26_214_400)
+      .default(10_485_760),
+    CAPA_EVIDENCE_UPLOAD_TTL_HOURS: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(168)
+      .default(24),
+    CAPA_MONITORING_ENABLED: booleanValue.default(true),
+    CAPA_MONITORING_INTERVAL_MINUTES: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(1440)
+      .default(15),
   })
   .superRefine((environment, context) => {
     for (const origin of parseAllowedOrigins(

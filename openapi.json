@@ -535,6 +535,228 @@
         ]
       }
     },
+    "/api/v1/capas/analytics": {
+      "get": {
+        "operationId": "CapasController_analytics",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapaAnalyticsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "CAPA"
+        ]
+      }
+    },
+    "/api/v1/capas/{capaId}/actions/{actionId}/evidence": {
+      "post": {
+        "operationId": "CapasController_uploadEvidence",
+        "parameters": [
+          {
+            "name": "capaId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "actionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapaEvidenceUploadResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "CAPA"
+        ]
+      }
+    },
+    "/api/v1/capas/{capaId}/evidence/{evidenceId}/download": {
+      "get": {
+        "operationId": "CapasController_downloadEvidence",
+        "parameters": [
+          {
+            "name": "capaId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "evidenceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "CAPA"
+        ]
+      }
+    },
+    "/api/v1/capas/{capaId}/follow-up-cycles": {
+      "post": {
+        "operationId": "CapasController_createFollowUpCycle",
+        "parameters": [
+          {
+            "name": "capaId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCapaFollowUpCycleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapaDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "CAPA"
+        ]
+      }
+    },
+    "/api/v1/capas/{capaId}/actions/{actionId}/extensions": {
+      "post": {
+        "operationId": "CapasController_approveActionExtension",
+        "parameters": [
+          {
+            "name": "capaId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "actionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveCapaActionExtensionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapaDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "CAPA"
+        ]
+      }
+    },
     "/api/v1/capas/{capaId}": {
       "get": {
         "operationId": "CapasController_get",
@@ -2746,6 +2968,8 @@
               "OPEN",
               "IN_PROGRESS",
               "IMPLEMENTATION_COMPLETED",
+              "FOLLOW_UP_ACTIONS",
+              "FOLLOW_UP_IMPLEMENTATION_COMPLETED",
               "EFFECTIVENESS_REVIEW",
               "CLOSED_EFFECTIVE",
               "INEFFECTIVE"
@@ -2757,6 +2981,7 @@
               "ON_TRACK",
               "DUE_SOON",
               "OVERDUE",
+              "ESCALATED",
               "COMPLETED"
             ]
           },
@@ -2790,6 +3015,14 @@
             ],
             "nullable": true
           },
+          "currentCycleNumber": {
+            "type": "number",
+            "minimum": 0
+          },
+          "followUpCycleCount": {
+            "type": "number",
+            "minimum": 0
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -2805,6 +3038,353 @@
           "createdBy",
           "actionCount",
           "completedActionCount",
+          "currentCycleNumber",
+          "followUpCycleCount",
+          "createdAt"
+        ]
+      },
+      "CapaAnalyticsBucketDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "count": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "key",
+          "count"
+        ]
+      },
+      "CapaAnalyticsAssigneeDto": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/CapaUserSummaryDto"
+          },
+          "openItems": {
+            "type": "number"
+          },
+          "escalatedItems": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "user",
+          "openItems",
+          "escalatedItems"
+        ]
+      },
+      "CapaAnalyticsNotificationDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "capaCode": {
+            "type": "string"
+          },
+          "subjectType": {
+            "type": "string"
+          },
+          "dueState": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "recipient": {
+            "$ref": "#/components/schemas/CapaUserSummaryDto"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "capaCode",
+          "subjectType",
+          "dueState",
+          "status",
+          "recipient",
+          "createdAt"
+        ]
+      },
+      "CapaAnalyticsResponseDto": {
+        "type": "object",
+        "properties": {
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "totalCapas": {
+            "type": "number"
+          },
+          "activeCapas": {
+            "type": "number"
+          },
+          "closedEffective": {
+            "type": "number"
+          },
+          "ineffectiveReviews": {
+            "type": "number"
+          },
+          "effectivenessRate": {
+            "type": "object"
+          },
+          "overdueItems": {
+            "type": "number"
+          },
+          "escalatedItems": {
+            "type": "number"
+          },
+          "byStatus": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CapaAnalyticsBucketDto"
+            }
+          },
+          "bySeverity": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CapaAnalyticsBucketDto"
+            }
+          },
+          "workload": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CapaAnalyticsAssigneeDto"
+            }
+          },
+          "recentNotifications": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CapaAnalyticsNotificationDto"
+            }
+          }
+        },
+        "required": [
+          "generatedAt",
+          "totalCapas",
+          "activeCapas",
+          "closedEffective",
+          "ineffectiveReviews",
+          "effectivenessRate",
+          "overdueItems",
+          "escalatedItems",
+          "byStatus",
+          "bySeverity",
+          "workload",
+          "recentNotifications"
+        ]
+      },
+      "CapaEvidenceUploadResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "number"
+          },
+          "sha256": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64
+          },
+          "scanStatus": {
+            "type": "string",
+            "enum": [
+              "AVAILABLE"
+            ]
+          },
+          "scanEngine": {
+            "type": "string"
+          },
+          "scanResult": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "fileName",
+          "contentType",
+          "sizeBytes",
+          "sha256",
+          "scanStatus",
+          "scanEngine",
+          "scanResult",
+          "expiresAt"
+        ]
+      },
+      "CreateCapaActionDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "CORRECTIVE",
+              "PREVENTIVE"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "example": "Add relay degradation checks to maintenance"
+          },
+          "description": {
+            "type": "string",
+            "example": "Revise the maintenance checklist and train staff."
+          },
+          "assignedToUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dueAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "description",
+          "assignedToUserId",
+          "dueAt"
+        ]
+      },
+      "CreateCapaFollowUpCycleDto": {
+        "type": "object",
+        "properties": {
+          "rationale": {
+            "type": "string",
+            "example": "The verification identified a residual failure mode that requires additional controls."
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateCapaActionDto"
+            }
+          }
+        },
+        "required": [
+          "rationale",
+          "actions"
+        ]
+      },
+      "CapaActionExtensionResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "previousDueAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "newDueAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "approvedBy": {
+            "$ref": "#/components/schemas/CapaUserSummaryDto"
+          },
+          "meaning": {
+            "type": "string",
+            "enum": [
+              "ACTION_EXTENSION_APPROVAL"
+            ]
+          },
+          "authenticationMethod": {
+            "type": "string",
+            "enum": [
+              "PASSWORD_REAUTHENTICATION"
+            ]
+          },
+          "approvedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "recordHash": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "id",
+          "previousDueAt",
+          "newDueAt",
+          "reason",
+          "approvedBy",
+          "meaning",
+          "authenticationMethod",
+          "approvedAt",
+          "recordHash"
+        ]
+      },
+      "CapaActionEvidenceReferenceResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "number"
+          },
+          "sha256": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64
+          },
+          "storageReference": {
+            "type": "string"
+          },
+          "managed": {
+            "type": "boolean"
+          },
+          "downloadUrl": {
+            "type": "object",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "fileName",
+          "contentType",
+          "sizeBytes",
+          "sha256",
+          "storageReference",
+          "managed",
           "createdAt"
         ]
       },
@@ -2835,6 +3415,15 @@
             "type": "string",
             "format": "date-time"
           },
+          "effectiveDueAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "followUpCycleNumber": {
+            "type": "object",
+            "minimum": 1,
+            "nullable": true
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -2848,6 +3437,7 @@
               "ON_TRACK",
               "DUE_SOON",
               "OVERDUE",
+              "ESCALATED",
               "COMPLETED"
             ]
           },
@@ -2883,6 +3473,18 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "extensions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CapaActionExtensionResponseDto"
+            }
+          },
+          "evidenceReferences": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CapaActionEvidenceReferenceResponseDto"
+            }
           }
         },
         "required": [
@@ -2892,9 +3494,12 @@
           "description",
           "assignedTo",
           "dueAt",
+          "effectiveDueAt",
           "status",
           "dueState",
-          "createdAt"
+          "createdAt",
+          "extensions",
+          "evidenceReferences"
         ]
       },
       "CapaEffectivenessReviewResponseDto": {
@@ -2903,6 +3508,10 @@
           "id": {
             "type": "string",
             "format": "uuid"
+          },
+          "cycleNumber": {
+            "type": "number",
+            "minimum": 0
           },
           "criterion": {
             "type": "string"
@@ -2930,6 +3539,7 @@
               "ON_TRACK",
               "DUE_SOON",
               "OVERDUE",
+              "ESCALATED",
               "COMPLETED"
             ]
           },
@@ -2977,6 +3587,7 @@
         },
         "required": [
           "id",
+          "cycleNumber",
           "criterion",
           "assignedTo",
           "scheduledBy",
@@ -2984,6 +3595,46 @@
           "status",
           "dueState",
           "createdAt"
+        ]
+      },
+      "CapaFollowUpCycleResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cycleNumber": {
+            "type": "number",
+            "minimum": 1
+          },
+          "rationale": {
+            "type": "string"
+          },
+          "sourceEffectivenessReviewId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdBy": {
+            "$ref": "#/components/schemas/CapaUserSummaryDto"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lockedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "cycleNumber",
+          "rationale",
+          "sourceEffectivenessReviewId",
+          "createdBy",
+          "createdAt",
+          "lockedAt"
         ]
       },
       "CapaDetailResponseDto": {
@@ -3006,6 +3657,8 @@
               "OPEN",
               "IN_PROGRESS",
               "IMPLEMENTATION_COMPLETED",
+              "FOLLOW_UP_ACTIONS",
+              "FOLLOW_UP_IMPLEMENTATION_COMPLETED",
               "EFFECTIVENESS_REVIEW",
               "CLOSED_EFFECTIVE",
               "INEFFECTIVE"
@@ -3017,6 +3670,7 @@
               "ON_TRACK",
               "DUE_SOON",
               "OVERDUE",
+              "ESCALATED",
               "COMPLETED"
             ]
           },
@@ -3049,6 +3703,14 @@
               "INEFFECTIVE"
             ],
             "nullable": true
+          },
+          "currentCycleNumber": {
+            "type": "number",
+            "minimum": 0
+          },
+          "followUpCycleCount": {
+            "type": "number",
+            "minimum": 0
           },
           "createdAt": {
             "type": "string",
@@ -3086,6 +3748,18 @@
                 "$ref": "#/components/schemas/CapaEffectivenessReviewResponseDto"
               }
             ]
+          },
+          "effectivenessReviews": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CapaEffectivenessReviewResponseDto"
+            }
+          },
+          "followUpCycles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CapaFollowUpCycleResponseDto"
+            }
           }
         },
         "required": [
@@ -3098,48 +3772,45 @@
           "createdBy",
           "actionCount",
           "completedActionCount",
+          "currentCycleNumber",
+          "followUpCycleCount",
           "createdAt",
           "objective",
           "investigationId",
           "rootCause",
           "capaRationale",
           "investigationRecordHash",
-          "actions"
+          "actions",
+          "effectivenessReviews",
+          "followUpCycles"
         ]
       },
-      "CreateCapaActionDto": {
+      "ApproveCapaActionExtensionDto": {
         "type": "object",
         "properties": {
-          "type": {
-            "type": "string",
-            "enum": [
-              "CORRECTIVE",
-              "PREVENTIVE"
-            ]
-          },
-          "title": {
-            "type": "string",
-            "example": "Add relay degradation checks to maintenance"
-          },
-          "description": {
-            "type": "string",
-            "example": "Revise the maintenance checklist and train staff."
-          },
-          "assignedToUserId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "dueAt": {
+          "newDueAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "reason": {
+            "type": "string",
+            "example": "Supplier validation evidence requires an additional review cycle."
+          },
+          "password": {
+            "type": "string",
+            "example": "current account password",
+            "writeOnly": true
+          },
+          "attestationAccepted": {
+            "type": "boolean",
+            "example": true
           }
         },
         "required": [
-          "type",
-          "title",
-          "description",
-          "assignedToUserId",
-          "dueAt"
+          "newDueAt",
+          "reason",
+          "password",
+          "attestationAccepted"
         ]
       },
       "CreateCapaDto": {
@@ -3171,6 +3842,40 @@
           "actions"
         ]
       },
+      "CapaActionEvidenceReferenceDto": {
+        "type": "object",
+        "properties": {
+          "fileName": {
+            "type": "string",
+            "example": "implementation-report.pdf"
+          },
+          "contentType": {
+            "type": "string",
+            "example": "application/pdf"
+          },
+          "sizeBytes": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 1073741824
+          },
+          "sha256": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64
+          },
+          "storageReference": {
+            "type": "string",
+            "example": "qms://controlled/CAPA-2026-0001/report-v1"
+          }
+        },
+        "required": [
+          "fileName",
+          "contentType",
+          "sizeBytes",
+          "sha256",
+          "storageReference"
+        ]
+      },
       "CompleteCapaActionDto": {
         "type": "object",
         "properties": {
@@ -3186,6 +3891,19 @@
           "attestationAccepted": {
             "type": "boolean",
             "example": true
+          },
+          "evidenceReferences": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CapaActionEvidenceReferenceDto"
+            }
+          },
+          "evidenceUploadIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         },
         "required": [

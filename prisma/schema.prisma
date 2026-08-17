@@ -179,6 +179,30 @@ enum CapaEffectivenessDecision {
   INEFFECTIVE
 }
 
+enum CapaEvidenceScanStatus {
+  QUARANTINED
+  AVAILABLE
+  REJECTED
+}
+
+enum CapaNotificationSubjectType {
+  ACTION
+  EFFECTIVENESS_REVIEW
+}
+
+enum CapaNotificationDueState {
+  DUE_SOON
+  OVERDUE
+  ESCALATED
+}
+
+enum CapaNotificationStatus {
+  PENDING
+  PROCESSING
+  DELIVERED
+  FAILED
+}
+
 model Tenant {
   id                       String                        @id @default(uuid()) @db.Uuid
   name                     String                        @db.VarChar(200)
@@ -216,6 +240,8 @@ model Tenant {
   capaFollowUpCycles       CapaFollowUpCycle[]
   capaActionExtensions     CapaActionExtension[]
   capaActionEvidence       CapaActionEvidenceReference[]
+  capaEvidenceUploads      CapaEvidenceUpload[]
+  capaNotifications        CapaNotification[]
 
   @@map("tenants")
 }
@@ -267,6 +293,8 @@ model User {
   capaEffectivenessReviewsScheduled CapaEffectivenessReview[] @relation("CapaEffectivenessScheduler")
   capaFollowUpCyclesCreated         CapaFollowUpCycle[]       @relation("CapaFollowUpCreator")
   capaActionExtensionsApproved      CapaActionExtension[]     @relation("CapaActionExtensionApprover")
+  capaEvidenceUploadsCreated        CapaEvidenceUpload[]      @relation("CapaEvidenceUploader")
+  capaNotificationsReceived         CapaNotification[]        @relation("CapaNotificationRecipient")
 
   @@unique([tenantId, id], map: "users_tenant_id_id_key")
   @@unique([tenantId, email], map: "users_tenant_id_email_key")
@@ -814,6 +842,8 @@ model Capa {
   followUpCycles       CapaFollowUpCycle[]
   actionExtensions     CapaActionExtension[]
   actionEvidence       CapaActionEvidenceReference[]
+  evidenceUploads      CapaEvidenceUpload[]
+  notifications        CapaNotification[]
 
   @@unique([tenantId, id], map: "capas_tenant_id_id_key")
   @@unique([tenantId, code], map: "capas_tenant_id_code_key")
@@ -848,6 +878,8 @@ model CapaAction {
   followUpCycle        CapaFollowUpCycle?            @relation(fields: [tenantId, followUpCycleId], references: [tenantId, id], onDelete: Restrict)
   extensions           CapaActionExtension[]
   evidenceReferences   CapaActionEvidenceReference[]
+  evidenceUploads      CapaEvidenceUpload[]
+  notifications        CapaNotification[]
 
   @@unique([tenantId, id], map: "capa_actions_tenant_id_id_key")
   @@index([tenantId, capaId, status, dueAt], map: "capa_actions_capa_status_due_idx")
@@ -880,6 +912,7 @@ model CapaEffectivenessReview {
   scheduledByUser        User                       @relation("CapaEffectivenessScheduler", fields: [tenantId, scheduledByUserId], references: [tenantId, id], onDelete: Restrict)
   completionSession      Session?                   @relation("CapaEffectivenessCompletionSession", fields: [tenantId, assignedToUserId, completionSessionId], references: [tenantId, userId, id], onDelete: Restrict)
   generatedFollowUpCycle CapaFollowUpCycle?         @relation("CapaFollowUpSourceReview")
+  notifications          CapaNotification[]
 
   @@unique([tenantId, id], map: "capa_effectiveness_reviews_tenant_id_id_key")
   @@unique([tenantId, capaId, cycleNumber], map: "capa_effectiveness_reviews_tenant_capa_cycle_key")
@@ -938,22 +971,83 @@ model CapaActionExtension {
 }
 
 model CapaActionEvidenceReference {
-  id               String     @id @default(uuid()) @db.Uuid
-  tenantId         String     @map("tenant_id") @db.Uuid
-  capaId           String     @map("capa_id") @db.Uuid
-  actionId         String     @map("action_id") @db.Uuid
-  fileName         String     @map("file_name") @db.VarChar(255)
-  contentType      String     @map("content_type") @db.VarChar(150)
-  sizeBytes        Int        @map("size_bytes")
-  sha256           String     @db.Char(64)
-  storageReference String     @map("storage_reference") @db.VarChar(1000)
-  createdAt        DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
-  tenant           Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  capa             Capa       @relation(fields: [tenantId, capaId], references: [tenantId, id], onDelete: Restrict)
-  action           CapaAction @relation(fields: [tenantId, actionId], references: [tenantId, id], onDelete: Restrict)
+  id               String              @id @default(uuid()) @db.Uuid
+  tenantId         String              @map("tenant_id") @db.Uuid
+  capaId           String              @map("capa_id") @db.Uuid
+  actionId         String              @map("action_id") @db.Uuid
+  fileName         String              @map("file_name") @db.VarChar(255)
+  contentType      String              @map("content_type") @db.VarChar(150)
+  sizeBytes        Int                 @map("size_bytes")
+  sha256           String              @db.Char(64)
+  storageReference String              @map("storage_reference") @db.VarChar(1000)
+  evidenceUploadId String?             @map("evidence_upload_id") @db.Uuid
+  createdAt        DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant           Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  capa             Capa                @relation(fields: [tenantId, capaId], references: [tenantId, id], onDelete: Restrict)
+  action           CapaAction          @relation(fields: [tenantId, actionId], references: [tenantId, id], onDelete: Restrict)
+  evidenceUpload   CapaEvidenceUpload? @relation(fields: [tenantId, evidenceUploadId], references: [tenantId, id], onDelete: Restrict)
 
   @@unique([tenantId, id], map: "capa_action_evidence_tenant_id_id_key")
+  @@unique([tenantId, evidenceUploadId], map: "capa_action_evidence_upload_id_key")
   @@unique([tenantId, actionId, storageReference], map: "capa_action_evidence_action_reference_key")
   @@index([tenantId, actionId, createdAt], map: "capa_action_evidence_action_created_idx")
   @@map("capa_action_evidence_references")
+}
+
+model CapaEvidenceUpload {
+  id                String                       @id @default(uuid()) @db.Uuid
+  tenantId          String                       @map("tenant_id") @db.Uuid
+  capaId            String                       @map("capa_id") @db.Uuid
+  actionId          String                       @map("action_id") @db.Uuid
+  uploadedByUserId  String                       @map("uploaded_by_user_id") @db.Uuid
+  fileName          String                       @map("file_name") @db.VarChar(255)
+  contentType       String                       @map("content_type") @db.VarChar(150)
+  sizeBytes         Int                          @map("size_bytes")
+  sha256            String                       @db.Char(64)
+  objectKey         String                       @unique(map: "capa_evidence_uploads_object_key_key") @map("object_key") @db.VarChar(500)
+  scanStatus        CapaEvidenceScanStatus       @map("scan_status")
+  scanEngine        String                       @map("scan_engine") @db.VarChar(100)
+  scanResult        String                       @map("scan_result") @db.VarChar(500)
+  scannedAt         DateTime                     @map("scanned_at") @db.Timestamptz(3)
+  consumedAt        DateTime?                    @map("consumed_at") @db.Timestamptz(3)
+  expiresAt         DateTime                     @map("expires_at") @db.Timestamptz(3)
+  createdAt         DateTime                     @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant            Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  capa              Capa                         @relation(fields: [tenantId, capaId], references: [tenantId, id], onDelete: Restrict)
+  action            CapaAction                   @relation(fields: [tenantId, actionId], references: [tenantId, id], onDelete: Restrict)
+  uploadedByUser    User                         @relation("CapaEvidenceUploader", fields: [tenantId, uploadedByUserId], references: [tenantId, id], onDelete: Restrict)
+  evidenceReference CapaActionEvidenceReference?
+
+  @@unique([tenantId, id], map: "capa_evidence_uploads_tenant_id_id_key")
+  @@index([tenantId, actionId, scanStatus, expiresAt], map: "capa_evidence_uploads_action_status_expiry_idx")
+  @@map("capa_evidence_uploads")
+}
+
+model CapaNotification {
+  id                    String                      @id @default(uuid()) @db.Uuid
+  tenantId              String                      @map("tenant_id") @db.Uuid
+  capaId                String                      @map("capa_id") @db.Uuid
+  actionId              String?                     @map("action_id") @db.Uuid
+  effectivenessReviewId String?                     @map("effectiveness_review_id") @db.Uuid
+  recipientUserId       String                      @map("recipient_user_id") @db.Uuid
+  subjectType           CapaNotificationSubjectType @map("subject_type")
+  dueState              CapaNotificationDueState    @map("due_state")
+  dueAt                 DateTime                    @map("due_at") @db.Timestamptz(3)
+  deduplicationKey      String                      @map("deduplication_key") @db.VarChar(300)
+  status                CapaNotificationStatus      @default(PENDING)
+  attempts              Int                         @default(0)
+  lastError             String?                     @map("last_error") @db.VarChar(1000)
+  deliveredAt           DateTime?                   @map("delivered_at") @db.Timestamptz(3)
+  createdAt             DateTime                    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant                Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  capa                  Capa                        @relation(fields: [tenantId, capaId], references: [tenantId, id], onDelete: Restrict)
+  action                CapaAction?                 @relation(fields: [tenantId, actionId], references: [tenantId, id], onDelete: Restrict)
+  effectivenessReview   CapaEffectivenessReview?    @relation(fields: [tenantId, effectivenessReviewId], references: [tenantId, id], onDelete: Restrict)
+  recipientUser         User                        @relation("CapaNotificationRecipient", fields: [tenantId, recipientUserId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, deduplicationKey], map: "capa_notifications_tenant_dedup_key")
+  @@index([tenantId, status, createdAt], map: "capa_notifications_status_created_idx")
+  @@index([tenantId, recipientUserId, createdAt], map: "capa_notifications_recipient_created_idx")
+  @@map("capa_notifications")
 }

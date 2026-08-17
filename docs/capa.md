@@ -1,6 +1,6 @@
 # Corrective and preventive actions (CAPA)
 
-Phases 16 through 18 turn a completed deviation investigation into a controlled CAPA plan and carry it through repeatable independent effectiveness verification. They cover immutable planning, authenticated implementation evidence, extensions, ineffective-result follow-up cycles, an independent quality decision, and atomic closure of the source deviation when the result is effective.
+Phases 16 through 19 turn a completed deviation investigation into a controlled CAPA plan and carry it through repeatable independent effectiveness verification. They cover immutable planning, managed binary evidence, authenticated implementation, extensions, ineffective-result follow-up cycles, automated deadline monitoring, aggregate trends, an independent quality decision, and atomic closure of the source deviation when the result is effective.
 
 ## Permissions
 
@@ -22,16 +22,19 @@ An action assignee must be active in the same tenant and hold `capas.execute`. U
 
 All routes use the `/api/v1` prefix.
 
-| Method | Route                                          | Permission                     | Purpose                                           |
-| ------ | ---------------------------------------------- | ------------------------------ | ------------------------------------------------- |
-| `GET`  | `/capas`                                       | `capas.read`                   | List safe plan summaries with optional search     |
-| `GET`  | `/capas/:capaId`                               | `capas.read`                   | Read source investigation and action evidence     |
-| `POST` | `/capas`                                       | `capas.create`                 | Create and lock a plan and its actions atomically |
-| `POST` | `/capas/:capaId/actions/:actionId/complete`    | `capas.execute`                | Authenticate completion of one assigned action    |
-| `POST` | `/capas/:capaId/effectiveness-review`          | `capas.schedule_effectiveness` | Schedule the independent review                   |
-| `POST` | `/capas/:capaId/effectiveness-review/complete` | `capas.verify_effectiveness`   | Authenticate the assigned reviewer's decision     |
-| `POST` | `/capas/:capaId/follow-up-cycles`              | `capas.create_follow_up`       | Create and lock the next numbered action cycle    |
-| `POST` | `/capas/:capaId/actions/:actionId/extensions`  | `capas.approve_extensions`     | Authenticate an immutable due-date extension      |
+| Method | Route                                          | Permission                     | Purpose                                             |
+| ------ | ---------------------------------------------- | ------------------------------ | --------------------------------------------------- |
+| `GET`  | `/capas`                                       | `capas.read`                   | List safe plan summaries with optional search       |
+| `GET`  | `/capas/:capaId`                               | `capas.read`                   | Read source investigation and action evidence       |
+| `POST` | `/capas`                                       | `capas.create`                 | Create and lock a plan and its actions atomically   |
+| `POST` | `/capas/:capaId/actions/:actionId/complete`    | `capas.execute`                | Authenticate completion of one assigned action      |
+| `POST` | `/capas/:capaId/effectiveness-review`          | `capas.schedule_effectiveness` | Schedule the independent review                     |
+| `POST` | `/capas/:capaId/effectiveness-review/complete` | `capas.verify_effectiveness`   | Authenticate the assigned reviewer's decision       |
+| `POST` | `/capas/:capaId/follow-up-cycles`              | `capas.create_follow_up`       | Create and lock the next numbered action cycle      |
+| `POST` | `/capas/:capaId/actions/:actionId/extensions`  | `capas.approve_extensions`     | Authenticate an immutable due-date extension        |
+| `GET`  | `/capas/analytics`                             | `capas.read`                   | Read derived tenant CAPA trends and monitor history |
+| `POST` | `/capas/:capaId/actions/:actionId/evidence`    | `capas.execute`                | Analyze and stage one managed evidence file         |
+| `GET`  | `/capas/:capaId/evidence/:evidenceId/download` | `capas.read`                   | Download one authorized verified evidence file      |
 
 Search matches CAPA code/title and source deviation code/title. List responses expose progress counts and the next open due date but omit root cause, action narratives, completion comments, and record hashes.
 
@@ -45,7 +48,11 @@ Each tenant receives an independent annual number formatted as `CAPA-YYYY-NNNN`.
 
 An open action may transition exactly once to `COMPLETED`, and only by its assigned user. Completion requires an implementation comment, current password, and explicit attestation. The service verifies the password, then reconfirms the unchanged password hash and active session inside the transaction.
 
-The completed row stores fixed meaning `ACTION_COMPLETION`, authentication method `PASSWORD_REAUTHENTICATION`, session, comment, timestamp, and a canonical SHA-256 fingerprint. Completion can atomically add up to ten immutable evidence references: filename, content type, byte size, SHA-256, and a controlled-repository reference. Qualyra does not upload or store the binary in this phase. The fingerprint covers the source investigation hash, plan, action definition, approved extension fingerprints, evidence-reference metadata, authenticated actor, session, intent, comment, and completion time. Database checks require either a fully open state or complete evidence; triggers reject subsequent mutation or deletion.
+The completed row stores fixed meaning `ACTION_COMPLETION`, authentication method `PASSWORD_REAUTHENTICATION`, session, comment, timestamp, and a canonical SHA-256 fingerprint. Completion can atomically add up to ten immutable evidence references: filename, content type, byte size, SHA-256, and either an external controlled-repository reference or a Qualyra-managed upload.
+
+A managed upload is limited to the configured size and to PDF, PNG, JPEG, or UTF-8 text. Qualyra validates the claimed type against file signatures, rejects executable and known test-malware signatures, computes SHA-256, uses an opaque object key, and isolates metadata with tenant RLS. Only the assigned user can upload to an open action. A safe staged upload expires after the configured interval and can be consumed once. Completion binds it to the signed fingerprint in the same transaction. Authorized downloads reverify SHA-256 and are returned as non-cacheable attachments. The built-in analyzer does not replace a production antimalware engine.
+
+The fingerprint covers the source investigation hash, plan, action definition, approved extension fingerprints, evidence-reference metadata, authenticated actor, session, intent, comment, and completion time. Database checks require either a fully open state or complete evidence; triggers reject subsequent mutation or deletion.
 
 An open action can receive one or more extensions. The original target date is never edited. Each extension stores the previous effective date, later approved date, rationale, approver-bound active session, fixed meaning `ACTION_EXTENSION_APPROVAL`, password reauthentication, approval time, and SHA-256 fingerprint. The approver cannot be the action assignee. Row locking serializes extension and completion requests so completion cannot omit a concurrently approved extension.
 
@@ -72,10 +79,14 @@ Plan status is derived from immutable actions rather than stored as mutable work
 - `CLOSED_EFFECTIVE` after an effective authenticated decision;
 - `INEFFECTIVE` after an ineffective authenticated decision.
 
-The latest approved extension supplies the effective due date without replacing the original. Open actions produce `DUE_SOON` during the preceding seven days, `OVERDUE` during the first seven overdue days, `ESCALATED` after seven overdue days, or `ON_TRACK` otherwise. These reminder/escalation states are calculated at read time; this phase does not claim outbound email delivery or a background scheduler.
+The latest approved extension supplies the effective due date without replacing the original. Open actions and scheduled effectiveness reviews produce `DUE_SOON` during the preceding seven days, `OVERDUE` during the first seven overdue days, `ESCALATED` after seven overdue days, or `ON_TRACK` otherwise.
+
+The application monitor evaluates active tenants on a configurable interval. Durable notification rows deduplicate each recipient, deadline, and state transition. Assignees receive due and overdue messages; escalated items also reach active quality users. A processing lease recovers abandoned work and delivery retries stop after ten attempts. SMTP delivery is at-least-once rather than exactly-once.
+
+`GET /capas/analytics` derives effectiveness rate, late work, status/severity distribution, assignee workload, and recent notification evidence directly from tenant source records. It does not maintain a separate mutable reporting aggregate.
 
 ## Isolation and deferred scope
 
-Every CAPA table, including follow-up cycles, extensions, and evidence references, uses forced PostgreSQL row-level security. Composite tenant foreign keys prevent cross-tenant source, creator, assignee, reviewer, approver, and session references. The runtime role cannot delete CAPA evidence, and database transition guards constrain its necessary update grants.
+Every CAPA table, including follow-up cycles, extensions, evidence uploads, references, and notifications, uses forced PostgreSQL row-level security. Composite tenant foreign keys prevent cross-tenant source, creator, assignee, reviewer, approver, recipient, and session references. The runtime role cannot delete CAPA evidence, and database transition guards constrain its necessary update grants.
 
-Binary object storage, malware scanning, outbound reminders/escalations, plan amendments, reassignment, exports, and trend analysis require later explicit workflows. Evidence metadata must point to an organization-controlled repository until binary storage is implemented. These controls are audit-ready building blocks and do not establish GMP, ISO, FDA, or 21 CFR Part 11 compliance.
+Production-grade independent malware scanning, encrypted S3-compatible object storage, retention cleanup, backup/restore validation, plan amendments, reassignment, exports, and validated statistical process control require later explicit workflows. These controls are audit-ready building blocks and do not establish GMP, ISO, FDA, or 21 CFR Part 11 compliance.

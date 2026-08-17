@@ -75,6 +75,7 @@ The backend is a modular NestJS monolith with pragmatic ports and adapters, tena
 - [ADR-016: immutable CAPA plan and authenticated action execution](docs/adr/ADR-016-immutable-capa-plan-authenticated-action-execution.md)
 - [ADR-017: independent CAPA effectiveness and controlled deviation closure](docs/adr/ADR-017-independent-capa-effectiveness-and-controlled-closure.md)
 - [ADR-018: controlled CAPA follow-up cycles](docs/adr/ADR-018-controlled-capa-follow-up-cycles.md)
+- [ADR-019: managed CAPA evidence, durable monitoring, and derived analytics](docs/adr/ADR-019-managed-capa-evidence-monitoring-analytics.md)
 - [Threat model](docs/threat-model.md)
 - [Production readiness checklist](docs/production-checklist.md)
 

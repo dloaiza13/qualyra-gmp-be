@@ -15,8 +15,13 @@ interface Fixture {
 }
 
 const tenantScopedTables = [
+  'capa_action_evidence_references',
+  'capa_action_extensions',
   'capa_actions',
   'capa_effectiveness_reviews',
+  'capa_evidence_uploads',
+  'capa_follow_up_cycles',
+  'capa_notifications',
   'capa_sequences',
   'capas',
   'deviation_investigations',

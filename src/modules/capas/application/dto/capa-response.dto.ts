@@ -134,8 +134,123 @@ export class CapaActionEvidenceReferenceResponseDto {
   @ApiProperty()
   storageReference!: string;
 
+  @ApiProperty()
+  managed!: boolean;
+
+  @ApiPropertyOptional({ nullable: true })
+  downloadUrl!: string | null;
+
   @ApiProperty({ format: 'date-time' })
   createdAt!: string;
+}
+
+export class CapaEvidenceUploadResponseDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty()
+  fileName!: string;
+
+  @ApiProperty()
+  contentType!: string;
+
+  @ApiProperty()
+  sizeBytes!: number;
+
+  @ApiProperty({ minLength: 64, maxLength: 64 })
+  sha256!: string;
+
+  @ApiProperty({ enum: ['AVAILABLE'] })
+  scanStatus!: string;
+
+  @ApiProperty()
+  scanEngine!: string;
+
+  @ApiProperty()
+  scanResult!: string;
+
+  @ApiProperty({ format: 'date-time' })
+  expiresAt!: string;
+}
+
+export class CapaAnalyticsBucketDto {
+  @ApiProperty()
+  key!: string;
+
+  @ApiProperty()
+  count!: number;
+}
+
+export class CapaAnalyticsAssigneeDto {
+  @ApiProperty({ type: CapaUserSummaryDto })
+  user!: CapaUserSummaryDto;
+
+  @ApiProperty()
+  openItems!: number;
+
+  @ApiProperty()
+  escalatedItems!: number;
+}
+
+export class CapaAnalyticsNotificationDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty()
+  capaCode!: string;
+
+  @ApiProperty()
+  subjectType!: string;
+
+  @ApiProperty()
+  dueState!: string;
+
+  @ApiProperty()
+  status!: string;
+
+  @ApiProperty({ type: CapaUserSummaryDto })
+  recipient!: CapaUserSummaryDto;
+
+  @ApiProperty({ format: 'date-time' })
+  createdAt!: string;
+}
+
+export class CapaAnalyticsResponseDto {
+  @ApiProperty({ format: 'date-time' })
+  generatedAt!: string;
+
+  @ApiProperty()
+  totalCapas!: number;
+
+  @ApiProperty()
+  activeCapas!: number;
+
+  @ApiProperty()
+  closedEffective!: number;
+
+  @ApiProperty()
+  ineffectiveReviews!: number;
+
+  @ApiProperty()
+  effectivenessRate!: number | null;
+
+  @ApiProperty()
+  overdueItems!: number;
+
+  @ApiProperty()
+  escalatedItems!: number;
+
+  @ApiProperty({ type: CapaAnalyticsBucketDto, isArray: true })
+  byStatus!: CapaAnalyticsBucketDto[];
+
+  @ApiProperty({ type: CapaAnalyticsBucketDto, isArray: true })
+  bySeverity!: CapaAnalyticsBucketDto[];
+
+  @ApiProperty({ type: CapaAnalyticsAssigneeDto, isArray: true })
+  workload!: CapaAnalyticsAssigneeDto[];
+
+  @ApiProperty({ type: CapaAnalyticsNotificationDto, isArray: true })
+  recentNotifications!: CapaAnalyticsNotificationDto[];
 }
 
 export class CapaEffectivenessReviewResponseDto {

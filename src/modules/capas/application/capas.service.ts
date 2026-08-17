@@ -19,6 +19,7 @@ import type {
 } from './dto/capa-request.dto.js';
 import type {
   CapaActionResponseDto,
+  CapaAnalyticsResponseDto,
   CapaDetailResponseDto,
   CapaEffectivenessReviewResponseDto,
   CapaSummaryResponseDto,
@@ -141,6 +142,133 @@ export class CapasService {
         });
         const now = new Date();
         return capas.map((capa) => mapSummary(capa, now));
+      },
+    );
+  }
+
+  analytics(
+    principal: AuthenticatedPrincipal,
+  ): Promise<CapaAnalyticsResponseDto> {
+    return this.tenantUnitOfWork.execute(
+      principal.tenantId,
+      async (transaction) => {
+        const [capas, openActions, scheduledReviews, notifications] =
+          await Promise.all([
+            transaction.capa.findMany({
+              where: { tenantId: principal.tenantId },
+              orderBy: { createdAt: 'desc' },
+              include: capaSummaryInclude,
+            }),
+            transaction.capaAction.findMany({
+              where: { tenantId: principal.tenantId, status: 'OPEN' },
+              include: {
+                assignedToUser: { select: userSummary },
+                extensions: {
+                  orderBy: [{ approvedAt: 'desc' }, { id: 'desc' }],
+                  take: 1,
+                  select: { newDueAt: true },
+                },
+              },
+            }),
+            transaction.capaEffectivenessReview.findMany({
+              where: {
+                tenantId: principal.tenantId,
+                status: 'SCHEDULED',
+              },
+              select: { dueAt: true },
+            }),
+            transaction.capaNotification.findMany({
+              where: { tenantId: principal.tenantId },
+              orderBy: { createdAt: 'desc' },
+              take: 8,
+              include: {
+                capa: { select: { code: true } },
+                recipientUser: { select: userSummary },
+              },
+            }),
+          ]);
+        const now = new Date();
+        const summaries = capas.map((capa) => mapSummary(capa, now));
+        const completedReviews = capas.flatMap(({ effectivenessReviews }) =>
+          effectivenessReviews.filter(({ status }) => status === 'COMPLETED'),
+        );
+        const effectiveReviews = completedReviews.filter(
+          ({ decision }) => decision === 'EFFECTIVE',
+        );
+        const actionStates = openActions.map((action) =>
+          actionDueState('OPEN', effectiveActionDueAt(action), now),
+        );
+        const reviewStates = scheduledReviews.map(({ dueAt }) =>
+          actionDueState('OPEN', dueAt, now),
+        );
+        const dueStates = [...actionStates, ...reviewStates];
+
+        const workload = new Map<
+          string,
+          {
+            user: (typeof openActions)[number]['assignedToUser'];
+            openItems: number;
+            escalatedItems: number;
+          }
+        >();
+        openActions.forEach((action, index) => {
+          const current = workload.get(action.assignedToUserId) ?? {
+            user: action.assignedToUser,
+            openItems: 0,
+            escalatedItems: 0,
+          };
+          current.openItems += 1;
+          if (actionStates[index] === 'ESCALATED') current.escalatedItems += 1;
+          workload.set(action.assignedToUserId, current);
+        });
+
+        return {
+          generatedAt: now.toISOString(),
+          totalCapas: summaries.length,
+          activeCapas: summaries.filter(
+            ({ status }) => status !== 'CLOSED_EFFECTIVE',
+          ).length,
+          closedEffective: summaries.filter(
+            ({ status }) => status === 'CLOSED_EFFECTIVE',
+          ).length,
+          ineffectiveReviews: completedReviews.filter(
+            ({ decision }) => decision === 'INEFFECTIVE',
+          ).length,
+          effectivenessRate:
+            completedReviews.length > 0
+              ? Math.round(
+                  (effectiveReviews.length / completedReviews.length) * 1000,
+                ) / 10
+              : null,
+          overdueItems: dueStates.filter((state) =>
+            ['OVERDUE', 'ESCALATED'].includes(state),
+          ).length,
+          escalatedItems: dueStates.filter((state) => state === 'ESCALATED')
+            .length,
+          byStatus: countBuckets(summaries.map(({ status }) => status)),
+          bySeverity: countBuckets(
+            summaries.map(
+              ({ deviation }) => deviation.severity ?? 'UNASSESSED',
+            ),
+          ),
+          workload: [...workload.values()]
+            .sort(
+              (left, right) =>
+                right.escalatedItems - left.escalatedItems ||
+                right.openItems - left.openItems ||
+                left.user.displayName.localeCompare(right.user.displayName),
+            )
+            .slice(0, 8),
+          recentNotifications: notifications.map((notification) => ({
+            id: notification.id,
+            capaCode: notification.capa.code,
+            subjectType: notification.subjectType,
+            dueState: notification.dueState,
+            status: notification.status,
+            recipient: notification.recipientUser,
+            createdAt: notification.createdAt.toISOString(),
+          })),
+        };
       },
     );
   }
@@ -655,9 +783,64 @@ export class CapasService {
           throw reauthenticationFailed();
         }
 
-        const evidenceReferences = [...(input.evidenceReferences ?? [])].sort(
+        const externalReferences = [...(input.evidenceReferences ?? [])].sort(
           (left, right) =>
             left.storageReference.localeCompare(right.storageReference),
+        );
+        if (
+          externalReferences.some(({ storageReference }) =>
+            storageReference.startsWith('qualyra://managed/'),
+          )
+        ) {
+          throw capaInvalid(
+            'Managed evidence references cannot be supplied manually.',
+          );
+        }
+        const evidenceUploadIds = [
+          ...new Set(input.evidenceUploadIds ?? []),
+        ].sort();
+        if (
+          evidenceUploadIds.length !== (input.evidenceUploadIds ?? []).length
+        ) {
+          throw capaInvalid(
+            'Each managed evidence upload may only be used once.',
+          );
+        }
+        const uploads = evidenceUploadIds.length
+          ? await transaction.capaEvidenceUpload.findMany({
+              where: {
+                id: { in: evidenceUploadIds },
+                tenantId: principal.tenantId,
+                capaId: capa.id,
+                actionId: action.id,
+                uploadedByUserId: principal.userId,
+                scanStatus: 'AVAILABLE',
+                consumedAt: null,
+                expiresAt: { gt: now },
+              },
+              orderBy: { id: 'asc' },
+            })
+          : [];
+        if (uploads.length !== evidenceUploadIds.length) {
+          throw capaInvalid(
+            'A managed evidence upload is unavailable, expired, or belongs to another action.',
+          );
+        }
+        const evidenceReferences = [
+          ...externalReferences.map((reference) => ({
+            ...reference,
+            evidenceUploadId: null as string | null,
+          })),
+          ...uploads.map((upload) => ({
+            fileName: upload.fileName,
+            contentType: upload.contentType,
+            sizeBytes: upload.sizeBytes,
+            sha256: upload.sha256,
+            storageReference: `qualyra://managed/${upload.id}`,
+            evidenceUploadId: upload.id,
+          })),
+        ].sort((left, right) =>
+          left.storageReference.localeCompare(right.storageReference),
         );
         if (
           new Set(
@@ -669,7 +852,7 @@ export class CapasService {
           );
         }
         const recordHash = hashRecord({
-          schemaVersion: 1,
+          schemaVersion: 2,
           capaId: capa.id,
           capaCode: capa.code,
           capaTitle: capa.title,
@@ -712,6 +895,19 @@ export class CapasService {
               ...reference,
             })),
           });
+        }
+
+        if (evidenceUploadIds.length > 0) {
+          const consumed = await transaction.capaEvidenceUpload.updateMany({
+            where: {
+              id: { in: evidenceUploadIds },
+              tenantId: principal.tenantId,
+              actionId: action.id,
+              consumedAt: null,
+            },
+            data: { consumedAt: now },
+          });
+          if (consumed.count !== evidenceUploadIds.length) throw capaConflict();
         }
 
         const completed = await transaction.capaAction.updateMany({
@@ -1207,6 +1403,11 @@ function mapAction(
       sizeBytes: reference.sizeBytes,
       sha256: reference.sha256,
       storageReference: reference.storageReference,
+      managed: reference.evidenceUploadId !== null,
+      downloadUrl:
+        reference.evidenceUploadId !== null
+          ? `/capas/${action.capaId}/evidence/${reference.id}/download`
+          : null,
       createdAt: reference.createdAt.toISOString(),
     })),
   };
@@ -1305,6 +1506,17 @@ function latestEffectivenessReview<T extends { cycleNumber: number }>(
       !latest || review.cycleNumber > latest.cycleNumber ? review : latest,
     undefined,
   );
+}
+
+function countBuckets(values: string[]): { key: string; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
+  return [...counts.entries()]
+    .map(([key, count]) => ({ key, count }))
+    .sort(
+      (left, right) =>
+        right.count - left.count || left.key.localeCompare(right.key),
+    );
 }
 
 function capaNotFound(): ApplicationError {

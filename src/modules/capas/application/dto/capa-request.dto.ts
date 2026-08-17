@@ -108,6 +108,13 @@ export class CompleteCapaActionDto {
   @ValidateNested({ each: true })
   @Type(() => CapaActionEvidenceReferenceDto)
   evidenceReferences: CapaActionEvidenceReferenceDto[] = [];
+
+  @ApiPropertyOptional({ type: String, format: 'uuid', isArray: true })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsUUID('4', { each: true })
+  evidenceUploadIds: string[] = [];
 }
 
 export class CapaActionEvidenceReferenceDto {

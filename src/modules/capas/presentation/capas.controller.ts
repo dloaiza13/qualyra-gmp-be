@@ -7,15 +7,23 @@ import {
   Post,
   Query,
   Req,
+  Res,
+  StreamableFile,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
   ApiCreatedResponse,
   ApiOkResponse,
   ApiTags,
 } from '@nestjs/swagger';
 import type { Request } from 'express';
+import type { Response } from 'express';
+import { FileInterceptor } from '@nestjs/platform-express';
 import type { RequestWithContext } from '../../../common/request-context/request-with-context.js';
 import type { RequestMetadata } from '../../authentication/application/request-metadata.js';
 import type { AuthenticatedPrincipal } from '../../authentication/domain/authenticated-principal.js';
@@ -24,6 +32,10 @@ import { JwtAuthGuard } from '../../authentication/presentation/jwt-auth.guard.j
 import { Permissions } from '../../authorization/presentation/permissions.decorator.js';
 import { PermissionsGuard } from '../../authorization/presentation/permissions.guard.js';
 import { CapasService } from '../application/capas.service.js';
+import {
+  CapaEvidenceService,
+  type UploadedEvidenceFile,
+} from '../application/capa-evidence.service.js';
 import {
   CapaListQueryDto,
   ApproveCapaActionExtensionDto,
@@ -35,6 +47,8 @@ import {
 } from '../application/dto/capa-request.dto.js';
 import {
   CapaDetailResponseDto,
+  CapaAnalyticsResponseDto,
+  CapaEvidenceUploadResponseDto,
   CapaSummaryResponseDto,
 } from '../application/dto/capa-response.dto.js';
 
@@ -43,7 +57,10 @@ import {
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('capas')
 export class CapasController {
-  constructor(private readonly capas: CapasService) {}
+  constructor(
+    private readonly capas: CapasService,
+    private readonly evidence: CapaEvidenceService,
+  ) {}
 
   @Get()
   @Permissions('capas.read')
@@ -53,6 +70,65 @@ export class CapasController {
     @Query() query: CapaListQueryDto,
   ): Promise<CapaSummaryResponseDto[]> {
     return this.capas.list(principal, query);
+  }
+
+  @Get('analytics')
+  @Permissions('capas.read')
+  @ApiOkResponse({ type: CapaAnalyticsResponseDto })
+  analytics(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+  ): Promise<CapaAnalyticsResponseDto> {
+    return this.capas.analytics(principal);
+  }
+
+  @Post(':capaId/actions/:actionId/evidence')
+  @Permissions('capas.execute')
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { files: 1, fileSize: 26_214_400 } }),
+  )
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['file'],
+      properties: { file: { type: 'string', format: 'binary' } },
+    },
+  })
+  @ApiCreatedResponse({ type: CapaEvidenceUploadResponseDto })
+  uploadEvidence(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+    @Param('capaId', new ParseUUIDPipe()) capaId: string,
+    @Param('actionId', new ParseUUIDPipe()) actionId: string,
+    @UploadedFile() file: UploadedEvidenceFile | undefined,
+    @Req() request: Request & RequestWithContext,
+  ): Promise<CapaEvidenceUploadResponseDto> {
+    return this.evidence.upload(
+      principal,
+      capaId,
+      actionId,
+      file,
+      requestMetadata(request),
+    );
+  }
+
+  @Get(':capaId/evidence/:evidenceId/download')
+  @Permissions('capas.read')
+  async downloadEvidence(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+    @Param('capaId', new ParseUUIDPipe()) capaId: string,
+    @Param('evidenceId', new ParseUUIDPipe()) evidenceId: string,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<StreamableFile> {
+    const file = await this.evidence.download(principal, capaId, evidenceId);
+    response.setHeader('Content-Type', file.contentType);
+    response.setHeader('Content-Length', String(file.bytes.length));
+    response.setHeader(
+      'Content-Disposition',
+      contentDisposition(file.fileName),
+    );
+    response.setHeader('X-Content-Type-Options', 'nosniff');
+    response.setHeader('Cache-Control', 'private, no-store');
+    return new StreamableFile(file.bytes);
   }
 
   @Post(':capaId/follow-up-cycles')
@@ -164,6 +240,11 @@ export class CapasController {
       requestMetadata(request),
     );
   }
+}
+
+function contentDisposition(fileName: string): string {
+  const ascii = fileName.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_');
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
 }
 
 function requestMetadata(

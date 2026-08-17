@@ -8,6 +8,11 @@ import {
   AuthenticationNotifier,
   type InvitationEmail,
 } from '../src/modules/authentication/domain/ports/authentication-notifier.js';
+import { CapaMonitoringService } from '../src/modules/capas/application/capa-monitoring.service.js';
+import {
+  CapaMonitoringNotifier,
+  type CapaMonitoringMessage,
+} from '../src/modules/capas/domain/ports/capa-monitoring-notifier.js';
 
 const runDatabaseIntegration = process.env.RUN_DATABASE_INTEGRATION === 'true';
 const describeDatabase = runDatabaseIntegration ? describe : describe.skip;
@@ -15,6 +20,7 @@ const describeDatabase = runDatabaseIntegration ? describe : describe.skip;
 interface AuthenticationBody {
   accessToken: string;
   user: { id: string; email: string };
+  tenant: { id: string; name: string; slug: string };
 }
 
 interface RoleBody {
@@ -57,6 +63,8 @@ interface CapaBody {
     evidenceReferences: {
       sha256: string;
       storageReference: string;
+      managed?: boolean;
+      downloadUrl?: string | null;
     }[];
   }[];
   effectivenessReview?: {
@@ -101,8 +109,18 @@ class RecordingNotifier extends AuthenticationNotifier {
   }
 }
 
+class RecordingCapaMonitoringNotifier extends CapaMonitoringNotifier {
+  readonly messages: CapaMonitoringMessage[] = [];
+
+  send(message: CapaMonitoringMessage): Promise<void> {
+    this.messages.push(message);
+    return Promise.resolve();
+  }
+}
+
 describeDatabase('CAPA planning and action execution', () => {
   const notifier = new RecordingNotifier();
+  const monitoringNotifier = new RecordingCapaMonitoringNotifier();
   const suffix = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
   let app: INestApplication;
 
@@ -112,6 +130,8 @@ describeDatabase('CAPA planning and action execution', () => {
     })
       .overrideProvider(AuthenticationNotifier)
       .useValue(notifier)
+      .overrideProvider(CapaMonitoringNotifier)
+      .useValue(monitoringNotifier)
       .compile();
     app = moduleFixture.createNestApplication({ bodyParser: false });
     app.useLogger(false);
@@ -271,6 +291,24 @@ describeDatabase('CAPA planning and action execution', () => {
       deviation: { id: deviation.id },
     });
     expect(created.rootCause).toContain('relay degradation checks');
+    const monitor = app.get(CapaMonitoringService);
+    const simulatedEscalationAt = new Date(
+      Date.now() + 40 * 24 * 60 * 60 * 1000,
+    );
+    await monitor.runTenant(tenantA.tenant.id, simulatedEscalationAt);
+    const deliveredOnce = monitoringNotifier.messages.length;
+    expect(deliveredOnce).toBeGreaterThanOrEqual(2);
+    expect(monitoringNotifier.messages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          capaCode: created.code,
+          dueState: 'ESCALATED',
+          subjectType: 'ACTION',
+        }),
+      ]),
+    );
+    await monitor.runTenant(tenantA.tenant.id, simulatedEscalationAt);
+    expect(monitoringNotifier.messages).toHaveLength(deliveredOnce);
     const investigatorAction = created.actions?.find(
       ({ assignedTo }) => assignedTo.id === investigator.user.id,
     );
@@ -530,6 +568,54 @@ describeDatabase('CAPA planning and action execution', () => {
       storageReference: 'qms://controlled/CAPA-relay-load-trend/version-1',
     };
     await request(server)
+      .post(`/api/v1/capas/${created.id}/actions/${followUpAction.id}/evidence`)
+      .set(authA)
+      .attach(
+        'file',
+        Buffer.from('%PDF-1.7\nAdmin must not upload this evidence.'),
+        {
+          filename: 'admin-report.pdf',
+          contentType: 'application/pdf',
+        },
+      )
+      .expect(403);
+    await request(server)
+      .post(`/api/v1/capas/${created.id}/actions/${followUpAction.id}/evidence`)
+      .set(bearer(operator.accessToken))
+      .attach('file', Buffer.from('not a PNG'), {
+        filename: 'invalid.png',
+        contentType: 'image/png',
+      })
+      .expect(400)
+      .expect(({ body }: { body: ErrorBody }) => {
+        expect(body.code).toBe('CAPA_INVALID');
+      });
+    const managedPdf = Buffer.from(
+      '%PDF-1.7\nControlled relay load trend evidence\n%%EOF',
+    );
+    const uploadedEvidence = bodyAs<{
+      id: string;
+      scanStatus: string;
+      sha256: string;
+      expiresAt: string;
+    }>(
+      await request(server)
+        .post(
+          `/api/v1/capas/${created.id}/actions/${followUpAction.id}/evidence`,
+        )
+        .set(bearer(operator.accessToken))
+        .attach('file', managedPdf, {
+          filename: 'managed-relay-trend.pdf',
+          contentType: 'application/pdf',
+        })
+        .expect(201),
+    );
+    expect(uploadedEvidence).toMatchObject({ scanStatus: 'AVAILABLE' });
+    expect(uploadedEvidence.sha256).toMatch(/^[0-9a-f]{64}$/);
+    expect(new Date(uploadedEvidence.expiresAt).getTime()).toBeGreaterThan(
+      Date.now(),
+    );
+    await request(server)
       .post(`/api/v1/capas/${created.id}/actions/${followUpAction.id}/complete`)
       .set(bearer(operator.accessToken))
       .send({
@@ -550,6 +636,7 @@ describeDatabase('CAPA planning and action execution', () => {
         .send({
           ...completionInput('CAPA operator passphrase 2026'),
           evidenceReferences: [repeatedReference],
+          evidenceUploadIds: [uploadedEvidence.id],
         })
         .expect(201),
     );
@@ -561,11 +648,36 @@ describeDatabase('CAPA planning and action execution', () => {
     const completedFollowUpAction = followUpImplemented.actions?.find(
       ({ id }) => id === followUpAction.id,
     );
-    expect(completedFollowUpAction?.evidenceReferences).toEqual([
-      expect.objectContaining({
-        storageReference: 'qms://controlled/CAPA-relay-load-trend/version-1',
-      }),
-    ]);
+    expect(completedFollowUpAction?.evidenceReferences).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          storageReference: 'qms://controlled/CAPA-relay-load-trend/version-1',
+          managed: false,
+        }),
+        expect.objectContaining({
+          storageReference: `qualyra://managed/${uploadedEvidence.id}`,
+          managed: true,
+        }),
+      ]),
+    );
+    const managedReference = completedFollowUpAction?.evidenceReferences.find(
+      ({ managed }) => managed,
+    );
+    if (!managedReference?.downloadUrl) {
+      throw new Error('Managed evidence download URL was not returned.');
+    }
+    await request(server)
+      .get(`/api/v1${managedReference.downloadUrl}`)
+      .set(authA)
+      .expect(200)
+      .expect('Content-Type', 'application/pdf')
+      .expect('Cache-Control', 'private, no-store')
+      .expect((response: Response) => {
+        expect(response.headers['content-disposition']).toContain(
+          'attachment;',
+        );
+        expect(response.body).toEqual(managedPdf);
+      });
 
     const rescheduled = bodyAs<CapaBody>(
       await request(server)
@@ -638,6 +750,17 @@ describeDatabase('CAPA planning and action execution', () => {
     expect(JSON.stringify(listed)).not.toContain('rootCause');
     expect(JSON.stringify(listed)).not.toContain('recordHash');
     await request(server)
+      .get('/api/v1/capas/analytics')
+      .set(authA)
+      .expect(200)
+      .expect(({ body }: { body: Record<string, unknown> }) => {
+        expect(body).toMatchObject({
+          totalCapas: 1,
+          closedEffective: 1,
+          effectivenessRate: 50,
+        });
+      });
+    await request(server)
       .get('/api/v1/capas')
       .set(authB)
       .expect(200)
@@ -659,6 +782,7 @@ describeDatabase('CAPA planning and action execution', () => {
         'CAPA_EFFECTIVENESS_REVIEW_COMPLETED',
         'CAPA_FOLLOW_UP_CYCLE_CREATED',
         'CAPA_ACTION_EXTENSION_APPROVED',
+        'CAPA_EVIDENCE_UPLOADED',
       ]),
     );
   }, 120_000);
