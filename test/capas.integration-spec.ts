@@ -40,6 +40,8 @@ interface CapaBody {
   dueState: string;
   actionCount: number;
   completedActionCount: number;
+  currentCycleNumber: number;
+  followUpCycleCount: number;
   deviation: { id: string; code: string };
   rootCause?: string;
   actions?: {
@@ -49,6 +51,13 @@ interface CapaBody {
     meaning: string | null;
     authenticationMethod: string | null;
     recordHash: string | null;
+    followUpCycleNumber: number | null;
+    effectiveDueAt: string;
+    extensions: { recordHash: string; newDueAt: string }[];
+    evidenceReferences: {
+      sha256: string;
+      storageReference: string;
+    }[];
   }[];
   effectivenessReview?: {
     id: string;
@@ -58,7 +67,17 @@ interface CapaBody {
     meaning: string | null;
     authenticationMethod: string | null;
     recordHash: string | null;
+    cycleNumber: number;
   } | null;
+  effectivenessReviews?: {
+    id: string;
+    cycleNumber: number;
+    decision: string;
+  }[];
+  followUpCycles?: {
+    cycleNumber: number;
+    sourceEffectivenessReviewId: string;
+  }[];
 }
 
 interface ErrorBody {
@@ -124,6 +143,8 @@ describeDatabase('CAPA planning and action execution', () => {
         'capas.execute',
         'capas.schedule_effectiveness',
         'capas.verify_effectiveness',
+        'capas.create_follow_up',
+        'capas.approve_extensions',
       ]),
     );
     expect(controllerRole.permissions.map(({ code }) => code)).toEqual(
@@ -384,11 +405,15 @@ describeDatabase('CAPA planning and action execution', () => {
       request(server)
         .post(`/api/v1/capas/${created.id}/effectiveness-review/complete`)
         .set(bearer(reviewer.accessToken))
-        .send(effectivenessInput('CAPA reviewer passphrase 2026')),
+        .send(
+          effectivenessInput('CAPA reviewer passphrase 2026', 'INEFFECTIVE'),
+        ),
       request(server)
         .post(`/api/v1/capas/${created.id}/effectiveness-review/complete`)
         .set(bearer(reviewer.accessToken))
-        .send(effectivenessInput('CAPA reviewer passphrase 2026')),
+        .send(
+          effectivenessInput('CAPA reviewer passphrase 2026', 'INEFFECTIVE'),
+        ),
     ]);
     expect(verifications.map(({ status }) => status).sort()).toEqual([
       201, 409,
@@ -397,16 +422,196 @@ describeDatabase('CAPA planning and action execution', () => {
     if (!verifiedResponse) throw new Error('CAPA review was not completed.');
     const verified = bodyAs<CapaBody>(verifiedResponse);
     expect(verified).toMatchObject({
-      status: 'CLOSED_EFFECTIVE',
+      status: 'INEFFECTIVE',
       dueState: 'COMPLETED',
+      currentCycleNumber: 0,
       effectivenessReview: {
+        cycleNumber: 0,
         status: 'COMPLETED',
-        decision: 'EFFECTIVE',
+        decision: 'INEFFECTIVE',
         meaning: 'EFFECTIVENESS_VERIFICATION',
         authenticationMethod: 'PASSWORD_REAUTHENTICATION',
       },
     });
     expect(verified.effectivenessReview?.recordHash).toMatch(/^[0-9a-f]{64}$/);
+
+    const stillOpenDeviation = bodyAs<DeviationBody>(
+      await request(server)
+        .get(`/api/v1/deviations/${deviation.id}`)
+        .set(authA)
+        .expect(200),
+    );
+    expect(stillOpenDeviation).toMatchObject({
+      status: 'INVESTIGATION_COMPLETED',
+      closure: null,
+    });
+
+    const followUpInput = {
+      rationale:
+        'The verification exposed a residual relay degradation mode that requires an additional control.',
+      actions: [
+        {
+          type: 'CORRECTIVE',
+          title: 'Add relay load trending',
+          description:
+            'Trend relay load under representative staging conditions and approve objective limits.',
+          assignedToUserId: operator.user.id,
+          dueAt: futureDate(20),
+        },
+      ],
+    };
+    const followUpCreates = await Promise.all([
+      request(server)
+        .post(`/api/v1/capas/${created.id}/follow-up-cycles`)
+        .set(authA)
+        .send(followUpInput),
+      request(server)
+        .post(`/api/v1/capas/${created.id}/follow-up-cycles`)
+        .set(authA)
+        .send(followUpInput),
+    ]);
+    expect(followUpCreates.map(({ status }) => status).sort()).toEqual([
+      201, 409,
+    ]);
+    const followUpResponse = followUpCreates.find(
+      ({ status }) => status === 201,
+    );
+    if (!followUpResponse) throw new Error('Follow-up cycle was not created.');
+    const followedUp = bodyAs<CapaBody>(followUpResponse);
+    expect(followedUp).toMatchObject({
+      status: 'FOLLOW_UP_ACTIONS',
+      currentCycleNumber: 1,
+      followUpCycleCount: 1,
+      actionCount: 3,
+      completedActionCount: 2,
+    });
+    expect(followedUp.effectivenessReviews).toHaveLength(1);
+    expect(followedUp.followUpCycles).toEqual([
+      expect.objectContaining({
+        cycleNumber: 1,
+        sourceEffectivenessReviewId: verified.effectivenessReview?.id,
+      }),
+    ]);
+    const followUpAction = followedUp.actions?.find(
+      ({ followUpCycleNumber }) => followUpCycleNumber === 1,
+    );
+    if (!followUpAction) throw new Error('Follow-up action was not created.');
+
+    const extended = bodyAs<CapaBody>(
+      await request(server)
+        .post(
+          `/api/v1/capas/${created.id}/actions/${followUpAction.id}/extensions`,
+        )
+        .set(authA)
+        .send({
+          newDueAt: futureDate(30),
+          reason:
+            'Representative load testing requires one additional approved production window.',
+          password: 'Administration passphrase! 2026',
+          attestationAccepted: true,
+        })
+        .expect(201),
+    );
+    const extendedAction = extended.actions?.find(
+      ({ id }) => id === followUpAction.id,
+    );
+    expect(extendedAction?.extensions).toHaveLength(1);
+    expect(extendedAction?.extensions[0]?.recordHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(extendedAction?.effectiveDueAt).toBe(
+      extendedAction?.extensions[0]?.newDueAt,
+    );
+
+    const repeatedReference = {
+      fileName: 'relay-load-trend.pdf',
+      contentType: 'application/pdf',
+      sizeBytes: 2048,
+      sha256:
+        '1f3d5a8b2c4e6f70918273645566778899aabbccddeeff001122334455667788',
+      storageReference: 'qms://controlled/CAPA-relay-load-trend/version-1',
+    };
+    await request(server)
+      .post(`/api/v1/capas/${created.id}/actions/${followUpAction.id}/complete`)
+      .set(bearer(operator.accessToken))
+      .send({
+        ...completionInput('CAPA operator passphrase 2026'),
+        evidenceReferences: [repeatedReference, repeatedReference],
+      })
+      .expect(400)
+      .expect(({ body }: { body: ErrorBody }) => {
+        expect(body.code).toBe('CAPA_INVALID');
+      });
+
+    const followUpImplemented = bodyAs<CapaBody>(
+      await request(server)
+        .post(
+          `/api/v1/capas/${created.id}/actions/${followUpAction.id}/complete`,
+        )
+        .set(bearer(operator.accessToken))
+        .send({
+          ...completionInput('CAPA operator passphrase 2026'),
+          evidenceReferences: [repeatedReference],
+        })
+        .expect(201),
+    );
+    expect(followUpImplemented).toMatchObject({
+      status: 'FOLLOW_UP_IMPLEMENTATION_COMPLETED',
+      currentCycleNumber: 1,
+      completedActionCount: 3,
+    });
+    const completedFollowUpAction = followUpImplemented.actions?.find(
+      ({ id }) => id === followUpAction.id,
+    );
+    expect(completedFollowUpAction?.evidenceReferences).toEqual([
+      expect.objectContaining({
+        storageReference: 'qms://controlled/CAPA-relay-load-trend/version-1',
+      }),
+    ]);
+
+    const rescheduled = bodyAs<CapaBody>(
+      await request(server)
+        .post(`/api/v1/capas/${created.id}/effectiveness-review`)
+        .set(authA)
+        .send({
+          criterion:
+            'Verify the approved relay load trend remains within objective limits for three cycles.',
+          assignedToUserId: reviewer.user.id,
+          dueAt: futureDate(45),
+        })
+        .expect(201),
+    );
+    expect(rescheduled).toMatchObject({
+      status: 'EFFECTIVENESS_REVIEW',
+      effectivenessReview: { cycleNumber: 1, status: 'SCHEDULED' },
+    });
+    expect(rescheduled.effectivenessReviews).toHaveLength(2);
+
+    const finalVerifications = await Promise.all([
+      request(server)
+        .post(`/api/v1/capas/${created.id}/effectiveness-review/complete`)
+        .set(bearer(reviewer.accessToken))
+        .send(effectivenessInput('CAPA reviewer passphrase 2026')),
+      request(server)
+        .post(`/api/v1/capas/${created.id}/effectiveness-review/complete`)
+        .set(bearer(reviewer.accessToken))
+        .send(effectivenessInput('CAPA reviewer passphrase 2026')),
+    ]);
+    expect(finalVerifications.map(({ status }) => status).sort()).toEqual([
+      201, 409,
+    ]);
+    const finalResponse = finalVerifications.find(
+      ({ status }) => status === 201,
+    );
+    if (!finalResponse) throw new Error('Final review was not completed.');
+    const finalVerified = bodyAs<CapaBody>(finalResponse);
+    expect(finalVerified).toMatchObject({
+      status: 'CLOSED_EFFECTIVE',
+      currentCycleNumber: 1,
+      effectivenessReview: {
+        cycleNumber: 1,
+        status: 'COMPLETED',
+        decision: 'EFFECTIVE',
+      },
+    });
 
     const closedDeviation = bodyAs<DeviationBody>(
       await request(server)
@@ -452,6 +657,8 @@ describeDatabase('CAPA planning and action execution', () => {
         'CAPA_EFFECTIVENESS_REVIEW_SCHEDULED',
         'CAPA_EFFECTIVENESS_REAUTHENTICATION_FAILED',
         'CAPA_EFFECTIVENESS_REVIEW_COMPLETED',
+        'CAPA_FOLLOW_UP_CYCLE_CREATED',
+        'CAPA_ACTION_EXTENSION_APPROVED',
       ]),
     );
   }, 120_000);
@@ -497,9 +704,12 @@ function completionInput(password: string) {
   };
 }
 
-function effectivenessInput(password: string) {
+function effectivenessInput(
+  password: string,
+  decision: 'EFFECTIVE' | 'INEFFECTIVE' = 'EFFECTIVE',
+) {
   return {
-    decision: 'EFFECTIVE',
+    decision,
     evidence:
       'Three consecutive monitored staging cycles completed without relay alarms or temperature excursions.',
     password,

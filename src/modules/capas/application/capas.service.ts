@@ -9,10 +9,12 @@ import type { AuthenticatedPrincipal } from '../../authentication/domain/authent
 import { appendSecurityEvent } from '../../security-events/application/append-security-event.js';
 import { TenantUnitOfWork } from '../../tenancy/application/ports/tenant-unit-of-work.js';
 import type {
+  ApproveCapaActionExtensionDto,
   CapaListQueryDto,
   CompleteCapaEffectivenessReviewDto,
   CompleteCapaActionDto,
   CreateCapaDto,
+  CreateCapaFollowUpCycleDto,
   ScheduleCapaEffectivenessReviewDto,
 } from './dto/capa-request.dto.js';
 import type {
@@ -34,11 +36,22 @@ const capaSummaryInclude = {
   createdByUser: { select: userSummary },
   actions: {
     orderBy: [{ status: 'asc' as const }, { dueAt: 'asc' as const }],
-    select: { status: true, dueAt: true },
+    select: {
+      status: true,
+      dueAt: true,
+      followUpCycle: { select: { cycleNumber: true } },
+      extensions: {
+        orderBy: [{ approvedAt: 'desc' as const }, { id: 'desc' as const }],
+        take: 1,
+        select: { newDueAt: true },
+      },
+    },
   },
-  effectivenessReview: {
-    select: { status: true, decision: true, dueAt: true },
+  effectivenessReviews: {
+    orderBy: { cycleNumber: 'desc' as const },
+    select: { cycleNumber: true, status: true, decision: true, dueAt: true },
   },
+  followUpCycles: { select: { cycleNumber: true } },
 } satisfies Prisma.CapaInclude;
 const capaDetailInclude = {
   deviation: { select: deviationSummary },
@@ -53,13 +66,26 @@ const capaDetailInclude = {
   createdByUser: { select: userSummary },
   actions: {
     orderBy: [{ status: 'asc' as const }, { dueAt: 'asc' as const }],
-    include: { assignedToUser: { select: userSummary } },
+    include: {
+      assignedToUser: { select: userSummary },
+      followUpCycle: { select: { cycleNumber: true } },
+      extensions: {
+        orderBy: [{ approvedAt: 'asc' as const }, { id: 'asc' as const }],
+        include: { approvedByUser: { select: userSummary } },
+      },
+      evidenceReferences: { orderBy: { createdAt: 'asc' as const } },
+    },
   },
-  effectivenessReview: {
+  effectivenessReviews: {
+    orderBy: { cycleNumber: 'asc' as const },
     include: {
       assignedToUser: { select: userSummary },
       scheduledByUser: { select: userSummary },
     },
+  },
+  followUpCycles: {
+    orderBy: { cycleNumber: 'asc' as const },
+    include: { createdByUser: { select: userSummary } },
   },
 } satisfies Prisma.CapaInclude;
 
@@ -265,6 +291,286 @@ export class CapasService {
     }
   }
 
+  async createFollowUpCycle(
+    principal: AuthenticatedPrincipal,
+    capaId: string,
+    input: CreateCapaFollowUpCycleDto,
+    request: RequestMetadata,
+  ): Promise<CapaDetailResponseDto> {
+    try {
+      return await this.tenantUnitOfWork.execute(
+        principal.tenantId,
+        async (transaction) => {
+          const now = new Date();
+          const actions = input.actions.map((action) => ({
+            ...action,
+            dueAt: new Date(action.dueAt),
+          }));
+          if (actions.some(({ dueAt }) => dueAt.getTime() <= now.getTime())) {
+            throw capaInvalid(
+              'Every follow-up action due date must be in the future.',
+            );
+          }
+
+          const capa = await readCapa(transaction, principal.tenantId, capaId);
+          const sourceReview = capa.effectivenessReviews.at(-1);
+          if (
+            !sourceReview ||
+            sourceReview.status !== 'COMPLETED' ||
+            sourceReview.decision !== 'INEFFECTIVE' ||
+            capa.followUpCycles.some(
+              ({ sourceEffectivenessReviewId }) =>
+                sourceEffectivenessReviewId === sourceReview.id,
+            )
+          ) {
+            throw capaConflict();
+          }
+
+          const assigneeIds = [
+            ...new Set(actions.map(({ assignedToUserId }) => assignedToUserId)),
+          ];
+          const assignees = await transaction.user.findMany({
+            where: {
+              id: { in: assigneeIds },
+              tenantId: principal.tenantId,
+              status: 'ACTIVE',
+              userRoles: {
+                some: {
+                  role: {
+                    rolePermissions: {
+                      some: { permission: { code: 'capas.execute' } },
+                    },
+                  },
+                },
+              },
+            },
+            select: { id: true },
+          });
+          if (assignees.length !== assigneeIds.length) {
+            throw capaInvalid(
+              'Every assignee must be active and permitted to execute CAPA actions.',
+            );
+          }
+
+          const cycleNumber = sourceReview.cycleNumber + 1;
+          const cycle = await transaction.capaFollowUpCycle.create({
+            data: {
+              tenantId: principal.tenantId,
+              capaId: capa.id,
+              sourceEffectivenessReviewId: sourceReview.id,
+              cycleNumber,
+              rationale: input.rationale,
+              createdByUserId: principal.userId,
+              createdAt: now,
+            },
+            select: { id: true },
+          });
+          await transaction.capaAction.createMany({
+            data: actions.map((action) => ({
+              tenantId: principal.tenantId,
+              capaId: capa.id,
+              followUpCycleId: cycle.id,
+              type: action.type,
+              title: action.title,
+              description: action.description,
+              assignedToUserId: action.assignedToUserId,
+              dueAt: action.dueAt,
+            })),
+          });
+          const locked = await transaction.capaFollowUpCycle.updateMany({
+            where: {
+              id: cycle.id,
+              tenantId: principal.tenantId,
+              lockedAt: null,
+            },
+            data: { lockedAt: now },
+          });
+          if (locked.count !== 1) throw capaConflict();
+
+          await appendSecurityEvent(transaction, {
+            tenantId: principal.tenantId,
+            actorUserId: principal.userId,
+            eventType: 'CAPA_FOLLOW_UP_CYCLE_CREATED',
+            outcome: 'SUCCESS',
+            request,
+            metadata: {
+              capaId: capa.id,
+              code: capa.code,
+              cycleId: cycle.id,
+              cycleNumber,
+              sourceEffectivenessReviewId: sourceReview.id,
+              assigneeUserIds: assigneeIds,
+              actionCount: actions.length,
+            },
+          });
+          return mapDetail(
+            await readCapa(transaction, principal.tenantId, capa.id),
+            now,
+          );
+        },
+      );
+    } catch (error) {
+      if (isUniqueConstraintError(error)) throw capaConflict();
+      throw error;
+    }
+  }
+
+  async approveActionExtension(
+    principal: AuthenticatedPrincipal,
+    capaId: string,
+    actionId: string,
+    input: ApproveCapaActionExtensionDto,
+    request: RequestMetadata,
+  ): Promise<CapaDetailResponseDto> {
+    const signer = await this.tenantUnitOfWork.execute(
+      principal.tenantId,
+      (transaction) =>
+        transaction.user.findFirst({
+          where: {
+            id: principal.userId,
+            tenantId: principal.tenantId,
+            status: 'ACTIVE',
+          },
+          select: { passwordHash: true },
+        }),
+    );
+    const passwordMatches = signer
+      ? await this.passwordHasher
+          .verify(signer.passwordHash, input.password)
+          .catch(() => false)
+      : false;
+    if (!passwordMatches) {
+      await this.tenantUnitOfWork.execute(principal.tenantId, (transaction) =>
+        appendSecurityEvent(transaction, {
+          tenantId: principal.tenantId,
+          actorUserId: principal.userId,
+          eventType: 'CAPA_ACTION_EXTENSION_REAUTHENTICATION_FAILED',
+          outcome: 'FAILURE',
+          request,
+          metadata: { capaId, actionId },
+        }),
+      );
+      throw reauthenticationFailed();
+    }
+
+    return this.tenantUnitOfWork.execute(
+      principal.tenantId,
+      async (transaction) => {
+        const now = new Date();
+        const newDueAt = new Date(input.newDueAt);
+        await transaction.$queryRaw`
+          SELECT "id"
+          FROM "capa_actions"
+          WHERE "tenant_id" = ${principal.tenantId}::uuid
+            AND "capa_id" = ${capaId}::uuid
+            AND "id" = ${actionId}::uuid
+          FOR UPDATE
+        `;
+        const capa = await readCapa(transaction, principal.tenantId, capaId);
+        const action = capa.actions.find(({ id }) => id === actionId);
+        if (!action) throw capaNotFound();
+        if (action.status !== 'OPEN') throw capaConflict();
+        if (action.assignedToUserId === principal.userId) {
+          throw capaInvalid(
+            'The extension approver must be independent from the action assignee.',
+          );
+        }
+        const previousDueAt = effectiveActionDueAt(action);
+        if (
+          newDueAt.getTime() <= now.getTime() ||
+          newDueAt.getTime() <= previousDueAt.getTime()
+        ) {
+          throw capaInvalid(
+            'The approved extension date must be later than the current due date and in the future.',
+          );
+        }
+
+        const currentSigner = await transaction.user.findFirst({
+          where: {
+            id: principal.userId,
+            tenantId: principal.tenantId,
+            status: 'ACTIVE',
+          },
+          select: { passwordHash: true },
+        });
+        const session = await transaction.session.findFirst({
+          where: {
+            id: principal.sessionId,
+            tenantId: principal.tenantId,
+            userId: principal.userId,
+            status: 'ACTIVE',
+            expiresAt: { gt: now },
+          },
+          select: { id: true },
+        });
+        if (
+          !currentSigner ||
+          currentSigner.passwordHash !== signer?.passwordHash ||
+          !session
+        ) {
+          throw reauthenticationFailed();
+        }
+
+        const recordHash = hashRecord({
+          schemaVersion: 1,
+          capaId: capa.id,
+          capaCode: capa.code,
+          actionId: action.id,
+          actionTitle: action.title,
+          assignedToUserId: action.assignedToUserId,
+          previousDueAt: previousDueAt.toISOString(),
+          newDueAt: newDueAt.toISOString(),
+          reason: input.reason,
+          approvedByUserId: principal.userId,
+          sessionId: principal.sessionId,
+          meaning: 'ACTION_EXTENSION_APPROVAL',
+          authenticationMethod: 'PASSWORD_REAUTHENTICATION',
+          attestationAccepted: true,
+          approvedAt: now.toISOString(),
+        });
+        const extension = await transaction.capaActionExtension.create({
+          data: {
+            tenantId: principal.tenantId,
+            capaId: capa.id,
+            actionId: action.id,
+            previousDueAt,
+            newDueAt,
+            reason: input.reason,
+            approvedByUserId: principal.userId,
+            approvalSessionId: principal.sessionId,
+            meaning: 'ACTION_EXTENSION_APPROVAL',
+            authenticationMethod: 'PASSWORD_REAUTHENTICATION',
+            approvedAt: now,
+            recordHash,
+          },
+          select: { id: true },
+        });
+        await appendSecurityEvent(transaction, {
+          tenantId: principal.tenantId,
+          actorUserId: principal.userId,
+          subjectUserId: action.assignedToUserId,
+          eventType: 'CAPA_ACTION_EXTENSION_APPROVED',
+          outcome: 'SUCCESS',
+          request,
+          metadata: {
+            capaId: capa.id,
+            actionId: action.id,
+            extensionId: extension.id,
+            previousDueAt: previousDueAt.toISOString(),
+            newDueAt: newDueAt.toISOString(),
+            meaning: 'ACTION_EXTENSION_APPROVAL',
+            authenticationMethod: 'PASSWORD_REAUTHENTICATION',
+            recordHash,
+          },
+        });
+        return mapDetail(
+          await readCapa(transaction, principal.tenantId, capa.id),
+          now,
+        );
+      },
+    );
+  }
+
   async completeAction(
     principal: AuthenticatedPrincipal,
     capaId: string,
@@ -307,6 +613,14 @@ export class CapasService {
       principal.tenantId,
       async (transaction) => {
         const now = new Date();
+        await transaction.$queryRaw`
+          SELECT "id"
+          FROM "capa_actions"
+          WHERE "tenant_id" = ${principal.tenantId}::uuid
+            AND "capa_id" = ${capaId}::uuid
+            AND "id" = ${actionId}::uuid
+          FOR UPDATE
+        `;
         const capa = await readCapa(transaction, principal.tenantId, capaId);
         const action = capa.actions.find(({ id }) => id === actionId);
         if (!action) throw capaNotFound();
@@ -341,6 +655,19 @@ export class CapasService {
           throw reauthenticationFailed();
         }
 
+        const evidenceReferences = [...(input.evidenceReferences ?? [])].sort(
+          (left, right) =>
+            left.storageReference.localeCompare(right.storageReference),
+        );
+        if (
+          new Set(
+            evidenceReferences.map(({ storageReference }) => storageReference),
+          ).size !== evidenceReferences.length
+        ) {
+          throw capaInvalid(
+            'Each evidence storage reference must be unique within an action completion.',
+          );
+        }
         const recordHash = hashRecord({
           schemaVersion: 1,
           capaId: capa.id,
@@ -357,6 +684,15 @@ export class CapasService {
           actionDescription: action.description,
           assignedToUserId: action.assignedToUserId,
           dueAt: action.dueAt.toISOString(),
+          effectiveDueAt: effectiveActionDueAt(action).toISOString(),
+          extensionEvidence: action.extensions.map(
+            ({ id, newDueAt, recordHash: extensionRecordHash }) => ({
+              id,
+              newDueAt: newDueAt.toISOString(),
+              recordHash: extensionRecordHash,
+            }),
+          ),
+          evidenceReferences,
           planCreatedAt: capa.createdAt.toISOString(),
           completedByUserId: principal.userId,
           sessionId: principal.sessionId,
@@ -366,6 +702,17 @@ export class CapasService {
           completionComment: input.comment,
           completedAt: now.toISOString(),
         });
+
+        if (evidenceReferences.length > 0) {
+          await transaction.capaActionEvidenceReference.createMany({
+            data: evidenceReferences.map((reference) => ({
+              tenantId: principal.tenantId,
+              capaId: capa.id,
+              actionId: action.id,
+              ...reference,
+            })),
+          });
+        }
 
         const completed = await transaction.capaAction.updateMany({
           where: {
@@ -402,6 +749,7 @@ export class CapasService {
             meaning: 'ACTION_COMPLETION',
             authenticationMethod: 'PASSWORD_REAUTHENTICATION',
             recordHash,
+            evidenceReferenceCount: evidenceReferences.length,
           },
         });
         return mapDetail(
@@ -431,9 +779,14 @@ export class CapasService {
           }
 
           const capa = await readCapa(transaction, principal.tenantId, capaId);
+          const cycleNumber = capa.followUpCycles.at(-1)?.cycleNumber ?? 0;
+          const cycleActions = actionsForCycle(capa.actions, cycleNumber);
           if (
-            capa.effectivenessReview ||
-            capa.actions.some(({ status }) => status !== 'COMPLETED')
+            cycleActions.length === 0 ||
+            cycleActions.some(({ status }) => status !== 'COMPLETED') ||
+            capa.effectivenessReviews.some(
+              (review) => review.cycleNumber === cycleNumber,
+            )
           ) {
             throw capaConflict();
           }
@@ -481,6 +834,7 @@ export class CapasService {
               assignedToUserId: reviewer.id,
               scheduledByUserId: principal.userId,
               dueAt,
+              cycleNumber,
             },
             select: { id: true },
           });
@@ -495,6 +849,7 @@ export class CapasService {
               capaId: capa.id,
               code: capa.code,
               effectivenessReviewId: review.id,
+              cycleNumber,
               assignedToUserId: reviewer.id,
               dueAt: dueAt.toISOString(),
             },
@@ -553,12 +908,16 @@ export class CapasService {
       async (transaction) => {
         const now = new Date();
         const capa = await readCapa(transaction, principal.tenantId, capaId);
-        const review = capa.effectivenessReview;
+        const review = capa.effectivenessReviews.at(-1);
         if (!review || review.status !== 'SCHEDULED') throw capaConflict();
         if (review.assignedToUserId !== principal.userId) {
           throw capaEffectivenessForbidden();
         }
-        if (capa.actions.some(({ status }) => status !== 'COMPLETED')) {
+        const cycleActions = actionsForCycle(capa.actions, review.cycleNumber);
+        if (
+          cycleActions.length === 0 ||
+          cycleActions.some(({ status }) => status !== 'COMPLETED')
+        ) {
           throw capaConflict();
         }
 
@@ -588,12 +947,13 @@ export class CapasService {
           throw reauthenticationFailed();
         }
 
-        const actionEvidence = [...capa.actions]
+        const actionEvidence = [...cycleActions]
           .sort((left, right) => left.id.localeCompare(right.id))
           .map(({ id, recordHash }) => ({ id, recordHash }));
         const recordHash = hashRecord({
           schemaVersion: 1,
           effectivenessReviewId: review.id,
+          cycleNumber: review.cycleNumber,
           capaId: capa.id,
           capaCode: capa.code,
           deviationId: capa.deviationId,
@@ -662,6 +1022,7 @@ export class CapasService {
             capaId: capa.id,
             code: capa.code,
             effectivenessReviewId: review.id,
+            cycleNumber: review.cycleNumber,
             decision: input.decision,
             deviationId: capa.deviationId,
             deviationClosed,
@@ -696,27 +1057,37 @@ function mapSummary(
   capa: CapaSummaryRecord | CapaDetailRecord,
   now = new Date(),
 ): CapaSummaryResponseDto {
+  const currentCycleNumber = capa.followUpCycles.reduce(
+    (latest, cycle) => Math.max(latest, cycle.cycleNumber),
+    0,
+  );
+  const currentActions = actionsForCycle(capa.actions, currentCycleNumber);
   const completedActionCount = capa.actions.filter(
     ({ status }) => status === 'COMPLETED',
   ).length;
-  const openActions = capa.actions.filter(({ status }) => status === 'OPEN');
+  const completedCurrentActionCount = currentActions.filter(
+    ({ status }) => status === 'COMPLETED',
+  ).length;
+  const openActions = currentActions.filter(({ status }) => status === 'OPEN');
   const nextDueAt = openActions.reduce<Date | null>(
     (earliest, action) =>
-      !earliest || action.dueAt.getTime() < earliest.getTime()
-        ? action.dueAt
+      !earliest || effectiveActionDueAt(action).getTime() < earliest.getTime()
+        ? effectiveActionDueAt(action)
         : earliest,
     null,
   );
-  const review = capa.effectivenessReview;
+  const review = latestEffectivenessReview(capa.effectivenessReviews);
   return {
     id: capa.id,
     code: capa.code,
     title: capa.title,
     status: aggregateStatus(
-      completedActionCount,
-      capa.actions.length,
+      currentCycleNumber,
+      completedCurrentActionCount,
+      currentActions.length,
       review?.status ?? null,
       review?.decision ?? null,
+      review?.cycleNumber ?? null,
     ),
     dueState:
       openActions.length > 0
@@ -733,6 +1104,8 @@ function mapSummary(
       (review?.status === 'SCHEDULED' ? review.dueAt.toISOString() : null),
     effectivenessDueAt: review?.dueAt.toISOString() ?? null,
     effectivenessDecision: review?.decision ?? null,
+    currentCycleNumber,
+    followUpCycleCount: capa.followUpCycles.length,
     createdAt: capa.createdAt.toISOString(),
   };
 }
@@ -749,18 +1122,31 @@ function mapDetail(
     capaRationale: capa.investigation.capaRationale,
     investigationRecordHash: capa.investigation.recordHash,
     actions: capa.actions.map((action) => mapAction(action, now)),
-    effectivenessReview: capa.effectivenessReview
-      ? mapEffectivenessReview(capa.effectivenessReview, now)
+    effectivenessReview: capa.effectivenessReviews.at(-1)
+      ? mapEffectivenessReview(capa.effectivenessReviews.at(-1)!, now)
       : null,
+    effectivenessReviews: capa.effectivenessReviews.map((review) =>
+      mapEffectivenessReview(review, now),
+    ),
+    followUpCycles: capa.followUpCycles.map((cycle) => ({
+      id: cycle.id,
+      cycleNumber: cycle.cycleNumber,
+      rationale: cycle.rationale,
+      sourceEffectivenessReviewId: cycle.sourceEffectivenessReviewId,
+      createdBy: cycle.createdByUser,
+      createdAt: cycle.createdAt.toISOString(),
+      lockedAt: cycle.lockedAt!.toISOString(),
+    })),
   };
 }
 
 function mapEffectivenessReview(
-  review: NonNullable<CapaDetailRecord['effectivenessReview']>,
+  review: CapaDetailRecord['effectivenessReviews'][number],
   now: Date,
 ): CapaEffectivenessReviewResponseDto {
   return {
     id: review.id,
+    cycleNumber: review.cycleNumber,
     criterion: review.criterion,
     assignedTo: review.assignedToUser,
     scheduledBy: review.scheduledByUser,
@@ -785,6 +1171,7 @@ function mapAction(
   action: CapaDetailRecord['actions'][number],
   now: Date,
 ): CapaActionResponseDto {
+  const effectiveDueAt = effectiveActionDueAt(action);
   return {
     id: action.id,
     type: action.type,
@@ -792,25 +1179,51 @@ function mapAction(
     description: action.description,
     assignedTo: action.assignedToUser,
     dueAt: action.dueAt.toISOString(),
+    effectiveDueAt: effectiveDueAt.toISOString(),
+    followUpCycleNumber: action.followUpCycle?.cycleNumber ?? null,
     status: action.status,
-    dueState: actionDueState(action.status, action.dueAt, now),
+    dueState: actionDueState(action.status, effectiveDueAt, now),
     meaning: action.meaning,
     authenticationMethod: action.authenticationMethod,
     completionComment: action.completionComment,
     completedAt: action.completedAt?.toISOString() ?? null,
     recordHash: action.recordHash,
     createdAt: action.createdAt.toISOString(),
+    extensions: action.extensions.map((extension) => ({
+      id: extension.id,
+      previousDueAt: extension.previousDueAt.toISOString(),
+      newDueAt: extension.newDueAt.toISOString(),
+      reason: extension.reason,
+      approvedBy: extension.approvedByUser,
+      meaning: extension.meaning,
+      authenticationMethod: extension.authenticationMethod,
+      approvedAt: extension.approvedAt.toISOString(),
+      recordHash: extension.recordHash,
+    })),
+    evidenceReferences: action.evidenceReferences.map((reference) => ({
+      id: reference.id,
+      fileName: reference.fileName,
+      contentType: reference.contentType,
+      sizeBytes: reference.sizeBytes,
+      sha256: reference.sha256,
+      storageReference: reference.storageReference,
+      createdAt: reference.createdAt.toISOString(),
+    })),
   };
 }
 
 function aggregateDueState(
-  openActions: { dueAt: Date }[],
+  openActions: {
+    dueAt: Date;
+    extensions: { newDueAt: Date }[];
+  }[],
   now: Date,
-): 'ON_TRACK' | 'DUE_SOON' | 'OVERDUE' | 'COMPLETED' {
+): 'ON_TRACK' | 'DUE_SOON' | 'OVERDUE' | 'ESCALATED' | 'COMPLETED' {
   if (openActions.length === 0) return 'COMPLETED';
-  return openActions.reduce<'ON_TRACK' | 'DUE_SOON' | 'OVERDUE'>(
+  return openActions.reduce<'ON_TRACK' | 'DUE_SOON' | 'OVERDUE' | 'ESCALATED'>(
     (state, action) => {
-      const current = actionDueState('OPEN', action.dueAt, now);
+      const current = actionDueState('OPEN', effectiveActionDueAt(action), now);
+      if (current === 'ESCALATED' || state === 'ESCALATED') return 'ESCALATED';
       if (current === 'OVERDUE' || state === 'OVERDUE') return 'OVERDUE';
       if (current === 'DUE_SOON' || state === 'DUE_SOON') return 'DUE_SOON';
       return 'ON_TRACK';
@@ -820,34 +1233,78 @@ function aggregateDueState(
 }
 
 function aggregateStatus(
+  currentCycleNumber: number,
   completedActionCount: number,
   actionCount: number,
   reviewStatus: 'SCHEDULED' | 'COMPLETED' | null,
   decision: 'EFFECTIVE' | 'INEFFECTIVE' | null,
+  reviewCycleNumber: number | null,
 ):
   | 'OPEN'
   | 'IN_PROGRESS'
   | 'IMPLEMENTATION_COMPLETED'
+  | 'FOLLOW_UP_ACTIONS'
+  | 'FOLLOW_UP_IMPLEMENTATION_COMPLETED'
   | 'EFFECTIVENESS_REVIEW'
   | 'CLOSED_EFFECTIVE'
   | 'INEFFECTIVE' {
+  if (
+    reviewCycleNumber === currentCycleNumber &&
+    reviewStatus === 'SCHEDULED'
+  ) {
+    return 'EFFECTIVENESS_REVIEW';
+  }
+  if (
+    reviewCycleNumber === currentCycleNumber &&
+    reviewStatus === 'COMPLETED'
+  ) {
+    return decision === 'EFFECTIVE' ? 'CLOSED_EFFECTIVE' : 'INEFFECTIVE';
+  }
   if (completedActionCount < actionCount) {
+    if (currentCycleNumber > 0) return 'FOLLOW_UP_ACTIONS';
     return completedActionCount > 0 ? 'IN_PROGRESS' : 'OPEN';
   }
-  if (!reviewStatus) return 'IMPLEMENTATION_COMPLETED';
-  if (reviewStatus === 'SCHEDULED') return 'EFFECTIVENESS_REVIEW';
-  return decision === 'EFFECTIVE' ? 'CLOSED_EFFECTIVE' : 'INEFFECTIVE';
+  return currentCycleNumber > 0
+    ? 'FOLLOW_UP_IMPLEMENTATION_COMPLETED'
+    : 'IMPLEMENTATION_COMPLETED';
 }
 
 function actionDueState(
   status: 'OPEN' | 'COMPLETED',
   dueAt: Date,
   now: Date,
-): 'ON_TRACK' | 'DUE_SOON' | 'OVERDUE' | 'COMPLETED' {
+): 'ON_TRACK' | 'DUE_SOON' | 'OVERDUE' | 'ESCALATED' | 'COMPLETED' {
   if (status === 'COMPLETED') return 'COMPLETED';
+  const overdueEscalationThreshold = now.getTime() - 7 * 24 * 60 * 60 * 1000;
+  if (dueAt.getTime() < overdueEscalationThreshold) return 'ESCALATED';
   if (dueAt.getTime() < now.getTime()) return 'OVERDUE';
   const dueSoonThreshold = now.getTime() + 7 * 24 * 60 * 60 * 1000;
   return dueAt.getTime() <= dueSoonThreshold ? 'DUE_SOON' : 'ON_TRACK';
+}
+
+function effectiveActionDueAt(action: {
+  dueAt: Date;
+  extensions: { newDueAt: Date }[];
+}): Date {
+  return action.extensions.at(-1)?.newDueAt ?? action.dueAt;
+}
+
+function actionsForCycle<
+  T extends { followUpCycle: { cycleNumber: number } | null },
+>(actions: T[], cycleNumber: number): T[] {
+  return actions.filter(
+    (action) => (action.followUpCycle?.cycleNumber ?? 0) === cycleNumber,
+  );
+}
+
+function latestEffectivenessReview<T extends { cycleNumber: number }>(
+  reviews: T[],
+): T | undefined {
+  return reviews.reduce<T | undefined>(
+    (latest, review) =>
+      !latest || review.cycleNumber > latest.cycleNumber ? review : latest,
+    undefined,
+  );
 }
 
 function capaNotFound(): ApplicationError {

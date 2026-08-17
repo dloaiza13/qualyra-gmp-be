@@ -44,10 +44,18 @@ export class CapaActionResponseDto {
   @ApiProperty({ format: 'date-time' })
   dueAt!: string;
 
+  @ApiProperty({ format: 'date-time' })
+  effectiveDueAt!: string;
+
+  @ApiPropertyOptional({ minimum: 1, nullable: true })
+  followUpCycleNumber!: number | null;
+
   @ApiProperty({ enum: ['OPEN', 'COMPLETED'] })
   status!: string;
 
-  @ApiProperty({ enum: ['ON_TRACK', 'DUE_SOON', 'OVERDUE', 'COMPLETED'] })
+  @ApiProperty({
+    enum: ['ON_TRACK', 'DUE_SOON', 'OVERDUE', 'ESCALATED', 'COMPLETED'],
+  })
   dueState!: string;
 
   @ApiPropertyOptional({ enum: ['ACTION_COMPLETION'], nullable: true })
@@ -67,11 +75,75 @@ export class CapaActionResponseDto {
 
   @ApiProperty({ format: 'date-time' })
   createdAt!: string;
+
+  @ApiProperty({ type: () => CapaActionExtensionResponseDto, isArray: true })
+  extensions!: CapaActionExtensionResponseDto[];
+
+  @ApiProperty({
+    type: () => CapaActionEvidenceReferenceResponseDto,
+    isArray: true,
+  })
+  evidenceReferences!: CapaActionEvidenceReferenceResponseDto[];
+}
+
+export class CapaActionExtensionResponseDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ format: 'date-time' })
+  previousDueAt!: string;
+
+  @ApiProperty({ format: 'date-time' })
+  newDueAt!: string;
+
+  @ApiProperty()
+  reason!: string;
+
+  @ApiProperty({ type: CapaUserSummaryDto })
+  approvedBy!: CapaUserSummaryDto;
+
+  @ApiProperty({ enum: ['ACTION_EXTENSION_APPROVAL'] })
+  meaning!: string;
+
+  @ApiProperty({ enum: ['PASSWORD_REAUTHENTICATION'] })
+  authenticationMethod!: string;
+
+  @ApiProperty({ format: 'date-time' })
+  approvedAt!: string;
+
+  @ApiProperty({ minLength: 64, maxLength: 64 })
+  recordHash!: string;
+}
+
+export class CapaActionEvidenceReferenceResponseDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty()
+  fileName!: string;
+
+  @ApiProperty()
+  contentType!: string;
+
+  @ApiProperty()
+  sizeBytes!: number;
+
+  @ApiProperty({ minLength: 64, maxLength: 64 })
+  sha256!: string;
+
+  @ApiProperty()
+  storageReference!: string;
+
+  @ApiProperty({ format: 'date-time' })
+  createdAt!: string;
 }
 
 export class CapaEffectivenessReviewResponseDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
+
+  @ApiProperty({ minimum: 0 })
+  cycleNumber!: number;
 
   @ApiProperty()
   criterion!: string;
@@ -88,7 +160,9 @@ export class CapaEffectivenessReviewResponseDto {
   @ApiProperty({ enum: ['SCHEDULED', 'COMPLETED'] })
   status!: string;
 
-  @ApiProperty({ enum: ['ON_TRACK', 'DUE_SOON', 'OVERDUE', 'COMPLETED'] })
+  @ApiProperty({
+    enum: ['ON_TRACK', 'DUE_SOON', 'OVERDUE', 'ESCALATED', 'COMPLETED'],
+  })
   dueState!: string;
 
   @ApiPropertyOptional({ enum: ['EFFECTIVE', 'INEFFECTIVE'], nullable: true })
@@ -128,6 +202,8 @@ export class CapaSummaryResponseDto {
       'OPEN',
       'IN_PROGRESS',
       'IMPLEMENTATION_COMPLETED',
+      'FOLLOW_UP_ACTIONS',
+      'FOLLOW_UP_IMPLEMENTATION_COMPLETED',
       'EFFECTIVENESS_REVIEW',
       'CLOSED_EFFECTIVE',
       'INEFFECTIVE',
@@ -135,7 +211,9 @@ export class CapaSummaryResponseDto {
   })
   status!: string;
 
-  @ApiProperty({ enum: ['ON_TRACK', 'DUE_SOON', 'OVERDUE', 'COMPLETED'] })
+  @ApiProperty({
+    enum: ['ON_TRACK', 'DUE_SOON', 'OVERDUE', 'ESCALATED', 'COMPLETED'],
+  })
   dueState!: string;
 
   @ApiProperty({ type: CapaDeviationSummaryDto })
@@ -158,6 +236,12 @@ export class CapaSummaryResponseDto {
 
   @ApiPropertyOptional({ enum: ['EFFECTIVE', 'INEFFECTIVE'], nullable: true })
   effectivenessDecision!: string | null;
+
+  @ApiProperty({ minimum: 0 })
+  currentCycleNumber!: number;
+
+  @ApiProperty({ minimum: 0 })
+  followUpCycleCount!: number;
 
   @ApiProperty({ format: 'date-time' })
   createdAt!: string;
@@ -187,4 +271,33 @@ export class CapaDetailResponseDto extends CapaSummaryResponseDto {
     nullable: true,
   })
   effectivenessReview!: CapaEffectivenessReviewResponseDto | null;
+
+  @ApiProperty({ type: CapaEffectivenessReviewResponseDto, isArray: true })
+  effectivenessReviews!: CapaEffectivenessReviewResponseDto[];
+
+  @ApiProperty({ type: () => CapaFollowUpCycleResponseDto, isArray: true })
+  followUpCycles!: CapaFollowUpCycleResponseDto[];
+}
+
+export class CapaFollowUpCycleResponseDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ minimum: 1 })
+  cycleNumber!: number;
+
+  @ApiProperty()
+  rationale!: string;
+
+  @ApiProperty({ format: 'uuid' })
+  sourceEffectivenessReviewId!: string;
+
+  @ApiProperty({ type: CapaUserSummaryDto })
+  createdBy!: CapaUserSummaryDto;
+
+  @ApiProperty({ format: 'date-time' })
+  createdAt!: string;
+
+  @ApiProperty({ format: 'date-time' })
+  lockedAt!: string;
 }

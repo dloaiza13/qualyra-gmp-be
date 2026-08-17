@@ -1,18 +1,20 @@
 # Corrective and preventive actions (CAPA)
 
-Phases 16 and 17 turn a completed deviation investigation into a controlled CAPA plan and carry it through independent effectiveness verification. They cover immutable planning, assigned corrective and preventive actions, authenticated implementation evidence, an independent quality decision, CAPA closure, and atomic closure of the source deviation when the result is effective.
+Phases 16 through 18 turn a completed deviation investigation into a controlled CAPA plan and carry it through repeatable independent effectiveness verification. They cover immutable planning, authenticated implementation evidence, extensions, ineffective-result follow-up cycles, an independent quality decision, and atomic closure of the source deviation when the result is effective.
 
 ## Permissions
 
-| Permission                     | Capability                                               |
-| ------------------------------ | -------------------------------------------------------- |
-| `capas.read`                   | List plans and read their source and action evidence     |
-| `capas.create`                 | Create a plan from an eligible completed investigation   |
-| `capas.execute`                | Complete an action assigned to the authenticated caller  |
-| `capas.schedule_effectiveness` | Schedule an independent review after implementation      |
-| `capas.verify_effectiveness`   | Complete the assigned review with authenticated evidence |
+| Permission                     | Capability                                                 |
+| ------------------------------ | ---------------------------------------------------------- |
+| `capas.read`                   | List plans and read their source and action evidence       |
+| `capas.create`                 | Create a plan from an eligible completed investigation     |
+| `capas.execute`                | Complete an action assigned to the authenticated caller    |
+| `capas.schedule_effectiveness` | Schedule an independent review after implementation        |
+| `capas.verify_effectiveness`   | Complete the assigned review with authenticated evidence   |
+| `capas.create_follow_up`       | Create a numbered action cycle after an ineffective result |
+| `capas.approve_extensions`     | Approve action due-date extensions with reauthentication   |
 
-Administrators and default QA Managers receive every CAPA permission. Document Controllers and Operators can read plans and execute assigned actions. Auditors have read-only access. Existing standard roles receive additive grants in the migration; custom roles are not changed.
+Administrators and default QA Managers receive every CAPA permission. QA Managers also receive read-only user and role directory access so assignment controls are operable without user-management authority. Document Controllers and Operators can read plans and execute assigned actions. Auditors have read-only access. Existing standard roles receive additive grants in the migration; custom roles are not changed.
 
 An action assignee must be active in the same tenant and hold `capas.execute`. UI visibility does not authorize an action: the API verifies tenant, permission, assignment, active session, and current password.
 
@@ -28,6 +30,8 @@ All routes use the `/api/v1` prefix.
 | `POST` | `/capas/:capaId/actions/:actionId/complete`    | `capas.execute`                | Authenticate completion of one assigned action    |
 | `POST` | `/capas/:capaId/effectiveness-review`          | `capas.schedule_effectiveness` | Schedule the independent review                   |
 | `POST` | `/capas/:capaId/effectiveness-review/complete` | `capas.verify_effectiveness`   | Authenticate the assigned reviewer's decision     |
+| `POST` | `/capas/:capaId/follow-up-cycles`              | `capas.create_follow_up`       | Create and lock the next numbered action cycle    |
+| `POST` | `/capas/:capaId/actions/:actionId/extensions`  | `capas.approve_extensions`     | Authenticate an immutable due-date extension      |
 
 Search matches CAPA code/title and source deviation code/title. List responses expose progress counts and the next open due date but omit root cause, action narratives, completion comments, and record hashes.
 
@@ -41,15 +45,19 @@ Each tenant receives an independent annual number formatted as `CAPA-YYYY-NNNN`.
 
 An open action may transition exactly once to `COMPLETED`, and only by its assigned user. Completion requires an implementation comment, current password, and explicit attestation. The service verifies the password, then reconfirms the unchanged password hash and active session inside the transaction.
 
-The completed row stores fixed meaning `ACTION_COMPLETION`, authentication method `PASSWORD_REAUTHENTICATION`, session, comment, timestamp, and a canonical SHA-256 fingerprint. The fingerprint covers the source investigation hash, plan, action definition, assignee, authenticated actor, session, intent, comment, and completion time. Database checks require either a fully open state or complete evidence; triggers reject subsequent mutation or deletion. Failed reauthentication and successful completion append security events.
+The completed row stores fixed meaning `ACTION_COMPLETION`, authentication method `PASSWORD_REAUTHENTICATION`, session, comment, timestamp, and a canonical SHA-256 fingerprint. Completion can atomically add up to ten immutable evidence references: filename, content type, byte size, SHA-256, and a controlled-repository reference. Qualyra does not upload or store the binary in this phase. The fingerprint covers the source investigation hash, plan, action definition, approved extension fingerprints, evidence-reference metadata, authenticated actor, session, intent, comment, and completion time. Database checks require either a fully open state or complete evidence; triggers reject subsequent mutation or deletion.
+
+An open action can receive one or more extensions. The original target date is never edited. Each extension stores the previous effective date, later approved date, rationale, approver-bound active session, fixed meaning `ACTION_EXTENSION_APPROVAL`, password reauthentication, approval time, and SHA-256 fingerprint. The approver cannot be the action assignee. Row locking serializes extension and completion requests so completion cannot omit a concurrently approved extension.
 
 ## Effectiveness and controlled closure
 
-An effectiveness review can be scheduled only after every plan action is complete. It records an immutable observable criterion, future target date, scheduler, and assigned reviewer. The reviewer must be active, hold `capas.verify_effectiveness`, and must not be the assignee of any action in that CAPA. This segregation is enforced by both the service and a database insertion guard.
+An effectiveness review can be scheduled only after every action in the current cycle is complete. It records the cycle number, immutable observable criterion, future target date, scheduler, and assigned reviewer. The reviewer must be active, hold `capas.verify_effectiveness`, and must not be the assignee of any action across the CAPA. This segregation is enforced by both the service and a database insertion guard.
 
 Only the assigned reviewer can complete the review. Completion requires a current password, active unchanged session, explicit attestation, a decision of `EFFECTIVE` or `INEFFECTIVE`, and narrative evidence. The immutable SHA-256 fingerprint anchors the decision to the investigation fingerprint and every action fingerprint. Concurrent attempts converge on one completion.
 
-An `EFFECTIVE` decision changes the source deviation from `INVESTIGATION_COMPLETED` to `CLOSED` in the same transaction. PostgreSQL independently rejects that transition unless a completed effective review exists. An `INEFFECTIVE` decision preserves the evidence but leaves the deviation open for additional treatment.
+An `EFFECTIVE` decision changes the source deviation from `INVESTIGATION_COMPLETED` to `CLOSED` in the same transaction. PostgreSQL independently rejects that transition unless a completed effective review exists. An `INEFFECTIVE` decision preserves the evidence and leaves the deviation open.
+
+After an ineffective result, an authorized quality user can create exactly one next cycle from that review. The cycle rationale and one to fifty new actions are created and locked atomically. Original actions, earlier cycle actions, and every review remain unchanged. Once the current cycle actions are complete, a new review is scheduled with the matching cycle number. Unique constraints, conditional writes, and insertion guards prevent skipped, duplicated, or branched cycles.
 
 ## Derived status and due state
 
@@ -58,14 +66,16 @@ Plan status is derived from immutable actions rather than stored as mutable work
 - `OPEN` when no action is complete;
 - `IN_PROGRESS` when some actions are complete;
 - `IMPLEMENTATION_COMPLETED` when every action is complete.
+- `FOLLOW_UP_ACTIONS` while the current follow-up cycle has open actions;
+- `FOLLOW_UP_IMPLEMENTATION_COMPLETED` when its actions are complete and its review is not yet scheduled;
 - `EFFECTIVENESS_REVIEW` while the independent review is scheduled;
 - `CLOSED_EFFECTIVE` after an effective authenticated decision;
 - `INEFFECTIVE` after an ineffective authenticated decision.
 
-Open action dates produce `OVERDUE`, `DUE_SOON` during the preceding seven days, or `ON_TRACK`. A completed action and a fully implemented plan return `COMPLETED`. No scheduler rewrites records as time passes.
+The latest approved extension supplies the effective due date without replacing the original. Open actions produce `DUE_SOON` during the preceding seven days, `OVERDUE` during the first seven overdue days, `ESCALATED` after seven overdue days, or `ON_TRACK` otherwise. These reminder/escalation states are calculated at read time; this phase does not claim outbound email delivery or a background scheduler.
 
 ## Isolation and deferred scope
 
-`capa_sequences`, `capas`, `capa_actions`, and `capa_effectiveness_reviews` use forced PostgreSQL row-level security. Composite tenant foreign keys prevent cross-tenant source, creator, assignee, reviewer, and session references. The runtime role cannot delete any CAPA record, and database transition guards constrain its necessary update grants.
+Every CAPA table, including follow-up cycles, extensions, and evidence references, uses forced PostgreSQL row-level security. Composite tenant foreign keys prevent cross-tenant source, creator, assignee, reviewer, approver, and session references. The runtime role cannot delete CAPA evidence, and database transition guards constrain its necessary update grants.
 
-Follow-up action cycles after an ineffective decision, plan amendments, reassignment, extensions, attachments, notifications, exports, and trend analysis require later explicit workflows. These controls are audit-ready building blocks and do not establish GMP, ISO, FDA, or 21 CFR Part 11 compliance.
+Binary object storage, malware scanning, outbound reminders/escalations, plan amendments, reassignment, exports, and trend analysis require later explicit workflows. Evidence metadata must point to an organization-controlled repository until binary storage is implemented. These controls are audit-ready building blocks and do not establish GMP, ISO, FDA, or 21 CFR Part 11 compliance.

@@ -21,4 +21,4 @@ CAPA aggregate state remains derived from action and review evidence rather than
 - Implementation and verification have explicit segregation of duties.
 - CAPA and deviation closure cannot diverge after a successful effective decision.
 - Review history is immutable, tenant-isolated, attributable, and concurrency-safe.
-- Phase 17 supports a single review cycle. Additional actions and repeat verification after an ineffective result require a later controlled follow-up model rather than mutation of historical evidence.
+- Phase 17 initially supports a single review cycle. ADR-018 extends this decision with additive, numbered follow-up cycles rather than mutation of historical evidence.

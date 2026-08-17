@@ -162,6 +162,7 @@ enum CapaActionStatus {
 enum CapaSignatureMeaning {
   ACTION_COMPLETION
   EFFECTIVENESS_VERIFICATION
+  ACTION_EXTENSION_APPROVAL
 }
 
 enum CapaAuthenticationMethod {
@@ -179,13 +180,13 @@ enum CapaEffectivenessDecision {
 }
 
 model Tenant {
-  id                       String                    @id @default(uuid()) @db.Uuid
-  name                     String                    @db.VarChar(200)
-  slug                     String                    @unique(map: "tenants_slug_key") @db.VarChar(63)
-  status                   TenantStatus              @default(ACTIVE)
-  plan                     TenantPlan                @default(TRIAL)
-  createdAt                DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt                DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id                       String                        @id @default(uuid()) @db.Uuid
+  name                     String                        @db.VarChar(200)
+  slug                     String                        @unique(map: "tenants_slug_key") @db.VarChar(63)
+  status                   TenantStatus                  @default(ACTIVE)
+  plan                     TenantPlan                    @default(TRIAL)
+  createdAt                DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime                      @updatedAt @map("updated_at") @db.Timestamptz(3)
   users                    User[]
   roles                    Role[]
   rolePermissions          RolePermission[]
@@ -212,6 +213,9 @@ model Tenant {
   capas                    Capa[]
   capaActions              CapaAction[]
   capaEffectivenessReviews CapaEffectivenessReview[]
+  capaFollowUpCycles       CapaFollowUpCycle[]
+  capaActionExtensions     CapaActionExtension[]
+  capaActionEvidence       CapaActionEvidenceReference[]
 
   @@map("tenants")
 }
@@ -261,6 +265,8 @@ model User {
   capaActionsAssigned               CapaAction[]              @relation("CapaActionAssignee")
   capaEffectivenessReviewsAssigned  CapaEffectivenessReview[] @relation("CapaEffectivenessAssignee")
   capaEffectivenessReviewsScheduled CapaEffectivenessReview[] @relation("CapaEffectivenessScheduler")
+  capaFollowUpCyclesCreated         CapaFollowUpCycle[]       @relation("CapaFollowUpCreator")
+  capaActionExtensionsApproved      CapaActionExtension[]     @relation("CapaActionExtensionApprover")
 
   @@unique([tenantId, id], map: "users_tenant_id_id_key")
   @@unique([tenantId, email], map: "users_tenant_id_email_key")
@@ -345,6 +351,7 @@ model Session {
   deviationInvestigationCompletions DeviationInvestigation[]  @relation("DeviationInvestigationSession")
   capaActionCompletions             CapaAction[]              @relation("CapaActionCompletionSession")
   capaEffectivenessCompletions      CapaEffectivenessReview[] @relation("CapaEffectivenessCompletionSession")
+  capaActionExtensionApprovals      CapaActionExtension[]     @relation("CapaActionExtensionApprovalSession")
 
   @@unique([tenantId, userId, id], map: "sessions_tenant_id_user_id_id_key")
   @@index([tenantId, userId, status], map: "sessions_tenant_id_user_id_status_idx")
@@ -788,22 +795,25 @@ model CapaSequence {
 }
 
 model Capa {
-  id                  String                   @id @default(uuid()) @db.Uuid
-  tenantId            String                   @map("tenant_id") @db.Uuid
-  deviationId         String                   @map("deviation_id") @db.Uuid
-  investigationId     String                   @map("investigation_id") @db.Uuid
-  code                String                   @db.VarChar(25)
-  title               String                   @db.VarChar(200)
-  objective           String                   @db.VarChar(2000)
-  createdByUserId     String                   @map("created_by_user_id") @db.Uuid
-  createdAt           DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
-  lockedAt            DateTime?                @map("locked_at") @db.Timestamptz(3)
-  tenant              Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  deviation           Deviation                @relation(fields: [tenantId, deviationId], references: [tenantId, id], onDelete: Restrict)
-  investigation       DeviationInvestigation   @relation(fields: [tenantId, investigationId], references: [tenantId, id], onDelete: Restrict)
-  createdByUser       User                     @relation("CapaCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
-  actions             CapaAction[]
-  effectivenessReview CapaEffectivenessReview?
+  id                   String                        @id @default(uuid()) @db.Uuid
+  tenantId             String                        @map("tenant_id") @db.Uuid
+  deviationId          String                        @map("deviation_id") @db.Uuid
+  investigationId      String                        @map("investigation_id") @db.Uuid
+  code                 String                        @db.VarChar(25)
+  title                String                        @db.VarChar(200)
+  objective            String                        @db.VarChar(2000)
+  createdByUserId      String                        @map("created_by_user_id") @db.Uuid
+  createdAt            DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  lockedAt             DateTime?                     @map("locked_at") @db.Timestamptz(3)
+  tenant               Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  deviation            Deviation                     @relation(fields: [tenantId, deviationId], references: [tenantId, id], onDelete: Restrict)
+  investigation        DeviationInvestigation        @relation(fields: [tenantId, investigationId], references: [tenantId, id], onDelete: Restrict)
+  createdByUser        User                          @relation("CapaCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
+  actions              CapaAction[]
+  effectivenessReviews CapaEffectivenessReview[]
+  followUpCycles       CapaFollowUpCycle[]
+  actionExtensions     CapaActionExtension[]
+  actionEvidence       CapaActionEvidenceReference[]
 
   @@unique([tenantId, id], map: "capas_tenant_id_id_key")
   @@unique([tenantId, code], map: "capas_tenant_id_code_key")
@@ -814,26 +824,30 @@ model Capa {
 }
 
 model CapaAction {
-  id                   String                    @id @default(uuid()) @db.Uuid
-  tenantId             String                    @map("tenant_id") @db.Uuid
-  capaId               String                    @map("capa_id") @db.Uuid
+  id                   String                        @id @default(uuid()) @db.Uuid
+  tenantId             String                        @map("tenant_id") @db.Uuid
+  capaId               String                        @map("capa_id") @db.Uuid
+  followUpCycleId      String?                       @map("follow_up_cycle_id") @db.Uuid
   type                 CapaActionType
-  title                String                    @db.VarChar(200)
-  description          String                    @db.VarChar(2000)
-  assignedToUserId     String                    @map("assigned_to_user_id") @db.Uuid
-  dueAt                DateTime                  @map("due_at") @db.Timestamptz(3)
-  status               CapaActionStatus          @default(OPEN)
-  completionSessionId  String?                   @map("completion_session_id") @db.Uuid
+  title                String                        @db.VarChar(200)
+  description          String                        @db.VarChar(2000)
+  assignedToUserId     String                        @map("assigned_to_user_id") @db.Uuid
+  dueAt                DateTime                      @map("due_at") @db.Timestamptz(3)
+  status               CapaActionStatus              @default(OPEN)
+  completionSessionId  String?                       @map("completion_session_id") @db.Uuid
   meaning              CapaSignatureMeaning?
-  authenticationMethod CapaAuthenticationMethod? @map("authentication_method")
-  completionComment    String?                   @map("completion_comment") @db.VarChar(2000)
-  completedAt          DateTime?                 @map("completed_at") @db.Timestamptz(3)
-  recordHash           String?                   @map("record_hash") @db.Char(64)
-  createdAt            DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
-  tenant               Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  capa                 Capa                      @relation(fields: [tenantId, capaId], references: [tenantId, id], onDelete: Restrict)
-  assignedToUser       User                      @relation("CapaActionAssignee", fields: [tenantId, assignedToUserId], references: [tenantId, id], onDelete: Restrict)
-  completionSession    Session?                  @relation("CapaActionCompletionSession", fields: [tenantId, assignedToUserId, completionSessionId], references: [tenantId, userId, id], onDelete: Restrict)
+  authenticationMethod CapaAuthenticationMethod?     @map("authentication_method")
+  completionComment    String?                       @map("completion_comment") @db.VarChar(2000)
+  completedAt          DateTime?                     @map("completed_at") @db.Timestamptz(3)
+  recordHash           String?                       @map("record_hash") @db.Char(64)
+  createdAt            DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant               Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  capa                 Capa                          @relation(fields: [tenantId, capaId], references: [tenantId, id], onDelete: Restrict)
+  assignedToUser       User                          @relation("CapaActionAssignee", fields: [tenantId, assignedToUserId], references: [tenantId, id], onDelete: Restrict)
+  completionSession    Session?                      @relation("CapaActionCompletionSession", fields: [tenantId, assignedToUserId, completionSessionId], references: [tenantId, userId, id], onDelete: Restrict)
+  followUpCycle        CapaFollowUpCycle?            @relation(fields: [tenantId, followUpCycleId], references: [tenantId, id], onDelete: Restrict)
+  extensions           CapaActionExtension[]
+  evidenceReferences   CapaActionEvidenceReference[]
 
   @@unique([tenantId, id], map: "capa_actions_tenant_id_id_key")
   @@index([tenantId, capaId, status, dueAt], map: "capa_actions_capa_status_due_idx")
@@ -843,31 +857,103 @@ model CapaAction {
 }
 
 model CapaEffectivenessReview {
-  id                   String                     @id @default(uuid()) @db.Uuid
-  tenantId             String                     @map("tenant_id") @db.Uuid
-  capaId               String                     @map("capa_id") @db.Uuid
-  criterion            String                     @db.VarChar(2000)
-  assignedToUserId     String                     @map("assigned_to_user_id") @db.Uuid
-  scheduledByUserId    String                     @map("scheduled_by_user_id") @db.Uuid
-  dueAt                DateTime                   @map("due_at") @db.Timestamptz(3)
-  status               CapaEffectivenessStatus    @default(SCHEDULED)
-  decision             CapaEffectivenessDecision?
-  evidence             String?                    @db.VarChar(5000)
-  completionSessionId  String?                    @map("completion_session_id") @db.Uuid
-  meaning              CapaSignatureMeaning?
-  authenticationMethod CapaAuthenticationMethod?  @map("authentication_method")
-  completedAt          DateTime?                  @map("completed_at") @db.Timestamptz(3)
-  recordHash           String?                    @map("record_hash") @db.Char(64)
-  createdAt            DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
-  tenant               Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  capa                 Capa                       @relation(fields: [tenantId, capaId], references: [tenantId, id], onDelete: Restrict)
-  assignedToUser       User                       @relation("CapaEffectivenessAssignee", fields: [tenantId, assignedToUserId], references: [tenantId, id], onDelete: Restrict)
-  scheduledByUser      User                       @relation("CapaEffectivenessScheduler", fields: [tenantId, scheduledByUserId], references: [tenantId, id], onDelete: Restrict)
-  completionSession    Session?                   @relation("CapaEffectivenessCompletionSession", fields: [tenantId, assignedToUserId, completionSessionId], references: [tenantId, userId, id], onDelete: Restrict)
+  id                     String                     @id @default(uuid()) @db.Uuid
+  tenantId               String                     @map("tenant_id") @db.Uuid
+  capaId                 String                     @map("capa_id") @db.Uuid
+  cycleNumber            Int                        @default(0) @map("cycle_number")
+  criterion              String                     @db.VarChar(2000)
+  assignedToUserId       String                     @map("assigned_to_user_id") @db.Uuid
+  scheduledByUserId      String                     @map("scheduled_by_user_id") @db.Uuid
+  dueAt                  DateTime                   @map("due_at") @db.Timestamptz(3)
+  status                 CapaEffectivenessStatus    @default(SCHEDULED)
+  decision               CapaEffectivenessDecision?
+  evidence               String?                    @db.VarChar(5000)
+  completionSessionId    String?                    @map("completion_session_id") @db.Uuid
+  meaning                CapaSignatureMeaning?
+  authenticationMethod   CapaAuthenticationMethod?  @map("authentication_method")
+  completedAt            DateTime?                  @map("completed_at") @db.Timestamptz(3)
+  recordHash             String?                    @map("record_hash") @db.Char(64)
+  createdAt              DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant                 Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  capa                   Capa                       @relation(fields: [tenantId, capaId], references: [tenantId, id], onDelete: Restrict)
+  assignedToUser         User                       @relation("CapaEffectivenessAssignee", fields: [tenantId, assignedToUserId], references: [tenantId, id], onDelete: Restrict)
+  scheduledByUser        User                       @relation("CapaEffectivenessScheduler", fields: [tenantId, scheduledByUserId], references: [tenantId, id], onDelete: Restrict)
+  completionSession      Session?                   @relation("CapaEffectivenessCompletionSession", fields: [tenantId, assignedToUserId, completionSessionId], references: [tenantId, userId, id], onDelete: Restrict)
+  generatedFollowUpCycle CapaFollowUpCycle?         @relation("CapaFollowUpSourceReview")
 
   @@unique([tenantId, id], map: "capa_effectiveness_reviews_tenant_id_id_key")
-  @@unique([tenantId, capaId], map: "capa_effectiveness_reviews_tenant_capa_key")
+  @@unique([tenantId, capaId, cycleNumber], map: "capa_effectiveness_reviews_tenant_capa_cycle_key")
   @@index([tenantId, status, dueAt], map: "capa_effectiveness_reviews_status_due_idx")
   @@index([tenantId, assignedToUserId, status, dueAt], map: "capa_effectiveness_reviews_assignee_status_due_idx")
   @@map("capa_effectiveness_reviews")
+}
+
+model CapaFollowUpCycle {
+  id                          String                  @id @default(uuid()) @db.Uuid
+  tenantId                    String                  @map("tenant_id") @db.Uuid
+  capaId                      String                  @map("capa_id") @db.Uuid
+  sourceEffectivenessReviewId String                  @map("source_effectiveness_review_id") @db.Uuid
+  cycleNumber                 Int                     @map("cycle_number")
+  rationale                   String                  @db.VarChar(2000)
+  createdByUserId             String                  @map("created_by_user_id") @db.Uuid
+  createdAt                   DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  lockedAt                    DateTime?               @map("locked_at") @db.Timestamptz(3)
+  tenant                      Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  capa                        Capa                    @relation(fields: [tenantId, capaId], references: [tenantId, id], onDelete: Restrict)
+  sourceEffectivenessReview   CapaEffectivenessReview @relation("CapaFollowUpSourceReview", fields: [tenantId, sourceEffectivenessReviewId], references: [tenantId, id], onDelete: Restrict)
+  createdByUser               User                    @relation("CapaFollowUpCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
+  actions                     CapaAction[]
+
+  @@unique([tenantId, id], map: "capa_follow_up_cycles_tenant_id_id_key")
+  @@unique([tenantId, sourceEffectivenessReviewId], map: "capa_follow_up_cycles_source_review_key")
+  @@unique([tenantId, capaId, cycleNumber], map: "capa_follow_up_cycles_capa_cycle_key")
+  @@index([tenantId, capaId, createdAt], map: "capa_follow_up_cycles_capa_created_idx")
+  @@map("capa_follow_up_cycles")
+}
+
+model CapaActionExtension {
+  id                   String                   @id @default(uuid()) @db.Uuid
+  tenantId             String                   @map("tenant_id") @db.Uuid
+  capaId               String                   @map("capa_id") @db.Uuid
+  actionId             String                   @map("action_id") @db.Uuid
+  previousDueAt        DateTime                 @map("previous_due_at") @db.Timestamptz(3)
+  newDueAt             DateTime                 @map("new_due_at") @db.Timestamptz(3)
+  reason               String                   @db.VarChar(2000)
+  approvedByUserId     String                   @map("approved_by_user_id") @db.Uuid
+  approvalSessionId    String                   @map("approval_session_id") @db.Uuid
+  meaning              CapaSignatureMeaning     @default(ACTION_EXTENSION_APPROVAL)
+  authenticationMethod CapaAuthenticationMethod @default(PASSWORD_REAUTHENTICATION) @map("authentication_method")
+  approvedAt           DateTime                 @map("approved_at") @db.Timestamptz(3)
+  recordHash           String                   @map("record_hash") @db.Char(64)
+  createdAt            DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant               Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  capa                 Capa                     @relation(fields: [tenantId, capaId], references: [tenantId, id], onDelete: Restrict)
+  action               CapaAction               @relation(fields: [tenantId, actionId], references: [tenantId, id], onDelete: Restrict)
+  approvedByUser       User                     @relation("CapaActionExtensionApprover", fields: [tenantId, approvedByUserId], references: [tenantId, id], onDelete: Restrict)
+  approvalSession      Session                  @relation("CapaActionExtensionApprovalSession", fields: [tenantId, approvedByUserId, approvalSessionId], references: [tenantId, userId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id], map: "capa_action_extensions_tenant_id_id_key")
+  @@index([tenantId, actionId, approvedAt], map: "capa_action_extensions_action_approved_idx")
+  @@map("capa_action_extensions")
+}
+
+model CapaActionEvidenceReference {
+  id               String     @id @default(uuid()) @db.Uuid
+  tenantId         String     @map("tenant_id") @db.Uuid
+  capaId           String     @map("capa_id") @db.Uuid
+  actionId         String     @map("action_id") @db.Uuid
+  fileName         String     @map("file_name") @db.VarChar(255)
+  contentType      String     @map("content_type") @db.VarChar(150)
+  sizeBytes        Int        @map("size_bytes")
+  sha256           String     @db.Char(64)
+  storageReference String     @map("storage_reference") @db.VarChar(1000)
+  createdAt        DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant           Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  capa             Capa       @relation(fields: [tenantId, capaId], references: [tenantId, id], onDelete: Restrict)
+  action           CapaAction @relation(fields: [tenantId, actionId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id], map: "capa_action_evidence_tenant_id_id_key")
+  @@unique([tenantId, actionId, storageReference], map: "capa_action_evidence_action_reference_key")
+  @@index([tenantId, actionId, createdAt], map: "capa_action_evidence_action_created_idx")
+  @@map("capa_action_evidence_references")
 }

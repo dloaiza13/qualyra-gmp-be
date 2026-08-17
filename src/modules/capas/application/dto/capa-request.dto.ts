@@ -12,6 +12,7 @@ import {
   Length,
   Max,
   MaxLength,
+  Matches,
   Min,
   ValidateNested,
   Equals,
@@ -87,6 +88,91 @@ export class CompleteCapaActionDto {
   @IsString()
   @Length(10, 2000)
   comment!: string;
+
+  @ApiProperty({ example: 'current account password', writeOnly: true })
+  @IsString()
+  @Length(1, 128)
+  password!: string;
+
+  @ApiProperty({ example: true })
+  @Equals(true)
+  attestationAccepted!: true;
+
+  @ApiPropertyOptional({
+    type: () => CapaActionEvidenceReferenceDto,
+    isArray: true,
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @ValidateNested({ each: true })
+  @Type(() => CapaActionEvidenceReferenceDto)
+  evidenceReferences: CapaActionEvidenceReferenceDto[] = [];
+}
+
+export class CapaActionEvidenceReferenceDto {
+  @ApiProperty({ example: 'implementation-report.pdf' })
+  @Transform(trimString)
+  @IsString()
+  @Length(1, 255)
+  fileName!: string;
+
+  @ApiProperty({ example: 'application/pdf' })
+  @Transform(trimString)
+  @IsString()
+  @Length(3, 150)
+  contentType!: string;
+
+  @ApiProperty({ minimum: 1, maximum: 1073741824 })
+  @IsInt()
+  @Min(1)
+  @Max(1073741824)
+  sizeBytes!: number;
+
+  @ApiProperty({ minLength: 64, maxLength: 64 })
+  @Transform(trimString)
+  @Matches(/^[0-9a-f]{64}$/)
+  sha256!: string;
+
+  @ApiProperty({ example: 'qms://controlled/CAPA-2026-0001/report-v1' })
+  @Transform(trimString)
+  @IsString()
+  @Length(3, 1000)
+  storageReference!: string;
+}
+
+export class CreateCapaFollowUpCycleDto {
+  @ApiProperty({
+    example:
+      'The verification identified a residual failure mode that requires additional controls.',
+  })
+  @Transform(trimString)
+  @IsString()
+  @Length(10, 2000)
+  rationale!: string;
+
+  @ApiProperty({ type: CreateCapaActionDto, isArray: true })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(50)
+  @ValidateNested({ each: true })
+  @Type(() => CreateCapaActionDto)
+  actions!: CreateCapaActionDto[];
+}
+
+export class ApproveCapaActionExtensionDto {
+  @ApiProperty({ format: 'date-time' })
+  @IsISO8601({ strict: true })
+  newDueAt!: string;
+
+  @ApiProperty({
+    example:
+      'Supplier validation evidence requires an additional review cycle.',
+  })
+  @Transform(trimString)
+  @IsString()
+  @Length(10, 2000)
+  reason!: string;
 
   @ApiProperty({ example: 'current account password', writeOnly: true })
   @IsString()

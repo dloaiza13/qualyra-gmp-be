@@ -26,9 +26,11 @@ import { PermissionsGuard } from '../../authorization/presentation/permissions.g
 import { CapasService } from '../application/capas.service.js';
 import {
   CapaListQueryDto,
+  ApproveCapaActionExtensionDto,
   CompleteCapaEffectivenessReviewDto,
   CompleteCapaActionDto,
   CreateCapaDto,
+  CreateCapaFollowUpCycleDto,
   ScheduleCapaEffectivenessReviewDto,
 } from '../application/dto/capa-request.dto.js';
 import {
@@ -51,6 +53,42 @@ export class CapasController {
     @Query() query: CapaListQueryDto,
   ): Promise<CapaSummaryResponseDto[]> {
     return this.capas.list(principal, query);
+  }
+
+  @Post(':capaId/follow-up-cycles')
+  @Permissions('capas.create_follow_up')
+  @ApiCreatedResponse({ type: CapaDetailResponseDto })
+  createFollowUpCycle(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+    @Param('capaId', new ParseUUIDPipe()) capaId: string,
+    @Body() input: CreateCapaFollowUpCycleDto,
+    @Req() request: Request & RequestWithContext,
+  ): Promise<CapaDetailResponseDto> {
+    return this.capas.createFollowUpCycle(
+      principal,
+      capaId,
+      input,
+      requestMetadata(request),
+    );
+  }
+
+  @Post(':capaId/actions/:actionId/extensions')
+  @Permissions('capas.approve_extensions')
+  @ApiCreatedResponse({ type: CapaDetailResponseDto })
+  approveActionExtension(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+    @Param('capaId', new ParseUUIDPipe()) capaId: string,
+    @Param('actionId', new ParseUUIDPipe()) actionId: string,
+    @Body() input: ApproveCapaActionExtensionDto,
+    @Req() request: Request & RequestWithContext,
+  ): Promise<CapaDetailResponseDto> {
+    return this.capas.approveActionExtension(
+      principal,
+      capaId,
+      actionId,
+      input,
+      requestMetadata(request),
+    );
   }
 
   @Get(':capaId')

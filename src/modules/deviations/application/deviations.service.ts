@@ -31,7 +31,9 @@ const deviationInclude = {
   },
   capa: {
     include: {
-      effectivenessReview: {
+      effectivenessReviews: {
+        orderBy: { cycleNumber: 'desc' as const },
+        take: 1,
         include: { assignedToUser: { select: userSummary } },
       },
     },
@@ -535,19 +537,19 @@ function mapDetail(deviation: DeviationRecord): DeviationDetailResponseDto {
       : null,
     closure:
       deviation.status === 'CLOSED' &&
-      deviation.capa?.effectivenessReview?.status === 'COMPLETED' &&
-      deviation.capa.effectivenessReview.decision === 'EFFECTIVE' &&
-      deviation.capa.effectivenessReview.completedAt &&
-      deviation.capa.effectivenessReview.recordHash
+      deviation.capa?.effectivenessReviews[0]?.status === 'COMPLETED' &&
+      deviation.capa.effectivenessReviews[0].decision === 'EFFECTIVE' &&
+      deviation.capa.effectivenessReviews[0].completedAt &&
+      deviation.capa.effectivenessReviews[0].recordHash
         ? {
             capaId: deviation.capa.id,
             capaCode: deviation.capa.code,
-            effectivenessReviewId: deviation.capa.effectivenessReview.id,
-            closedBy: deviation.capa.effectivenessReview.assignedToUser,
+            effectivenessReviewId: deviation.capa.effectivenessReviews[0].id,
+            closedBy: deviation.capa.effectivenessReviews[0].assignedToUser,
             decision: 'EFFECTIVE',
             closedAt:
-              deviation.capa.effectivenessReview.completedAt.toISOString(),
-            recordHash: deviation.capa.effectivenessReview.recordHash,
+              deviation.capa.effectivenessReviews[0].completedAt.toISOString(),
+            recordHash: deviation.capa.effectivenessReviews[0].recordHash,
           }
         : null,
   };

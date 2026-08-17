@@ -1,6 +1,6 @@
 # GMP deviations
 
-Phases 14 and 15 add tenant-isolated reporting, triage, and authenticated root-cause investigation for quality deviations. Phases 16 and 17 consume investigations requiring CAPA through the separately controlled [CAPA workflow](capa.md), independently verify effectiveness, and close the deviation only when that review is effective.
+Phases 14 and 15 add tenant-isolated reporting, triage, and authenticated root-cause investigation for quality deviations. Phases 16 through 18 consume investigations requiring CAPA through the separately controlled [CAPA workflow](capa.md), preserve ineffective verification cycles, and close the deviation only when the latest review is effective.
 
 ## Permissions
 

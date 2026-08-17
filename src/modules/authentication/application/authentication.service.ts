@@ -42,6 +42,8 @@ const initialRolePermissions: Record<(typeof initialRoles)[number], string[]> =
   {
     Administrator: [],
     'QA Manager': [
+      'users.read',
+      'roles.read',
       'documents.read',
       'documents.create',
       'documents.update',
@@ -59,6 +61,8 @@ const initialRolePermissions: Record<(typeof initialRoles)[number], string[]> =
       'capas.execute',
       'capas.schedule_effectiveness',
       'capas.verify_effectiveness',
+      'capas.create_follow_up',
+      'capas.approve_extensions',
     ],
     'Document Controller': [
       'documents.read',
