@@ -18,6 +18,10 @@ export class BuiltInCapaEvidenceScanner extends CapaEvidenceScanner {
     });
   }
 
+  checkHealth(): Promise<void> {
+    return Promise.resolve();
+  }
+
   async scan(input: EvidenceScanInput): Promise<EvidenceScanResult> {
     await Promise.resolve();
     validateEvidence(

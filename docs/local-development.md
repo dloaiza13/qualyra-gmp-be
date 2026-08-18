@@ -72,3 +72,14 @@ RUN_DATABASE_INTEGRATION=true npm run test:integration
 ```
 
 The test connects with the application login role and verifies tenant filtering, cross-tenant foreign keys, and append-only security events.
+
+## Local recovery evidence
+
+Set `QUALYRA_BACKUP_ROOT=D:/qualyra-gmp/backups` when backups should stay off drive C:, then create and verify a backup without touching the active database:
+
+```bash
+npm run ops:backup
+npm run ops:restore:drill
+```
+
+The second command creates and removes only a generated temporary database. Backup archives and drill reports are intentionally outside Git. See [operations and recovery](operations.md) for data handling and production limitations.

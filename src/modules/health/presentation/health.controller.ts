@@ -2,6 +2,7 @@ import { Controller, Get } from '@nestjs/common';
 import {
   HealthService,
   type HealthResponse,
+  type ReadinessResponse,
 } from '../application/health.service.js';
 
 @Controller('health')
@@ -14,7 +15,7 @@ export class HealthController {
   }
 
   @Get('ready')
-  getReadiness(): Promise<HealthResponse> {
+  getReadiness(): Promise<ReadinessResponse> {
     return this.healthService.getReadiness();
   }
 }

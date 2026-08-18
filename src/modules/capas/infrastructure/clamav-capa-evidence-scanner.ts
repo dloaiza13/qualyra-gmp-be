@@ -27,6 +27,18 @@ export class ClamAvCapaEvidenceScanner extends CapaEvidenceScanner {
     });
   }
 
+  async checkHealth(): Promise<void> {
+    const response = await sendClamCommand(
+      'zPING\0',
+      this.host,
+      this.port,
+      this.timeoutMs,
+    );
+    if (response !== 'PONG') {
+      throw new Error('The antivirus scanner readiness check failed.');
+    }
+  }
+
   async scan(input: EvidenceScanInput): Promise<EvidenceScanResult> {
     await this.builtIn.scan(input);
     const response = await scanStream(
@@ -45,6 +57,41 @@ export class ClamAvCapaEvidenceScanner extends CapaEvidenceScanner {
       `The antivirus scanner returned an invalid result: ${response}`,
     );
   }
+}
+
+function sendClamCommand(
+  command: string,
+  host: string,
+  port: number,
+  timeoutMs: number,
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const socket = createConnection({ host, port });
+    const response: Buffer[] = [];
+    let settled = false;
+    const finish = (error?: Error, result?: string) => {
+      if (settled) return;
+      settled = true;
+      socket.destroy();
+      if (error) reject(error);
+      else resolve(result ?? '');
+    };
+    socket.setTimeout(timeoutMs);
+    socket.on('timeout', () =>
+      finish(new Error('The antivirus scanner readiness check timed out.')),
+    );
+    socket.on('error', () =>
+      finish(new Error('The antivirus scanner is unavailable.')),
+    );
+    socket.on('data', (chunk: Buffer) => response.push(chunk));
+    socket.on('end', () =>
+      finish(
+        undefined,
+        Buffer.concat(response).toString('utf8').replace(/\0+$/, '').trim(),
+      ),
+    );
+    socket.on('connect', () => socket.end(command));
+  });
 }
 
 function scanStream(

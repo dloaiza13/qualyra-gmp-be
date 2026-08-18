@@ -28,6 +28,8 @@
     "infra:up": "docker compose up --detach --wait",
     "keys:generate": "node ./scripts/generate-jwt-keys.mjs",
     "openapi:generate": "npm run build --silent && node ./scripts/generate-openapi.mjs",
+    "ops:backup": "node ./scripts/database-backup.mjs",
+    "ops:restore:drill": "node ./scripts/database-restore-drill.mjs",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",

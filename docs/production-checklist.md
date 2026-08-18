@@ -31,6 +31,7 @@ This checklist is a release gate. Repository controls marked complete still requ
 - [ ] Require encrypted database connections and restrict network access.
 - [ ] Enable encrypted automated backups and point-in-time recovery.
 - [ ] Complete and record a restoration drill with measured recovery objectives.
+- [x] Provide checksum-manifested logical backup tooling and an isolated restore drill that rechecks RLS.
 - [ ] Review RLS, grants, and tenant constraints for every new migration.
 - [x] Reject production CAPA evidence configuration without S3-compatible HTTPS storage and external ClamAV scanning.
 - [ ] Enable and verify object-store encryption at rest, versioning, lifecycle controls, private networking, and least-privilege credentials.
@@ -46,6 +47,7 @@ This checklist is a release gate. Repository controls marked complete still requ
 - [ ] Alert quality owners on overdue or critical deviations and define acknowledged escalation paths.
 - [ ] Define retention, deletion, privacy, and incident-evidence policies.
 - [ ] Monitor ClamAV signature freshness, scanner health, retention failures, and orphaned `PURGING` evidence.
+- [x] Make API readiness depend on PostgreSQL, selected evidence storage, and selected malware scanner with bounded probes.
 
 ## Email and asynchronous work
 
@@ -63,6 +65,7 @@ This checklist is a release gate. Repository controls marked complete still requ
 - [ ] Pin third-party CI actions to reviewed commit digests for higher assurance.
 - [ ] Automate reviewed migrations with pre-deployment backup and failure handling.
 - [ ] Create rollback, incident response, disaster recovery, and status communication runbooks.
+- [x] Document a release sequence with pre-deployment backup evidence, readiness gates, smoke tests, and controlled recovery boundaries.
 - [ ] Assign on-call ownership and test alerts before accepting users.
 - [ ] Produce a software bill of materials and archive release evidence if required by the validation plan.
 

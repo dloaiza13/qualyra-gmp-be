@@ -47,6 +47,10 @@ export class S3CapaEvidenceStorage extends CapaEvidenceStorage {
     });
   }
 
+  checkHealth(): Promise<void> {
+    return this.ensureBucket();
+  }
+
   async store(
     objectKey: string,
     bytes: Buffer,

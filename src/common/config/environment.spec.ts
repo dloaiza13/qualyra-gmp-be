@@ -56,6 +56,7 @@ describe('environment configuration', () => {
         CAPA_EVIDENCE_STORAGE_DRIVER: 's3',
         CAPA_EVIDENCE_SCANNER: 'clamav',
         CAPA_EVIDENCE_S3_ENDPOINT: 'https://evidence.qualyra.example',
+        CAPA_EVIDENCE_S3_AUTO_CREATE_BUCKET: 'false',
       }),
     ).toMatchObject({ NODE_ENV: 'production', COOKIE_SECURE: true });
   });

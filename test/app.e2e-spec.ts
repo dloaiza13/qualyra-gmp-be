@@ -27,6 +27,29 @@ describe('HealthController (e2e)', () => {
       });
   });
 
+  it('/health/ready (GET) probes critical dependencies', () => {
+    return request(app.getHttpServer() as Parameters<typeof request>[0])
+      .get('/health/ready')
+      .expect(200)
+      .expect(
+        ({
+          body,
+        }: {
+          body: {
+            status?: string;
+            checks?: { name: string; status: string }[];
+          };
+        }) => {
+          expect(body.status).toBe('up');
+          expect(body.checks).toEqual([
+            expect.objectContaining({ name: 'database', status: 'up' }),
+            expect.objectContaining({ name: 'evidenceStorage', status: 'up' }),
+            expect.objectContaining({ name: 'malwareScanner', status: 'up' }),
+          ]);
+        },
+      );
+  });
+
   it('publishes the safe onboarding policy', () => {
     return request(app.getHttpServer() as Parameters<typeof request>[0])
       .get('/api/v1/auth/registration-policy')

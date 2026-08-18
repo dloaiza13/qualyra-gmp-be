@@ -56,6 +56,17 @@ npm run test:integration
 
 `npm run infra:reset` refuses to delete volumes unless the explicit `--confirm-data-loss` flag is supplied. See [local development](docs/local-development.md) before resetting infrastructure.
 
+## Backup and recovery drill
+
+Phase 21 provides a non-destructive logical recovery workflow. Configure `QUALYRA_BACKUP_ROOT` (use `D:/qualyra-gmp/backups` on this Windows workstation), then run:
+
+```bash
+npm run ops:backup
+npm run ops:restore:drill
+```
+
+The restore drill validates the SHA-256 manifest, restores into a generated temporary database, verifies migrations and key counts, rechecks runtime RLS, and removes only that temporary database. See [operations and recovery](docs/operations.md).
+
 ## Architecture
 
 The backend is a modular NestJS monolith with pragmatic ports and adapters, tenant-aware use cases, PostgreSQL row-level security, and an OpenAPI contract. Business logic must stay out of controllers.
@@ -70,6 +81,8 @@ The backend is a modular NestJS monolith with pragmatic ports and adapters, tena
 - [Document training](docs/training.md)
 - [GMP deviations](docs/deviations.md)
 - [Corrective and preventive actions (CAPA)](docs/capa.md)
+- [Operations and recovery](docs/operations.md)
+- [Deployment runbook](docs/deployment.md)
 - [Phase 8 security review](docs/security-review.md)
 - [ADR-006: invitation-only organization membership](docs/adr/ADR-006-invitation-only-user-onboarding.md)
 - [ADR-008: controlled-document versioning](docs/adr/ADR-008-controlled-document-versioning.md)
@@ -85,6 +98,7 @@ The backend is a modular NestJS monolith with pragmatic ports and adapters, tena
 - [ADR-018: controlled CAPA follow-up cycles](docs/adr/ADR-018-controlled-capa-follow-up-cycles.md)
 - [ADR-019: managed CAPA evidence, durable monitoring, and derived analytics](docs/adr/ADR-019-managed-capa-evidence-monitoring-analytics.md)
 - [ADR-020: S3 evidence custody, external malware scanning, retention, and audit exports](docs/adr/ADR-020-s3-antimalware-retention-audit-exports.md)
+- [ADR-021: verified recovery and dependency-backed readiness](docs/adr/ADR-021-verified-recovery-and-operational-readiness.md)
 - [Threat model](docs/threat-model.md)
 - [Production readiness checklist](docs/production-checklist.md)
 

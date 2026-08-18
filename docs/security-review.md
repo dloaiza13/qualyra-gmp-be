@@ -4,7 +4,7 @@ Review date: 2026-08-14
 
 ## Result
 
-The Phase 6 repository hardening review is complete. Automated dependency audits report zero known vulnerabilities in both the backend and frontend dependency trees. This is a point-in-time result, not a guarantee that the dependencies are free of unknown defects.
+The Phase 6 repository hardening review was a point-in-time result. The current backend audit reports a high-severity `deepmerge-ts` advisory through Prisma configuration tooling; npm currently proposes only a forced breaking Prisma downgrade. It remains tracked rather than applying an unsafe automated downgrade.
 
 ## Review evidence
 
@@ -28,7 +28,7 @@ The repository is ready for continued product development, but it is not yet app
 
 1. Replace process-local abuse throttling with a shared Redis-backed strategy before running more than one API instance.
 2. Add a durable email outbox with retry, idempotency, dead-letter handling, and delivery monitoring.
-3. Provision an approved secret manager, managed TLS, restricted production database roles, encrypted backups, and a tested restore process.
+3. Provision an approved secret manager, managed TLS, restricted production database roles, encrypted automated backups/PITR, and run the repository restore drill in the production recovery environment.
 4. Configure centralized monitoring and alerts while preserving the repository's log-redaction rules.
 5. Perform staging penetration testing, load testing, disaster-recovery rehearsal, and the product's formal validation/risk process.
 6. Decide whether CAPTCHA or another bot defense is justified from the launch threat profile.

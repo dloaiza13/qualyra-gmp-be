@@ -10,5 +10,7 @@ export interface EvidenceScanInput {
 }
 
 export abstract class CapaEvidenceScanner {
+  abstract checkHealth(): Promise<void>;
+
   abstract scan(input: EvidenceScanInput): Promise<EvidenceScanResult>;
 }

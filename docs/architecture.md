@@ -10,6 +10,8 @@ The current infrastructure establishes:
 - Prisma 7 with the PostgreSQL driver adapter;
 - a tenant-aware unit of work;
 - liveness and database-backed readiness probes;
+- dependency-backed readiness for PostgreSQL, evidence storage, and malware scanning;
+- checksum-manifested logical backups with isolated restore-drill evidence;
 - a PostgreSQL security model enforced below the HTTP layer.
 
 ## Dependency direction

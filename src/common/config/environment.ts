@@ -51,6 +51,12 @@ const environmentSchema = z
       .string()
       .regex(/^\d+(kb|mb)$/i)
       .default('1mb'),
+    OPERATIONAL_READINESS_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .min(250)
+      .max(30_000)
+      .default(5_000),
     CAPA_EVIDENCE_STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
     CAPA_EVIDENCE_STORAGE_ROOT: z
       .string()
@@ -212,6 +218,15 @@ const environmentSchema = z
         code: 'custom',
         path: ['CAPA_EVIDENCE_S3_ENDPOINT'],
         message: 'CAPA evidence S3 transport must use HTTPS in production.',
+      });
+    }
+
+    if (environment.CAPA_EVIDENCE_S3_AUTO_CREATE_BUCKET) {
+      context.addIssue({
+        code: 'custom',
+        path: ['CAPA_EVIDENCE_S3_AUTO_CREATE_BUCKET'],
+        message:
+          'CAPA evidence buckets must be provisioned outside the application in production.',
       });
     }
 

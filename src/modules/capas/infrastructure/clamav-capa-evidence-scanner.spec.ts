@@ -51,6 +51,11 @@ describe('ClamAvCapaEvidenceScanner', () => {
     ).rejects.toThrow(/unavailable/);
   });
 
+  it('requires an explicit PONG readiness response', async () => {
+    await listen('PONG\0');
+    await expect(createScanner(port).checkHealth()).resolves.toBeUndefined();
+  });
+
   async function listen(result: string): Promise<void> {
     server = createServer((socket) => {
       socket.on('data', () => undefined);

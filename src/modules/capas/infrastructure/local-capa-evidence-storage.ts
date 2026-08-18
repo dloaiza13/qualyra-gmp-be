@@ -1,4 +1,5 @@
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { constants } from 'node:fs';
 import { dirname, resolve, sep } from 'node:path';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -17,6 +18,11 @@ export class LocalCapaEvidenceStorage extends CapaEvidenceStorage {
     this.root = resolve(
       config.getOrThrow('CAPA_EVIDENCE_STORAGE_ROOT', { infer: true }),
     );
+  }
+
+  async checkHealth(): Promise<void> {
+    await mkdir(this.root, { recursive: true });
+    await access(this.root, constants.R_OK | constants.W_OK);
   }
 
   async store(

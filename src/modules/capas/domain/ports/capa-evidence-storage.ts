@@ -4,6 +4,8 @@ export interface StoredEvidenceObject {
 }
 
 export abstract class CapaEvidenceStorage {
+  abstract checkHealth(): Promise<void>;
+
   abstract store(
     objectKey: string,
     bytes: Buffer,

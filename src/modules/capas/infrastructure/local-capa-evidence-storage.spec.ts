@@ -54,6 +54,11 @@ describe('managed CAPA evidence local pipeline', () => {
     await expect(storage.read('tenant/capa/action/object')).rejects.toThrow();
   });
 
+  it('reports the selected local storage and built-in scanner as ready', async () => {
+    await expect(storage.checkHealth()).resolves.toBeUndefined();
+    await expect(scanner.checkHealth()).resolves.toBeUndefined();
+  });
+
   it('rejects a mismatched signature and dangerous extensions', async () => {
     await expect(
       scanner.scan({
