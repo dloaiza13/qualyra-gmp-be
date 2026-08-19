@@ -1,6 +1,35 @@
 {
   "openapi": "3.0.0",
   "paths": {
+    "/metrics": {
+      "get": {
+        "operationId": "MetricsController_getMetrics",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Prometheus-compatible aggregate operational metrics.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid metrics bearer token."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Operations"
+        ]
+      }
+    },
     "/health/live": {
       "get": {
         "operationId": "HealthController_getLiveness",
@@ -2602,6 +2631,101 @@
         ],
         "tags": [
           "Security events"
+        ]
+      }
+    },
+    "/api/v1/notification-deliveries": {
+      "get": {
+        "operationId": "NotificationDeliveriesController_list",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "PROCESSING",
+                "PROCESSED",
+                "FAILED",
+                "DEAD_LETTER"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NotificationDeliveryResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Notification deliveries"
+        ]
+      }
+    },
+    "/api/v1/notification-deliveries/{deliveryId}/retry": {
+      "post": {
+        "operationId": "NotificationDeliveriesController_retry",
+        "parameters": [
+          {
+            "name": "deliveryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationDeliveryResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Notification deliveries"
         ]
       }
     }
@@ -6183,6 +6307,70 @@
           "outcome",
           "correlationId",
           "metadata",
+          "createdAt"
+        ]
+      },
+      "NotificationDeliveryResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "PROCESSING",
+              "PROCESSED",
+              "FAILED",
+              "DEAD_LETTER"
+            ]
+          },
+          "attempts": {
+            "type": "number"
+          },
+          "manualRetries": {
+            "type": "number"
+          },
+          "availableAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastAttemptAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          },
+          "processedAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          },
+          "deadLetteredAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          },
+          "lastError": {
+            "type": "object",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "status",
+          "attempts",
+          "manualRetries",
+          "availableAt",
           "createdAt"
         ]
       }

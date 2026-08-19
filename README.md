@@ -83,6 +83,7 @@ The backend is a modular NestJS monolith with pragmatic ports and adapters, tena
 - [Corrective and preventive actions (CAPA)](docs/capa.md)
 - [Operations and recovery](docs/operations.md)
 - [Durable notification delivery](docs/notifications.md)
+- [Operational observability](docs/observability.md)
 - [Deployment runbook](docs/deployment.md)
 - [Phase 8 security review](docs/security-review.md)
 - [ADR-006: invitation-only organization membership](docs/adr/ADR-006-invitation-only-user-onboarding.md)
@@ -101,6 +102,7 @@ The backend is a modular NestJS monolith with pragmatic ports and adapters, tena
 - [ADR-020: S3 evidence custody, external malware scanning, retention, and audit exports](docs/adr/ADR-020-s3-antimalware-retention-audit-exports.md)
 - [ADR-021: verified recovery and dependency-backed readiness](docs/adr/ADR-021-verified-recovery-and-operational-readiness.md)
 - [ADR-022: transactional notification outbox](docs/adr/ADR-022-transactional-notification-outbox.md)
+- [ADR-023: operational metrics and distributed rate limiting](docs/adr/ADR-023-operational-metrics-and-distributed-rate-limiting.md)
 - [Threat model](docs/threat-model.md)
 - [Production readiness checklist](docs/production-checklist.md)
 

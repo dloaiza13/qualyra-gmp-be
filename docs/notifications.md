@@ -18,4 +18,4 @@ The worker is controlled by `OUTBOX_WORKER_ENABLED`, `OUTBOX_POLL_INTERVAL_MS`, 
 
 Users with `notifications.read` can inspect delivery type, state, attempt counts, safe error code, and timestamps for their own tenant. Recipient addresses, tokens, and payloads are never returned. `notifications.retry` permits recovery of dead-letter rows and appends `NOTIFICATION_DELIVERY_RETRIED` to the security-event trail. Standard Administrators and QA Managers can read and retry; Auditors have read-only access.
 
-Before production, connect dead-letter count, retry rate, lease recovery, delivery latency, and worker liveness to the selected telemetry and alerting platform. Provider-level delivery, bounce, complaint, and suppression feedback remains outside the current SMTP contract.
+The authenticated Prometheus endpoint exports dead-letter count, retry outcomes, lease recovery, delivery latency, and worker liveness. Versioned starter alerts are provided under `ops/prometheus`; they still require deployment, threshold tuning, owned routing, and an alert exercise. Provider-level delivery, bounce, complaint, and suppression feedback remains outside the current SMTP contract.

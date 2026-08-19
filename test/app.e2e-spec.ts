@@ -3,6 +3,8 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from './../src/app.module.js';
 import { configureApplication } from './../src/bootstrap.js';
+import { RedisThrottlerStorage } from './../src/common/rate-limiting/redis-throttler.storage.js';
+import { randomUUID } from 'node:crypto';
 
 describe('HealthController (e2e)', () => {
   let app: INestApplication;
@@ -43,11 +45,53 @@ describe('HealthController (e2e)', () => {
           expect(body.status).toBe('up');
           expect(body.checks).toEqual([
             expect.objectContaining({ name: 'database', status: 'up' }),
+            expect.objectContaining({ name: 'redis', status: 'up' }),
             expect.objectContaining({ name: 'evidenceStorage', status: 'up' }),
             expect.objectContaining({ name: 'malwareScanner', status: 'up' }),
           ]);
         },
       );
+  });
+
+  it('protects and exposes Prometheus-compatible operational metrics', async () => {
+    const server = app.getHttpServer() as Parameters<typeof request>[0];
+
+    await request(server).get('/metrics').expect(401);
+    const response = await request(server)
+      .get('/metrics')
+      .set('Authorization', 'Bearer qualyra_local_metrics_token')
+      .expect('content-type', /text\/plain/)
+      .expect(200);
+
+    expect(response.text).toContain('qualyra_http_requests_total');
+    expect(response.text).toContain(
+      'qualyra_dependency_ready{dependency="redis"} 1',
+    );
+    expect(response.text).not.toContain('qualyra-demo');
+  });
+
+  it('enforces a shared rate-limit window atomically in Redis', async () => {
+    const storage = app.get(RedisThrottlerStorage);
+    const key = randomUUID();
+
+    await expect(
+      storage.increment(key, 60_000, 2, 30_000, 'e2e'),
+    ).resolves.toMatchObject({
+      totalHits: 1,
+      isBlocked: false,
+    });
+    await expect(
+      storage.increment(key, 60_000, 2, 30_000, 'e2e'),
+    ).resolves.toMatchObject({
+      totalHits: 2,
+      isBlocked: false,
+    });
+    await expect(
+      storage.increment(key, 60_000, 2, 30_000, 'e2e'),
+    ).resolves.toMatchObject({
+      totalHits: 3,
+      isBlocked: true,
+    });
   });
 
   it('publishes the safe onboarding policy', () => {

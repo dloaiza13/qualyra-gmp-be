@@ -30,7 +30,7 @@ Composite foreign keys include `tenant_id` for relationships between tenant-owne
 
 Passwords use Argon2id. Access tokens use asymmetric RS256 signing, while refresh and one-time email tokens are opaque and stored only as hashes. Refresh rotation includes reuse detection and session-family revocation. Cookie mutations enforce an origin allowlist and double-submit CSRF protection. Security-sensitive operations append structured events with correlation identifiers.
 
-Production hardening still requires selecting a CAPTCHA or equivalent bot-defense provider, exporting outbox telemetry, alerting on dead letters, and integrating provider bounce/complaint feedback.
+Production hardening still requires selecting a CAPTCHA or equivalent bot-defense provider, deploying and exercising the exported telemetry/alerts, and integrating provider bounce/complaint feedback.
 
 HTTP logs remove URL query values and redact authorization, cookie, CSRF, password, token, and response-cookie fields. Production configuration also requires HTTPS origins, secure `__Host-` cookie names, and SMTP TLS.
 

@@ -18,7 +18,7 @@ This checklist is a release gate. Repository controls marked complete still requ
 - [x] Keep access tokens in browser memory; use secure `HttpOnly` refresh cookies and double-submit CSRF.
 - [x] Require secure `__Host-` refresh and CSRF cookie names in production.
 - [x] Provide session listing and revocation, generic recovery responses, and one-time invitation/recovery tokens.
-- [ ] Move rate-limit and credential-throttle state to shared Redis before horizontal scaling.
+- [x] Store rate-limit and credential-throttle state atomically in shared Redis and fail protected requests closed when enforcement is unavailable.
 - [ ] Select and document CAPTCHA or equivalent bot defense based on the launch threat assessment.
 - [ ] Define support procedures for account recovery, compromised administrators, and organization ownership disputes.
 
@@ -47,14 +47,16 @@ This checklist is a release gate. Repository controls marked complete still requ
 - [ ] Alert quality owners on overdue or critical deviations and define acknowledged escalation paths.
 - [ ] Define retention, deletion, privacy, and incident-evidence policies.
 - [ ] Monitor ClamAV signature freshness, scanner health, retention failures, and orphaned `PURGING` evidence.
-- [x] Make API readiness depend on PostgreSQL, selected evidence storage, and selected malware scanner with bounded probes.
+- [x] Make API readiness depend on PostgreSQL, Redis, selected evidence storage, and selected malware scanner with bounded probes.
+- [x] Export authenticated, low-cardinality HTTP, process, dependency, and outbox metrics without tenant labels.
+- [ ] Deploy the metric scraper, secure its token and network path, tune thresholds, assign routes/runbooks, and exercise every alert.
 
 ## Email and asynchronous work
 
 - [x] Require SMTP TLS in production configuration.
 - [x] Make invitation, verification, and recovery tokens single-use and time-limited.
 - [x] Implement a transactional outbox and worker with retry, enqueue idempotency, and dead-letter handling.
-- [ ] Export outbox worker metrics and alert on dead letters, retry rate, lease recovery, and delivery latency.
+- [x] Export outbox worker metrics and version starter alerts for dead letters, retry rate, lease recovery, delivery latency, and liveness.
 - [ ] Configure SPF, DKIM, DMARC, verified sending domains, bounce handling, and provider alerts.
 - [ ] Validate every email link against the production web origin.
 

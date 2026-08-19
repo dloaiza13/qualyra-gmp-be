@@ -4,6 +4,7 @@ import type { Environment } from '../../../common/config/environment.js';
 import { PrismaService } from '../../../infrastructure/database/prisma/prisma.service.js';
 import { CapaEvidenceScanner } from '../../capas/domain/ports/capa-evidence-scanner.js';
 import { CapaEvidenceStorage } from '../../capas/domain/ports/capa-evidence-storage.js';
+import { RedisService } from '../../../infrastructure/redis/redis.service.js';
 
 export interface HealthResponse {
   status: 'up';
@@ -11,7 +12,7 @@ export interface HealthResponse {
 }
 
 export interface ReadinessCheck {
-  name: 'database' | 'evidenceStorage' | 'malwareScanner';
+  name: 'database' | 'redis' | 'evidenceStorage' | 'malwareScanner';
   status: 'up' | 'down';
   durationMs: number;
 }
@@ -30,6 +31,7 @@ export class HealthService {
     private readonly prisma: PrismaService,
     private readonly evidenceStorage: CapaEvidenceStorage,
     private readonly evidenceScanner: CapaEvidenceScanner,
+    private readonly redis: RedisService,
     config: ConfigService<Environment, true>,
   ) {
     this.timeoutMs = config.getOrThrow('OPERATIONAL_READINESS_TIMEOUT_MS', {
@@ -44,6 +46,7 @@ export class HealthService {
   async getReadiness(): Promise<ReadinessResponse> {
     const checks = await Promise.all([
       this.runCheck('database', () => this.prisma.$queryRaw`SELECT 1`),
+      this.runCheck('redis', () => this.redis.ping()),
       this.runCheck('evidenceStorage', () =>
         this.evidenceStorage.checkHealth(),
       ),

@@ -25,7 +25,19 @@ const environmentSchema = z
     DATABASE_URL: z.string().startsWith('postgresql://'),
     MIGRATION_DATABASE_URL: z.string().startsWith('postgresql://'),
     SHADOW_DATABASE_URL: z.string().startsWith('postgresql://'),
-    REDIS_URL: z.string().startsWith('redis://'),
+    REDIS_URL: z.string().regex(/^rediss?:\/\//),
+    REDIS_CONNECT_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .min(250)
+      .max(30_000)
+      .default(3_000),
+    REDIS_OPERATION_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .min(100)
+      .max(10_000)
+      .default(1_000),
     JWT_ACCESS_PRIVATE_KEY: z.string().min(1),
     JWT_ACCESS_PUBLIC_KEY: z.string().min(1),
     JWT_ISSUER: z.string().min(1).max(200),
@@ -57,6 +69,12 @@ const environmentSchema = z
       .min(250)
       .max(30_000)
       .default(5_000),
+    METRICS_ENABLED: booleanValue.default(true),
+    METRICS_BEARER_TOKEN: z
+      .string()
+      .min(24)
+      .max(500)
+      .default('qualyra_local_metrics_token'),
     CAPA_EVIDENCE_STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
     CAPA_EVIDENCE_STORAGE_ROOT: z
       .string()
@@ -235,6 +253,26 @@ const environmentSchema = z
         code: 'custom',
         path: ['SMTP_REQUIRE_TLS'],
         message: 'SMTP_REQUIRE_TLS must be true in production.',
+      });
+    }
+
+    if (!environment.REDIS_URL.startsWith('rediss://')) {
+      context.addIssue({
+        code: 'custom',
+        path: ['REDIS_URL'],
+        message: 'REDIS_URL must use TLS in production.',
+      });
+    }
+
+    if (
+      environment.METRICS_ENABLED &&
+      (environment.METRICS_BEARER_TOKEN === 'qualyra_local_metrics_token' ||
+        environment.METRICS_BEARER_TOKEN.length < 32)
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['METRICS_BEARER_TOKEN'],
+        message: 'A dedicated metrics bearer token is required in production.',
       });
     }
 

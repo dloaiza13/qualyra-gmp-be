@@ -4,7 +4,9 @@
 
 Phase 21 adds repository-level recovery evidence and truthful operational readiness. It does not provision a production backup service, secret manager, monitoring platform, or point-in-time recovery by itself.
 
-`GET /health/live` proves that the process can answer HTTP. `GET /health/ready` probes PostgreSQL, the selected CAPA evidence store, and the selected malware scanner concurrently. Each probe has a bounded timeout and returns only a component name, state, and duration; connection strings and error details are never returned.
+`GET /health/live` proves that the process can answer HTTP. `GET /health/ready` probes PostgreSQL, Redis, the selected CAPA evidence store, and the selected malware scanner concurrently. Each probe has a bounded timeout and returns only a component name, state, and duration; connection strings and error details are never returned.
+
+`GET /metrics` exports authenticated aggregate operational telemetry and the repository includes starter alert rules. See [operational observability](observability.md) for the metric privacy boundary, scraper configuration, Redis failure behavior, and deployment responsibilities.
 
 In production, S3 buckets must be provisioned outside the application. Automatic bucket creation is rejected by environment validation.
 

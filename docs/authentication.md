@@ -23,7 +23,7 @@ Production requires secure cookies and a refresh-cookie name with the `__Host-` 
 
 Cookie-authenticated mutations require both a trusted `Origin` or `Referer` and a double-submit CSRF token in the `x-csrf-token` header. Allowed origins are an explicit configuration list, and CORS credentials are enabled only for those origins. Bearer-authenticated endpoints do not rely on cookies.
 
-The login response is intentionally generic for unknown tenants, unknown users, and incorrect passwords. Argon2id dummy verification reduces timing disclosure. Separate IP and normalized tenant/email throttles plus progressive account locking limit repeated guesses. The current throttle store is process-local, so a shared Redis store is required before horizontally scaling the API. CAPTCHA remains a documented production hardening item; it is not implemented in this phase because no provider has been selected.
+The login response is intentionally generic for unknown tenants, unknown users, and incorrect passwords. Argon2id dummy verification reduces timing disclosure. Separate IP and normalized tenant/email throttles plus progressive account locking limit repeated guesses. Throttle state is stored atomically in shared Redis so every API instance enforces the same budget. CAPTCHA remains a documented production hardening item; it is not implemented because no provider has been selected.
 
 ## Local use
 

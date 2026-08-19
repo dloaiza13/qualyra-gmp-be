@@ -25,7 +25,18 @@ jobs:
       DATABASE_URL: postgresql://qualyra_app:ci_app@localhost:5432/qualyra_gmp
       MIGRATION_DATABASE_URL: postgresql://qualyra_owner:ci_owner@localhost:5432/qualyra_gmp
       SHADOW_DATABASE_URL: postgresql://qualyra_owner:ci_owner@localhost:5432/qualyra_gmp_shadow
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: qualyra_gmp
+      POSTGRES_SHADOW_DB: qualyra_gmp_shadow
+      POSTGRES_SUPERUSER_PASSWORD: ci_superuser
+      POSTGRES_OWNER_USER: qualyra_owner
+      POSTGRES_OWNER_PASSWORD: ci_owner
+      POSTGRES_APP_USER: qualyra_app
+      POSTGRES_APP_PASSWORD: ci_app
+      REDIS_PORT: 6379
       REDIS_URL: redis://localhost:6379
+      MAILPIT_SMTP_PORT: 1025
+      MAILPIT_UI_PORT: 8025
 
     steps:
       - name: Check out repository
@@ -65,6 +76,12 @@ jobs:
 
       - name: Run unit tests
         run: npm run test -- --runInBand
+
+      - name: Start isolated API dependencies
+        run: npm run infra:up
+
+      - name: Apply reviewed migrations
+        run: npm run db:migrate:deploy
 
       - name: Run end-to-end tests
         run: npm run test:e2e -- --runInBand

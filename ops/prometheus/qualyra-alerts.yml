@@ -1,0 +1,85 @@
+groups:
+  - name: qualyra-api
+    rules:
+      - alert: QualyraApiHighErrorRate
+        expr: |
+          sum(rate(qualyra_http_requests_total{status_code=~"5.."}[5m]))
+            / clamp_min(sum(rate(qualyra_http_requests_total[5m])), 0.001) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Qualyra API 5xx rate is above 5%
+          runbook: Check correlated application logs, dependency readiness, and the latest deployment.
+
+      - alert: QualyraApiHighLatency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(qualyra_http_request_duration_seconds_bucket[5m]))
+          ) > 2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Qualyra API p95 latency is above two seconds
+          runbook: Inspect route-level latency, PostgreSQL saturation, Redis, and external dependencies.
+
+      - alert: QualyraRedisUnavailable
+        expr: qualyra_dependency_ready{dependency="redis"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Qualyra cannot reach Redis
+          runbook: Readiness and distributed abuse protection are degraded; verify Redis networking, TLS, and credentials.
+
+      - alert: QualyraMetricsCollectionFailed
+        expr: qualyra_metrics_collection_success == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: A Qualyra dynamic metric source cannot be collected
+          runbook: Inspect the source label and dependency readiness without exposing connection details.
+
+  - name: qualyra-notification-outbox
+    rules:
+      - alert: QualyraNotificationDeadLetters
+        expr: qualyra_outbox_messages{status="DEAD_LETTER"} > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Qualyra has notification deliveries requiring intervention
+          runbook: Review tenant-scoped delivery metadata, remediate the provider failure, and use the audited retry action.
+
+      - alert: QualyraNotificationWorkerStalled
+        expr: |
+          qualyra_outbox_worker_last_success_timestamp_seconds > 0
+            and time() - qualyra_outbox_worker_last_success_timestamp_seconds > 120
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: The Qualyra notification worker has not completed a successful run
+          runbook: Check process health, PostgreSQL, SMTP connectivity, and worker logs by correlation context.
+
+      - alert: QualyraNotificationRetriesElevated
+        expr: |
+          sum(rate(qualyra_outbox_delivery_attempts_total{outcome=~"retry_scheduled|dead_letter"}[10m])) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Qualyra notification retries are elevated
+          runbook: Inspect safe delivery error codes and provider health before manually retrying messages.
+
+      - alert: QualyraNotificationLeaseRecovery
+        expr: increase(qualyra_outbox_lease_recoveries_total[10m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: Qualyra recovered expired notification worker leases
+          runbook: Correlate the event with restarts, timeouts, or overlapping worker capacity.

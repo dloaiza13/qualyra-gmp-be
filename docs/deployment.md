@@ -15,7 +15,7 @@ Do not treat this runbook as production approval. Every release still requires t
 - External ClamAV reachable only on a private network.
 - Approved RPO, RTO, retention, rollback, and incident owners.
 
-Production environment validation rejects HTTP origins, insecure cookies, plaintext SMTP, the development outbox encryption key, local evidence storage, built-in-only scanning, non-HTTPS S3 transport, and runtime S3 bucket creation.
+Production environment validation rejects HTTP origins, insecure cookies, plaintext SMTP or Redis transport, the development metrics/outbox secrets, local evidence storage, built-in-only scanning, non-HTTPS S3 transport, and runtime S3 bucket creation.
 
 ## Pre-deployment
 
@@ -32,10 +32,11 @@ Production environment validation rejects HTTP origins, insecure cookies, plaint
 2. Run `npm ci` and `npm run db:generate` in the trusted build environment.
 3. Apply reviewed migrations once with `npm run db:migrate:deploy` using the migration identity.
 4. Deploy the backend artifact with the restricted runtime identity.
-5. Require `GET /health/live` and `GET /health/ready` to succeed before routing traffic.
-6. Deploy the compatible frontend artifact.
-7. Execute smoke tests for login, tenant isolation, document access, CAPA evidence access, and audit export.
-8. Observe error, latency, database, scanner, object-store, and delivery signals for the approved stabilization period.
+5. Require `GET /health/live` and the PostgreSQL/Redis/storage/scanner checks in `GET /health/ready` to succeed before routing traffic.
+6. Configure the protected `GET /metrics` scrape through a private network path, load the versioned alert rules, assign owners/runbooks, and exercise alert delivery.
+7. Deploy the compatible frontend artifact.
+8. Execute smoke tests for login, tenant isolation, document access, CAPA evidence access, and audit export.
+9. Observe error, latency, database, scanner, object-store, and delivery signals for the approved stabilization period.
 
 ## Failure and rollback
 

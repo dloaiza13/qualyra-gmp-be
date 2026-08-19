@@ -53,6 +53,9 @@ describe('environment configuration', () => {
         COOKIE_NAME: '__Host-qualyra_refresh',
         CSRF_COOKIE_NAME: '__Host-qualyra_csrf',
         SMTP_REQUIRE_TLS: 'true',
+        REDIS_URL: 'rediss://redis.qualyra.example:6379',
+        METRICS_BEARER_TOKEN:
+          'prod_metrics_token_0123456789abcdef0123456789abcdef',
         CAPA_EVIDENCE_STORAGE_DRIVER: 's3',
         CAPA_EVIDENCE_SCANNER: 'clamav',
         CAPA_EVIDENCE_S3_ENDPOINT: 'https://evidence.qualyra.example',
@@ -67,7 +70,7 @@ describe('environment configuration', () => {
     expect(() =>
       validateEnvironment({ ...baseEnvironment, NODE_ENV: 'production' }),
     ).toThrow(
-      /APP_BASE_URL|WEB_BASE_URL|COOKIE_SECURE|COOKIE_NAME|CSRF_COOKIE_NAME|CORS_ALLOWED_ORIGINS|SMTP_REQUIRE_TLS|CAPA_EVIDENCE_STORAGE_DRIVER|CAPA_EVIDENCE_SCANNER|CAPA_EVIDENCE_S3_ENDPOINT|OUTBOX_PAYLOAD_ENCRYPTION_KEY/,
+      /APP_BASE_URL|WEB_BASE_URL|COOKIE_SECURE|COOKIE_NAME|CSRF_COOKIE_NAME|CORS_ALLOWED_ORIGINS|SMTP_REQUIRE_TLS|REDIS_URL|METRICS_BEARER_TOKEN|CAPA_EVIDENCE_STORAGE_DRIVER|CAPA_EVIDENCE_SCANNER|CAPA_EVIDENCE_S3_ENDPOINT|OUTBOX_PAYLOAD_ENCRYPTION_KEY/,
     );
   });
 

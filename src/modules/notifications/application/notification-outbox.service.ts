@@ -27,6 +27,7 @@ import type {
   NotificationDeliveryResponseDto,
 } from './dto/notification-delivery.dto.js';
 import { OutboxPayloadCipher } from './outbox-payload-cipher.js';
+import { MetricsService } from '../../observability/application/metrics.service.js';
 
 export const notificationTypes = {
   emailVerification: 'AUTH_EMAIL_VERIFICATION',
@@ -79,6 +80,7 @@ export class NotificationOutboxService
     private readonly cipher: OutboxPayloadCipher,
     private readonly authenticationNotifier: AuthenticationNotifier,
     private readonly capaNotifier: CapaMonitoringNotifier,
+    private readonly metrics: MetricsService,
     config: ConfigService<Environment, true>,
   ) {
     this.enabled =
@@ -157,13 +159,26 @@ export class NotificationOutboxService
   async deliverTenant(tenantId: string, now = new Date()): Promise<void> {
     const claimed = await this.claimTenant(tenantId, now);
     for (const message of claimed) {
+      const startedAt = performance.now();
       let capaNotificationId: string | undefined;
       try {
         const payload = this.decrypt(message);
         capaNotificationId = await this.dispatch(message, payload);
         await this.markProcessed(message, capaNotificationId);
+        this.metrics.recordOutboxDelivery(
+          message.type,
+          'processed',
+          Math.max(0, performance.now() - startedAt) / 1_000,
+        );
       } catch (error: unknown) {
         await this.markFailed(message, error, capaNotificationId);
+        this.metrics.recordOutboxDelivery(
+          message.type,
+          message.attempts >= this.maxAttempts
+            ? 'dead_letter'
+            : 'retry_scheduled',
+          Math.max(0, performance.now() - startedAt) / 1_000,
+        );
       }
     }
   }
@@ -230,20 +245,29 @@ export class NotificationOutboxService
   private async startRecurringRun(): Promise<void> {
     if (this.running) return;
     this.running = true;
+    let success = true;
     try {
       const tenants = await this.prisma.tenant.findMany({
         where: { status: 'ACTIVE' },
         select: { id: true },
       });
       for (const tenant of tenants) {
-        await this.deliverTenant(tenant.id).catch((error: unknown) =>
+        await this.deliverTenant(tenant.id).catch((error: unknown) => {
+          success = false;
           this.logger.error(
             { tenantId: tenant.id, error: deliveryErrorCode(error) },
             'Notification outbox tenant run failed',
-          ),
-        );
+          );
+        });
       }
+    } catch (error: unknown) {
+      success = false;
+      this.logger.error(
+        { error: deliveryErrorCode(error) },
+        'Notification outbox worker run failed',
+      );
     } finally {
+      this.metrics.recordOutboxWorkerRun(success);
       this.running = false;
       if (this.enabled) {
         this.timer = setTimeout(
@@ -258,7 +282,7 @@ export class NotificationOutboxService
   private claimTenant(tenantId: string, now: Date): Promise<OutboxMessage[]> {
     return this.tenantUnitOfWork.execute(tenantId, async (transaction) => {
       const staleBefore = new Date(now.getTime() - this.lockTimeoutMs);
-      await transaction.outboxMessage.updateMany({
+      const deadLetters = await transaction.outboxMessage.updateMany({
         where: {
           tenantId,
           status: 'PROCESSING',
@@ -273,7 +297,7 @@ export class NotificationOutboxService
           lastError: 'DELIVERY_LEASE_EXPIRED',
         },
       });
-      await transaction.outboxMessage.updateMany({
+      const retries = await transaction.outboxMessage.updateMany({
         where: {
           tenantId,
           status: 'PROCESSING',
@@ -288,6 +312,8 @@ export class NotificationOutboxService
           lastError: 'DELIVERY_LEASE_EXPIRED',
         },
       });
+      this.metrics.recordOutboxLeaseRecovery('dead_letter', deadLetters.count);
+      this.metrics.recordOutboxLeaseRecovery('retry', retries.count);
 
       const candidates = await transaction.outboxMessage.findMany({
         where: {

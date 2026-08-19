@@ -26,10 +26,10 @@ The Phase 6 repository hardening review was a point-in-time result. The current 
 
 The repository is ready for continued product development, but it is not yet approved for a public production launch. The following items remain release blockers:
 
-1. Replace process-local abuse throttling with a shared Redis-backed strategy before running more than one API instance.
-2. Connect the durable email outbox to production metrics, alerts, and provider feedback handling.
+1. Deploy and harden the production Redis service, metric scraper, alert routing, dashboards, and owned runbooks; exercise the versioned alerts before launch.
+2. Add email-provider bounce, complaint, and suppression feedback handling.
 3. Provision an approved secret manager, managed TLS, restricted production database roles, encrypted automated backups/PITR, and run the repository restore drill in the production recovery environment.
-4. Configure centralized monitoring and alerts while preserving the repository's log-redaction rules.
+4. Configure centralized logs while preserving the repository's redaction rules.
 5. Perform staging penetration testing, load testing, disaster-recovery rehearsal, and the product's formal validation/risk process.
 6. Decide whether CAPTCHA or another bot defense is justified from the launch threat profile.
 7. Trace and remove the PostgreSQL client concurrent-query deprecation warning before adopting `pg` 9.

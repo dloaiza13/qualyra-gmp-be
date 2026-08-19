@@ -28,7 +28,7 @@ Prisma CLI commands use `MIGRATION_DATABASE_URL`. Application runtime uses `DATA
 | Service      | Default port | Purpose                                          |
 | ------------ | -----------: | ------------------------------------------------ |
 | PostgreSQL   |         5432 | Primary relational database                      |
-| Redis        |         6379 | Future rate limiting and background coordination |
+| Redis        |         6379 | Distributed request and credential rate limiting |
 | Mailpit SMTP |         1025 | Development email capture                        |
 | Mailpit UI   |         8025 | Inspect captured email                           |
 | MinIO API    |         9000 | Optional S3-compatible evidence storage          |
@@ -44,6 +44,12 @@ docker compose --profile managed-evidence up --detach --wait
 Then set `CAPA_EVIDENCE_STORAGE_DRIVER=s3` and `CAPA_EVIDENCE_SCANNER=clamav` in `.env` and restart the API. The example credentials are local placeholders. ClamAV may take several minutes on its first start while its persistent signature database initializes. When Docker Desktop's disk image is stored on drive D:, these named volumes are stored there as well; do not add hard-coded host paths to the shared Compose file.
 
 After starting the API, Swagger UI is available at `http://localhost:3000/api/docs`. See [authentication](authentication.md) for the browser cookie and CSRF flow.
+
+Redis is now a serving dependency. `GET /health/ready` reports it and protected routes fail closed if a shared limit cannot be enforced. Operational metrics can be inspected locally with:
+
+```bash
+curl -H "Authorization: Bearer qualyra_local_metrics_token" http://localhost:3000/metrics
+```
 
 ## Stopping services
 

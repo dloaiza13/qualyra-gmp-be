@@ -34,6 +34,9 @@ import { UsersModule } from './modules/users/users.module.js';
 import { TrainingModule } from './modules/training/training.module.js';
 import { NotificationOutboxModule } from './modules/notifications/notification-outbox.module.js';
 import { NotificationDeliveriesModule } from './modules/notifications/notification-deliveries.module.js';
+import { RateLimitingModule } from './common/rate-limiting/rate-limiting.module.js';
+import { RedisThrottlerStorage } from './common/rate-limiting/redis-throttler.storage.js';
+import { ObservabilityModule } from './modules/observability/observability.module.js';
 
 @Module({
   imports: [
@@ -77,20 +80,27 @@ import { NotificationDeliveriesModule } from './modules/notifications/notificati
         },
       }),
     }),
-    ThrottlerModule.forRoot({
-      throttlers: [
-        { name: 'default', ttl: 60_000, limit: 120 },
-        {
-          name: 'identity',
-          ttl: 60_000,
-          limit: 120,
-          getTracker: credentialThrottleTracker,
-        },
-      ],
+    RateLimitingModule,
+    ThrottlerModule.forRootAsync({
+      imports: [RateLimitingModule],
+      inject: [RedisThrottlerStorage],
+      useFactory: (storage: RedisThrottlerStorage) => ({
+        storage,
+        throttlers: [
+          { name: 'default', ttl: 60_000, limit: 120 },
+          {
+            name: 'identity',
+            ttl: 60_000,
+            limit: 120,
+            getTracker: credentialThrottleTracker,
+          },
+        ],
+      }),
     }),
     CryptoModule,
     EmailModule,
     PrismaModule,
+    ObservabilityModule,
     NotificationOutboxModule,
     HealthModule,
     AuthenticationModule,

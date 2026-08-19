@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Environment } from '../../../common/config/environment.js';
 import type { CapaEvidenceStorage } from '../../capas/domain/ports/capa-evidence-storage.js';
 import type { CapaEvidenceScanner } from '../../capas/domain/ports/capa-evidence-scanner.js';
+import type { RedisService } from '../../../infrastructure/redis/redis.service.js';
 
 describe('HealthService', () => {
   it('reports the process as live', () => {
@@ -34,6 +35,7 @@ describe('HealthService', () => {
       status: 'up',
       checks: [
         { name: 'database', status: 'up' },
+        { name: 'redis', status: 'up' },
         { name: 'evidenceStorage', status: 'up' },
         { name: 'malwareScanner', status: 'up' },
       ],
@@ -48,8 +50,17 @@ function createService(prisma: PrismaService): HealthService {
   const healthyScanner = {
     checkHealth: () => Promise.resolve(),
   } as CapaEvidenceScanner;
+  const redis = {
+    ping: () => Promise.resolve(),
+  } as RedisService;
   const config = new ConfigService<Environment, true>({
     OPERATIONAL_READINESS_TIMEOUT_MS: 500,
   });
-  return new HealthService(prisma, healthyStorage, healthyScanner, config);
+  return new HealthService(
+    prisma,
+    healthyStorage,
+    healthyScanner,
+    redis,
+    config,
+  );
 }
