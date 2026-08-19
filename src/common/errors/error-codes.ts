@@ -30,6 +30,7 @@ export const ErrorCode = {
   InvitationInvalid: 'INVITATION_INVALID',
   LastAdministratorRequired: 'LAST_ADMINISTRATOR_REQUIRED',
   NotFound: 'NOT_FOUND',
+  NotificationDeliveryInvalid: 'NOTIFICATION_DELIVERY_INVALID',
   PasswordResetInvalid: 'PASSWORD_RESET_INVALID',
   PublicRegistrationDisabled: 'PUBLIC_REGISTRATION_DISABLED',
   RateLimitExceeded: 'RATE_LIMIT_EXCEEDED',

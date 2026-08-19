@@ -1,4 +1,5 @@
 export interface CapaMonitoringMessage {
+  deliveryId?: string;
   email: string;
   displayName: string;
   tenantName: string;

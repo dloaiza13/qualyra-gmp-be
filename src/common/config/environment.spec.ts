@@ -57,6 +57,8 @@ describe('environment configuration', () => {
         CAPA_EVIDENCE_SCANNER: 'clamav',
         CAPA_EVIDENCE_S3_ENDPOINT: 'https://evidence.qualyra.example',
         CAPA_EVIDENCE_S3_AUTO_CREATE_BUCKET: 'false',
+        OUTBOX_PAYLOAD_ENCRYPTION_KEY:
+          'f1e2d3c4b5a697887766554433221100ffeeddccbbaa99887766554433221100',
       }),
     ).toMatchObject({ NODE_ENV: 'production', COOKIE_SECURE: true });
   });
@@ -65,7 +67,7 @@ describe('environment configuration', () => {
     expect(() =>
       validateEnvironment({ ...baseEnvironment, NODE_ENV: 'production' }),
     ).toThrow(
-      /APP_BASE_URL|WEB_BASE_URL|COOKIE_SECURE|COOKIE_NAME|CSRF_COOKIE_NAME|CORS_ALLOWED_ORIGINS|SMTP_REQUIRE_TLS|CAPA_EVIDENCE_STORAGE_DRIVER|CAPA_EVIDENCE_SCANNER|CAPA_EVIDENCE_S3_ENDPOINT/,
+      /APP_BASE_URL|WEB_BASE_URL|COOKIE_SECURE|COOKIE_NAME|CSRF_COOKIE_NAME|CORS_ALLOWED_ORIGINS|SMTP_REQUIRE_TLS|CAPA_EVIDENCE_STORAGE_DRIVER|CAPA_EVIDENCE_SCANNER|CAPA_EVIDENCE_S3_ENDPOINT|OUTBOX_PAYLOAD_ENCRYPTION_KEY/,
     );
   });
 

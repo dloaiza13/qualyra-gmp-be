@@ -15,7 +15,7 @@ Company registration is one database transaction. It creates the tenant, the fir
 - Access tokens are short-lived RS256 JWTs returned in JSON. They contain identifiers and token version only; authorization permissions are never embedded.
 - Refresh tokens are opaque, random values stored only as SHA-256 digests. They are delivered in an `HttpOnly`, `SameSite=Strict`, path-root cookie and rotate on every successful refresh.
 - Reuse of an already rotated refresh token revokes the complete compromised session and its token family.
-- Password resets and email verifications use expiring, one-time opaque tokens stored only as digests.
+- Password resets and email verifications use expiring, one-time opaque tokens stored only as digests in their domain tables. Their pending email payload is encrypted in the transactional outbox and purged after delivery or cancellation.
 
 Production requires secure cookies and a refresh-cookie name with the `__Host-` prefix. JWT private keys, SMTP credentials, and database credentials must come from the deployment secret manager.
 

@@ -27,7 +27,7 @@ The Phase 6 repository hardening review was a point-in-time result. The current 
 The repository is ready for continued product development, but it is not yet approved for a public production launch. The following items remain release blockers:
 
 1. Replace process-local abuse throttling with a shared Redis-backed strategy before running more than one API instance.
-2. Add a durable email outbox with retry, idempotency, dead-letter handling, and delivery monitoring.
+2. Connect the durable email outbox to production metrics, alerts, and provider feedback handling.
 3. Provision an approved secret manager, managed TLS, restricted production database roles, encrypted automated backups/PITR, and run the repository restore drill in the production recovery environment.
 4. Configure centralized monitoring and alerts while preserving the repository's log-redaction rules.
 5. Perform staging penetration testing, load testing, disaster-recovery rehearsal, and the product's formal validation/risk process.

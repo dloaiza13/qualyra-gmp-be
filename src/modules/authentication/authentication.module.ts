@@ -5,9 +5,10 @@ import { AuthenticationController } from './presentation/authentication.controll
 import { AuthenticationCookieService } from './presentation/authentication-cookie.service.js';
 import { CsrfGuard } from './presentation/csrf.guard.js';
 import { JwtAuthGuard } from './presentation/jwt-auth.guard.js';
+import { NotificationOutboxModule } from '../notifications/notification-outbox.module.js';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, NotificationOutboxModule],
   controllers: [AuthenticationController],
   providers: [
     AuthenticationService,

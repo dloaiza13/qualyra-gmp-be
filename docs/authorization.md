@@ -34,7 +34,7 @@ Direct user creation is not exposed. An administrator must create an invitation 
 
 Invitation controls:
 
-- the raw token is delivered by email and is never persisted;
+- the domain invitation table persists only the token digest; the usable token exists temporarily inside an AES-256-GCM encrypted outbox payload and is purged after delivery or domain cancellation;
 - only a SHA-256 token hash is stored;
 - invitations expire, can be revoked, and can be accepted only once;
 - resending rotates the token, invalidates the previous link, renews expiration, and records `lastSentAt`;

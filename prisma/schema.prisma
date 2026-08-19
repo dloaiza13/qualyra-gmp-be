@@ -51,6 +51,7 @@ enum OutboxStatus {
   PROCESSING
   PROCESSED
   FAILED
+  DEAD_LETTER
 }
 
 enum DocumentType {
@@ -510,19 +511,27 @@ model SecurityEvent {
 }
 
 model OutboxMessage {
-  id          String       @id @default(uuid()) @db.Uuid
-  tenantId    String       @map("tenant_id") @db.Uuid
-  type        String       @db.VarChar(100)
-  payload     Json
-  status      OutboxStatus @default(PENDING)
-  attempts    Int          @default(0)
-  availableAt DateTime     @default(now()) @map("available_at") @db.Timestamptz(3)
-  processedAt DateTime?    @map("processed_at") @db.Timestamptz(3)
-  lastError   String?      @map("last_error")
-  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
-  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  id                 String       @id @default(uuid()) @db.Uuid
+  tenantId           String       @map("tenant_id") @db.Uuid
+  type               String       @db.VarChar(100)
+  deduplicationKey   String       @map("deduplication_key") @db.VarChar(300)
+  payload            Json
+  status             OutboxStatus @default(PENDING)
+  attempts           Int          @default(0)
+  manualRetries      Int          @default(0) @map("manual_retries")
+  availableAt        DateTime     @default(now()) @map("available_at") @db.Timestamptz(3)
+  lockedAt           DateTime?    @map("locked_at") @db.Timestamptz(3)
+  lockedBy           String?      @map("locked_by") @db.Uuid
+  lastAttemptAt      DateTime?    @map("last_attempt_at") @db.Timestamptz(3)
+  processedAt        DateTime?    @map("processed_at") @db.Timestamptz(3)
+  deadLetteredAt     DateTime?    @map("dead_lettered_at") @db.Timestamptz(3)
+  lastError          String?      @map("last_error") @db.VarChar(100)
+  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant             Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
-  @@index([status, availableAt], map: "outbox_messages_status_available_at_idx")
+  @@unique([tenantId, deduplicationKey], map: "outbox_messages_tenant_dedup_key")
+  @@index([tenantId, status, availableAt], map: "outbox_messages_claim_idx")
   @@index([tenantId, createdAt], map: "outbox_messages_tenant_created_at_idx")
   @@map("outbox_messages")
 }

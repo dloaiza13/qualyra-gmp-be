@@ -15,7 +15,7 @@ import { PrismaService } from '../../../infrastructure/database/prisma/prisma.se
 import type { Prisma, UserStatus } from '../../../generated/prisma/client.js';
 import { TenantUnitOfWork } from '../../tenancy/application/ports/tenant-unit-of-work.js';
 import type { AuthenticatedPrincipal } from '../domain/authenticated-principal.js';
-import { AuthenticationNotifier } from '../domain/ports/authentication-notifier.js';
+import { NotificationOutboxService } from '../../notifications/application/notification-outbox.service.js';
 import type {
   AuthenticationResponseDto,
   MeResponseDto,
@@ -64,6 +64,8 @@ const initialRolePermissions: Record<(typeof initialRoles)[number], string[]> =
       'capas.create_follow_up',
       'capas.approve_extensions',
       'capas.export',
+      'notifications.read',
+      'notifications.retry',
     ],
     'Document Controller': [
       'documents.read',
@@ -97,6 +99,7 @@ const initialRolePermissions: Record<(typeof initialRoles)[number], string[]> =
       'capas.read',
       'capas.export',
       'audit.read',
+      'notifications.read',
     ],
   };
 const failedLoginThreshold = 5;
@@ -134,7 +137,7 @@ export class AuthenticationService {
     private readonly passwordHasher: PasswordHasher,
     private readonly tokens: SecureTokenService,
     private readonly accessTokens: AccessTokenService,
-    private readonly notifier: AuthenticationNotifier,
+    private readonly outbox: NotificationOutboxService,
     configService: ConfigService<Environment, true>,
   ) {
     this.refreshTokenTtlDays = configService.getOrThrow(
@@ -277,6 +280,17 @@ export class AuthenticationService {
             expiresAt: addHours(now, this.verificationTokenTtlHours),
           },
         });
+        await this.outbox.enqueue(transaction, {
+          tenantId,
+          type: 'AUTH_EMAIL_VERIFICATION',
+          deduplicationKey: `email-verification:${userId}:${verificationToken.id}`,
+          payload: {
+            email: input.email,
+            displayName: input.adminName,
+            tenantSlug: input.tenantSlug,
+            token: verificationToken.raw,
+          },
+        });
         await this.createSecurityEvent(transaction, {
           tenantId,
           actorUserId: userId,
@@ -297,14 +311,7 @@ export class AuthenticationService {
       throw error;
     }
 
-    await this.sendNotificationSafely(() =>
-      this.notifier.sendEmailVerification({
-        email: input.email,
-        displayName: input.adminName,
-        tenantSlug: input.tenantSlug,
-        token: verificationToken.raw,
-      }),
-    );
+    await this.deliverNotificationsSafely(tenantId);
 
     return this.createAuthenticationResult(
       {
@@ -772,6 +779,11 @@ export class AuthenticationService {
           where: { tenantId: tenant.id, userId: found.id, usedAt: null },
           data: { usedAt: now },
         });
+        await this.outbox.cancelPending(transaction, {
+          tenantId: tenant.id,
+          type: 'AUTH_PASSWORD_RESET',
+          deduplicationKeyPrefix: `password-reset:${found.id}:`,
+        });
         await transaction.passwordResetToken.create({
           data: {
             id: token.id,
@@ -779,6 +791,17 @@ export class AuthenticationService {
             userId: found.id,
             tokenHash: token.hash,
             expiresAt: addMinutes(now, this.resetTokenTtlMinutes),
+          },
+        });
+        await this.outbox.enqueue(transaction, {
+          tenantId: tenant.id,
+          type: 'AUTH_PASSWORD_RESET',
+          deduplicationKey: `password-reset:${found.id}:${token.id}`,
+          payload: {
+            email: found.email,
+            displayName: found.displayName,
+            tenantSlug: tenant.slug,
+            token: token.raw,
           },
         });
         await this.createSecurityEvent(transaction, {
@@ -793,16 +816,7 @@ export class AuthenticationService {
       },
     );
 
-    if (user) {
-      await this.sendNotificationSafely(() =>
-        this.notifier.sendPasswordReset({
-          email: user.email,
-          displayName: user.displayName,
-          tenantSlug: tenant.slug,
-          token: token.raw,
-        }),
-      );
-    }
+    if (user) await this.deliverNotificationsSafely(tenant.id);
   }
 
   async resetPassword(
@@ -964,6 +978,11 @@ export class AuthenticationService {
           where: { tenantId: tenant.id, userId: found.id, usedAt: null },
           data: { usedAt: now },
         });
+        await this.outbox.cancelPending(transaction, {
+          tenantId: tenant.id,
+          type: 'AUTH_EMAIL_VERIFICATION',
+          deduplicationKeyPrefix: `email-verification:${found.id}:`,
+        });
         await transaction.emailVerificationToken.create({
           data: {
             id: token.id,
@@ -971,6 +990,17 @@ export class AuthenticationService {
             userId: found.id,
             tokenHash: token.hash,
             expiresAt: addHours(now, this.verificationTokenTtlHours),
+          },
+        });
+        await this.outbox.enqueue(transaction, {
+          tenantId: tenant.id,
+          type: 'AUTH_EMAIL_VERIFICATION',
+          deduplicationKey: `email-verification:${found.id}:${token.id}`,
+          payload: {
+            email: found.email,
+            displayName: found.displayName,
+            tenantSlug: tenant.slug,
+            token: token.raw,
           },
         });
         await this.createSecurityEvent(transaction, {
@@ -984,16 +1014,7 @@ export class AuthenticationService {
       },
     );
 
-    if (user) {
-      await this.sendNotificationSafely(() =>
-        this.notifier.sendEmailVerification({
-          email: user.email,
-          displayName: user.displayName,
-          tenantSlug: tenant.slug,
-          token: token.raw,
-        }),
-      );
-    }
+    if (user) await this.deliverNotificationsSafely(tenant.id);
   }
 
   private async createAuthenticationResult(
@@ -1186,13 +1207,14 @@ export class AuthenticationService {
     });
   }
 
-  private async sendNotificationSafely(
-    send: () => Promise<void>,
-  ): Promise<void> {
+  private async deliverNotificationsSafely(tenantId: string): Promise<void> {
     try {
-      await send();
+      await this.outbox.deliverTenant(tenantId);
     } catch {
-      this.logger.warn('An authentication email could not be delivered.');
+      this.logger.warn(
+        { tenantId },
+        'The notification outbox could not be drained immediately.',
+      );
     }
   }
 }

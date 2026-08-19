@@ -38,6 +38,15 @@ interface SessionBody {
   status: string;
 }
 
+interface NotificationDeliveryBody {
+  id: string;
+  type: string;
+  status: string;
+  attempts: number;
+  manualRetries: number;
+  lastError: string | null;
+}
+
 class RecordingAuthenticationNotifier extends AuthenticationNotifier {
   readonly verifications: AuthenticationEmail[] = [];
   readonly passwordResets: AuthenticationEmail[] = [];
@@ -152,6 +161,63 @@ describeDatabase('Authentication lifecycle', () => {
       originalPassword,
       registrationRefreshToken,
     );
+
+    const deliveryResponse = await request(server)
+      .get('/api/v1/notification-deliveries')
+      .set('Authorization', `Bearer ${registrationBody.accessToken}`)
+      .expect(200);
+    const deliveries = bodyAs<NotificationDeliveryBody[]>(deliveryResponse);
+    expect(deliveries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'AUTH_EMAIL_VERIFICATION',
+          status: 'PROCESSED',
+          attempts: 1,
+          lastError: null,
+        }),
+      ]),
+    );
+    expect(JSON.stringify(deliveries)).not.toContain(email);
+    expect(JSON.stringify(deliveries)).not.toContain(
+      notifier.verifications[0]?.token,
+    );
+
+    const verificationDelivery = deliveries.find(
+      ({ type }) => type === 'AUTH_EMAIL_VERIFICATION',
+    );
+    expect(verificationDelivery).toBeDefined();
+    await withTenant(ownerPool, registrationBody.tenant.id, async (client) => {
+      await client.query(
+        `UPDATE outbox_messages
+         SET status = 'DEAD_LETTER', processed_at = NULL,
+             dead_lettered_at = CURRENT_TIMESTAMP, last_error = 'TEST_FAILURE'
+         WHERE id = $1`,
+        [verificationDelivery?.id],
+      );
+    });
+    const retryResponse = await request(server)
+      .post(
+        `/api/v1/notification-deliveries/${verificationDelivery?.id ?? ''}/retry`,
+      )
+      .set('Authorization', `Bearer ${registrationBody.accessToken}`)
+      .expect(200);
+    expect(bodyAs<NotificationDeliveryBody>(retryResponse)).toMatchObject({
+      id: verificationDelivery?.id,
+      status: 'PENDING',
+      attempts: 0,
+      manualRetries: 1,
+      lastError: null,
+    });
+    await withTenant(ownerPool, registrationBody.tenant.id, async (client) => {
+      await client.query(
+        `UPDATE outbox_messages
+         SET status = 'PROCESSED', processed_at = CURRENT_TIMESTAMP,
+             dead_lettered_at = NULL, last_error = NULL,
+             payload = '{"version":1,"purged":true}'::jsonb
+         WHERE id = $1`,
+        [verificationDelivery?.id],
+      );
+    });
 
     const duplicate = await request(server)
       .post('/api/v1/auth/register-company')
@@ -514,6 +580,7 @@ async function expectSecurityEvents(
         'PASSWORD_RESET_REQUESTED',
         'PASSWORD_RESET_COMPLETED',
         'EMAIL_VERIFIED',
+        'NOTIFICATION_DELIVERY_RETRIED',
       ]),
     );
   });

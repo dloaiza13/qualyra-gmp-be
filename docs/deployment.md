@@ -15,7 +15,7 @@ Do not treat this runbook as production approval. Every release still requires t
 - External ClamAV reachable only on a private network.
 - Approved RPO, RTO, retention, rollback, and incident owners.
 
-Production environment validation rejects HTTP origins, insecure cookies, plaintext SMTP, local evidence storage, built-in-only scanning, non-HTTPS S3 transport, and runtime S3 bucket creation.
+Production environment validation rejects HTTP origins, insecure cookies, plaintext SMTP, the development outbox encryption key, local evidence storage, built-in-only scanning, non-HTTPS S3 transport, and runtime S3 bucket creation.
 
 ## Pre-deployment
 

@@ -1,4 +1,5 @@
 export interface AuthenticationEmail {
+  deliveryId?: string;
   email: string;
   displayName: string;
   tenantSlug: string;

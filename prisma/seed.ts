@@ -14,6 +14,8 @@ const permissions = [
   ['sessions.read_self', 'View personal sessions.'],
   ['sessions.revoke_self', 'Revoke personal sessions.'],
   ['security.events.read', 'View security events.'],
+  ['notifications.read', 'View notification delivery status.'],
+  ['notifications.retry', 'Retry dead-letter notification deliveries.'],
   ['tenants.read', 'View organization settings.'],
   ['tenants.update', 'Update organization settings.'],
   ['documents.read', 'View documents.'],

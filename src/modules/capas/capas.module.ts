@@ -8,12 +8,14 @@ import { CapaMonitoringService } from './application/capa-monitoring.service.js'
 import { CapaEvidenceRetentionService } from './application/capa-evidence-retention.service.js';
 import { CapaEvidenceInfrastructureModule } from './capa-evidence-infrastructure.module.js';
 import { CapasController } from './presentation/capas.controller.js';
+import { NotificationOutboxModule } from '../notifications/notification-outbox.module.js';
 
 @Module({
   imports: [
     PrismaModule,
     AuthorizationModule,
     CapaEvidenceInfrastructureModule,
+    NotificationOutboxModule,
   ],
   controllers: [CapasController],
   providers: [

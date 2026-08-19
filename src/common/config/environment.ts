@@ -117,6 +117,39 @@ const environmentSchema = z
       .min(1)
       .max(1440)
       .default(15),
+    OUTBOX_WORKER_ENABLED: booleanValue.default(true),
+    OUTBOX_POLL_INTERVAL_MS: z.coerce
+      .number()
+      .int()
+      .min(250)
+      .max(300_000)
+      .default(5_000),
+    OUTBOX_BATCH_SIZE: z.coerce.number().int().min(1).max(200).default(50),
+    OUTBOX_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(25).default(8),
+    OUTBOX_LOCK_TIMEOUT_MINUTES: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(1440)
+      .default(15),
+    OUTBOX_RETRY_BASE_SECONDS: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(3600)
+      .default(30),
+    OUTBOX_RETRY_MAX_SECONDS: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(86_400)
+      .default(3600),
+    OUTBOX_PAYLOAD_ENCRYPTION_KEY: z
+      .string()
+      .regex(/^[0-9a-fA-F]{64}$/)
+      .default(
+        '000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f',
+      ),
   })
   .superRefine((environment, context) => {
     for (const origin of parseAllowedOrigins(
@@ -235,6 +268,17 @@ const environmentSchema = z
         code: 'custom',
         path: ['CAPA_EVIDENCE_SCANNER'],
         message: 'CAPA evidence must use an external antivirus in production.',
+      });
+    }
+
+    if (
+      environment.OUTBOX_PAYLOAD_ENCRYPTION_KEY ===
+      '000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f'
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['OUTBOX_PAYLOAD_ENCRYPTION_KEY'],
+        message: 'A dedicated outbox encryption key is required in production.',
       });
     }
   });

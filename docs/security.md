@@ -30,7 +30,7 @@ Composite foreign keys include `tenant_id` for relationships between tenant-owne
 
 Passwords use Argon2id. Access tokens use asymmetric RS256 signing, while refresh and one-time email tokens are opaque and stored only as hashes. Refresh rotation includes reuse detection and session-family revocation. Cookie mutations enforce an origin allowlist and double-submit CSRF protection. Security-sensitive operations append structured events with correlation identifiers.
 
-Production hardening still requires selecting a CAPTCHA or equivalent bot-defense provider and moving email delivery to a durable outbox worker with retry and monitoring.
+Production hardening still requires selecting a CAPTCHA or equivalent bot-defense provider, exporting outbox telemetry, alerting on dead letters, and integrating provider bounce/complaint feedback.
 
 HTTP logs remove URL query values and redact authorization, cookie, CSRF, password, token, and response-cookie fields. Production configuration also requires HTTPS origins, secure `__Host-` cookie names, and SMTP TLS.
 
@@ -38,7 +38,7 @@ HTTP logs remove URL query values and redact authorization, cookie, CSRF, passwo
 
 Protected operations resolve the caller's current roles and permissions from PostgreSQL instead of trusting stale permission claims in access tokens. Tenant-scoped application checks, composite foreign keys, and RLS provide layered isolation.
 
-Membership onboarding for an existing organization is invitation-only. Public creation of a new organization is controlled independently by `PUBLIC_REGISTRATION_ENABLED`. Raw invitation tokens are delivered by email and only their hashes are stored; resending an invitation rotates the token and invalidates the previous link. Acceptance, role assignment, user creation, and session creation are atomic. A serialized last-administrator check prevents an organization from losing its final active administrator. See [authorization, users, roles, and invitations](authorization.md).
+Membership onboarding for an existing organization is invitation-only. Public creation of a new organization is controlled independently by `PUBLIC_REGISTRATION_ENABLED`. Invitation domain records retain only token hashes; the encrypted delivery payload is purged after send or cancellation. Resending rotates the token and cancels the prior pending message. Acceptance, role assignment, user creation, and session creation are atomic. A serialized last-administrator check prevents an organization from losing its final active administrator. See [authorization, users, roles, and invitations](authorization.md).
 
 ## Compliance statement
 

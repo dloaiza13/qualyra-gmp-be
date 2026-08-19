@@ -32,6 +32,8 @@ import { RolesModule } from './modules/roles/roles.module.js';
 import { SecurityEventsModule } from './modules/security-events/security-events.module.js';
 import { UsersModule } from './modules/users/users.module.js';
 import { TrainingModule } from './modules/training/training.module.js';
+import { NotificationOutboxModule } from './modules/notifications/notification-outbox.module.js';
+import { NotificationDeliveriesModule } from './modules/notifications/notification-deliveries.module.js';
 
 @Module({
   imports: [
@@ -89,6 +91,7 @@ import { TrainingModule } from './modules/training/training.module.js';
     CryptoModule,
     EmailModule,
     PrismaModule,
+    NotificationOutboxModule,
     HealthModule,
     AuthenticationModule,
     CapasModule,
@@ -99,6 +102,7 @@ import { TrainingModule } from './modules/training/training.module.js';
     UsersModule,
     RolesModule,
     SecurityEventsModule,
+    NotificationDeliveriesModule,
     RouterModule.register([
       { path: 'api/v1', module: AuthenticationModule },
       { path: 'api/v1', module: CapasModule },
@@ -109,6 +113,7 @@ import { TrainingModule } from './modules/training/training.module.js';
       { path: 'api/v1', module: UsersModule },
       { path: 'api/v1', module: RolesModule },
       { path: 'api/v1', module: SecurityEventsModule },
+      { path: 'api/v1', module: NotificationDeliveriesModule },
     ]),
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

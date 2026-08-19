@@ -7,8 +7,8 @@ import {
 import { ConfigService } from '@nestjs/config';
 import type { Environment } from '../../../common/config/environment.js';
 import { PrismaService } from '../../../infrastructure/database/prisma/prisma.service.js';
-import { CapaMonitoringNotifier } from '../domain/ports/capa-monitoring-notifier.js';
 import { TenantUnitOfWork } from '../../tenancy/application/ports/tenant-unit-of-work.js';
+import { NotificationOutboxService } from '../../notifications/application/notification-outbox.service.js';
 
 const dayMs = 24 * 60 * 60 * 1000;
 
@@ -25,7 +25,7 @@ export class CapaMonitoringService
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantUnitOfWork: TenantUnitOfWork,
-    private readonly notifier: CapaMonitoringNotifier,
+    private readonly outbox: NotificationOutboxService,
     config: ConfigService<Environment, true>,
   ) {
     this.enabled =
@@ -48,7 +48,7 @@ export class CapaMonitoringService
 
   async runTenant(tenantId: string, now = new Date()): Promise<void> {
     await this.enqueueTenant(tenantId, now);
-    await this.deliverTenant(tenantId, now);
+    await this.outbox.deliverTenant(tenantId, now);
   }
 
   private async startRecurringRun(): Promise<void> {
@@ -213,91 +213,26 @@ export class CapaMonitoringService
           data: notifications,
           skipDuplicates: true,
         });
-      }
-    });
-  }
-
-  private deliverTenant(tenantId: string, now: Date): Promise<void> {
-    return this.tenantUnitOfWork.execute(tenantId, async (transaction) => {
-      await transaction.capaNotification.updateMany({
-        where: {
-          tenantId,
-          status: 'PROCESSING',
-          updatedAt: { lt: new Date(now.getTime() - 30 * 60_000) },
-          attempts: { lt: 10 },
-        },
-        data: {
-          status: 'FAILED',
-          lastError: 'Delivery lease expired before confirmation.',
-        },
-      });
-
-      const pending = await transaction.capaNotification.findMany({
-        where: {
-          tenantId,
-          status: { in: ['PENDING', 'FAILED'] },
-          attempts: { lt: 10 },
-        },
-        orderBy: { createdAt: 'asc' },
-        take: 50,
-        include: {
-          tenant: { select: { name: true } },
-          capa: { select: { code: true, title: true } },
-          recipientUser: {
-            select: { email: true, displayName: true },
+        const queuedNotifications = await transaction.capaNotification.findMany(
+          {
+            where: {
+              tenantId,
+              deduplicationKey: {
+                in: notifications.map(
+                  ({ deduplicationKey }) => deduplicationKey,
+                ),
+              },
+              status: { in: ['PENDING', 'FAILED', 'PROCESSING'] },
+            },
+            select: { id: true },
           },
-          action: { select: { title: true } },
-          effectivenessReview: { select: { criterion: true } },
-        },
-      });
-
-      for (const notification of pending) {
-        const claimed = await transaction.capaNotification.updateMany({
-          where: {
-            id: notification.id,
+        );
+        for (const notification of queuedNotifications) {
+          await this.outbox.enqueue(transaction, {
             tenantId,
-            status: notification.status,
-            attempts: notification.attempts,
-          },
-          data: {
-            status: 'PROCESSING',
-            attempts: { increment: 1 },
-            lastError: null,
-          },
-        });
-        if (claimed.count !== 1) continue;
-
-        try {
-          await this.notifier.send({
-            email: notification.recipientUser.email,
-            displayName: notification.recipientUser.displayName,
-            tenantName: notification.tenant.name,
-            capaId: notification.capaId,
-            capaCode: notification.capa.code,
-            capaTitle: notification.capa.title,
-            subjectType: notification.subjectType,
-            subjectTitle:
-              notification.action?.title ??
-              notification.effectivenessReview?.criterion ??
-              notification.capa.title,
-            dueState: notification.dueState,
-            dueAt: notification.dueAt,
-          });
-          await transaction.capaNotification.update({
-            where: { id: notification.id },
-            data: {
-              status: 'DELIVERED',
-              deliveredAt: new Date(),
-              lastError: null,
-            },
-          });
-        } catch (error: unknown) {
-          await transaction.capaNotification.update({
-            where: { id: notification.id },
-            data: {
-              status: 'FAILED',
-              lastError: errorMessage(error).slice(0, 1000),
-            },
+            type: 'CAPA_MONITORING',
+            deduplicationKey: `capa-notification:${notification.id}`,
+            payload: { capaNotificationId: notification.id },
           });
         }
       }

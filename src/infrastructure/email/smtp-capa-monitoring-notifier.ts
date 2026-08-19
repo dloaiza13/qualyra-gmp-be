@@ -37,6 +37,9 @@ export class SmtpCapaMonitoringNotifier extends CapaMonitoringNotifier {
         : 'verificación de efectividad / effectiveness review';
     const url = `${this.webBaseUrl}/app?section=capas&capa=${encodeURIComponent(message.capaId)}`;
     await this.transporter.sendMail({
+      messageId: message.deliveryId
+        ? `<qualyra-${message.deliveryId}@notifications.local>`
+        : undefined,
       from: this.from,
       to: message.email,
       subject: `[${state.es}] ${message.capaCode} · ${message.subjectTitle}`,

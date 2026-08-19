@@ -87,7 +87,7 @@ Plan status is derived from immutable actions rather than stored as mutable work
 
 The latest approved extension supplies the effective due date without replacing the original. Open actions and scheduled effectiveness reviews produce `DUE_SOON` during the preceding seven days, `OVERDUE` during the first seven overdue days, `ESCALATED` after seven overdue days, or `ON_TRACK` otherwise.
 
-The application monitor evaluates active tenants on a configurable interval. Durable notification rows deduplicate each recipient, deadline, and state transition. Assignees receive due and overdue messages; escalated items also reach active quality users. A processing lease recovers abandoned work and delivery retries stop after ten attempts. SMTP delivery is at-least-once rather than exactly-once.
+The application monitor evaluates active tenants on a configurable interval. It creates the CAPA notification and encrypted outbox intent atomically, deduplicated by recipient, deadline, and state transition. Assignees receive due and overdue messages; escalated items also reach active quality users. The shared outbox worker delivers only after commit, recovers abandoned leases, and uses bounded configurable retries. SMTP delivery is at-least-once rather than exactly-once.
 
 `GET /capas/analytics` derives effectiveness rate, late work, status/severity distribution, assignee workload, and recent notification evidence directly from tenant source records. It does not maintain a separate mutable reporting aggregate.
 

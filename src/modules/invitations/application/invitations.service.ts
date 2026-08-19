@@ -15,7 +15,7 @@ import type { Prisma } from '../../../generated/prisma/client.js';
 import type { AuthenticationResult } from '../../authentication/application/authentication.service.js';
 import type { RequestMetadata } from '../../authentication/application/request-metadata.js';
 import type { AuthenticatedPrincipal } from '../../authentication/domain/authenticated-principal.js';
-import { AuthenticationNotifier } from '../../authentication/domain/ports/authentication-notifier.js';
+import { NotificationOutboxService } from '../../notifications/application/notification-outbox.service.js';
 import { appendSecurityEvent } from '../../security-events/application/append-security-event.js';
 import { TenantUnitOfWork } from '../../tenancy/application/ports/tenant-unit-of-work.js';
 import type {
@@ -51,7 +51,7 @@ export class InvitationsService {
     private readonly tokens: SecureTokenService,
     private readonly passwordHasher: PasswordHasher,
     private readonly accessTokens: AccessTokenService,
-    private readonly notifier: AuthenticationNotifier,
+    private readonly outbox: NotificationOutboxService,
     config: ConfigService<Environment, true>,
   ) {
     this.invitationTtlHours = config.getOrThrow('INVITATION_TTL_HOURS', {
@@ -138,20 +138,24 @@ export class InvitationsService {
           where: { id: principal.tenantId },
           select: { name: true, slug: true },
         });
+        await this.outbox.enqueue(transaction, {
+          tenantId: principal.tenantId,
+          type: 'AUTH_INVITATION',
+          deduplicationKey: `invitation:${invitation.id}:${token.hash}`,
+          payload: {
+            email: input.email,
+            displayName: input.email,
+            tenantName: tenant.name,
+            tenantSlug: tenant.slug,
+            roles: roles.map(({ name }) => name),
+            token: token.raw,
+          },
+        });
         return { invitation, tenant, roles };
       },
     );
 
-    await this.sendSafely(() =>
-      this.notifier.sendInvitation({
-        email: input.email,
-        displayName: input.email,
-        tenantName: result.tenant.name,
-        tenantSlug: result.tenant.slug,
-        roles: result.roles.map(({ name }) => name),
-        token: token.raw,
-      }),
-    );
+    await this.deliverNotificationsSafely(principal.tenantId);
     return mapInvitation(result.invitation);
   }
 
@@ -210,6 +214,11 @@ export class InvitationsService {
           where: { id: principal.tenantId },
           select: { name: true, slug: true },
         });
+        await this.outbox.cancelPending(transaction, {
+          tenantId: principal.tenantId,
+          type: 'AUTH_INVITATION',
+          deduplicationKeyPrefix: `invitation:${invitation.id}:`,
+        });
         await appendSecurityEvent(transaction, {
           tenantId: principal.tenantId,
           actorUserId: principal.userId,
@@ -219,20 +228,25 @@ export class InvitationsService {
           metadata: { invitationId: invitation.id },
         });
 
+        await this.outbox.enqueue(transaction, {
+          tenantId: principal.tenantId,
+          type: 'AUTH_INVITATION',
+          deduplicationKey: `invitation:${invitation.id}:${token.hash}`,
+          payload: {
+            email: refreshedInvitation.email,
+            displayName: refreshedInvitation.email,
+            tenantName: tenant.name,
+            tenantSlug: tenant.slug,
+            roles: mapRoles(refreshedInvitation).map(({ name }) => name),
+            token: token.raw,
+          },
+        });
+
         return { invitation: refreshedInvitation, tenant };
       },
     );
 
-    await this.sendSafely(() =>
-      this.notifier.sendInvitation({
-        email: result.invitation.email,
-        displayName: result.invitation.email,
-        tenantName: result.tenant.name,
-        tenantSlug: result.tenant.slug,
-        roles: mapRoles(result.invitation).map(({ name }) => name),
-        token: token.raw,
-      }),
-    );
+    await this.deliverNotificationsSafely(principal.tenantId);
     return mapInvitation(result.invitation);
   }
 
@@ -258,6 +272,11 @@ export class InvitationsService {
             status: 'PENDING',
           },
           data: { status: 'REVOKED', revokedAt: now },
+        });
+        await this.outbox.cancelPending(transaction, {
+          tenantId: principal.tenantId,
+          type: 'AUTH_INVITATION',
+          deduplicationKeyPrefix: `invitation:${invitation.id}:`,
         });
         await appendSecurityEvent(transaction, {
           tenantId: principal.tenantId,
@@ -461,11 +480,14 @@ export class InvitationsService {
     };
   }
 
-  private async sendSafely(send: () => Promise<void>): Promise<void> {
+  private async deliverNotificationsSafely(tenantId: string): Promise<void> {
     try {
-      await send();
+      await this.outbox.deliverTenant(tenantId);
     } catch {
-      this.logger.warn('An invitation email could not be delivered.');
+      this.logger.warn(
+        { tenantId },
+        'The notification outbox could not be drained immediately.',
+      );
     }
   }
 }

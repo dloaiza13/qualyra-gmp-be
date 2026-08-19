@@ -40,7 +40,7 @@ This checklist is a release gate. Repository controls marked complete still requ
 
 - [x] Redact credentials, cookies, CSRF, token fields, response cookies, and URL query values from application logs.
 - [x] Return generic unexpected errors with correlation identifiers.
-- [ ] Store JWT keys, database, Redis, and SMTP credentials in an approved secret manager.
+- [ ] Store JWT keys, the outbox payload key, database, Redis, and SMTP credentials in an approved secret manager.
 - [ ] Define rotation frequency, emergency rotation, and access-review ownership.
 - [ ] Send structured logs to access-controlled storage and verify exporter-side redaction.
 - [ ] Alert on login abuse, token reuse, tenant-isolation failures, email failures, elevated 5xx rates, database saturation, and backup failures.
@@ -53,7 +53,8 @@ This checklist is a release gate. Repository controls marked complete still requ
 
 - [x] Require SMTP TLS in production configuration.
 - [x] Make invitation, verification, and recovery tokens single-use and time-limited.
-- [ ] Implement a transactional outbox and worker with retry, idempotency, dead-letter handling, and metrics.
+- [x] Implement a transactional outbox and worker with retry, enqueue idempotency, and dead-letter handling.
+- [ ] Export outbox worker metrics and alert on dead letters, retry rate, lease recovery, and delivery latency.
 - [ ] Configure SPF, DKIM, DMARC, verified sending domains, bounce handling, and provider alerts.
 - [ ] Validate every email link against the production web origin.
 

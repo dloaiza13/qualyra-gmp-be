@@ -33,6 +33,9 @@ export class SmtpAuthenticationNotifier extends AuthenticationNotifier {
   async sendEmailVerification(message: AuthenticationEmail): Promise<void> {
     const url = `${this.webBaseUrl}/verify-email?token=${encodeURIComponent(message.token)}`;
     await this.transporter.sendMail({
+      messageId: message.deliveryId
+        ? `<qualyra-${message.deliveryId}@notifications.local>`
+        : undefined,
       from: this.from,
       to: message.email,
       subject: 'Verify your Qualyra GMP email',
@@ -43,6 +46,9 @@ export class SmtpAuthenticationNotifier extends AuthenticationNotifier {
   async sendPasswordReset(message: AuthenticationEmail): Promise<void> {
     const url = `${this.webBaseUrl}/reset-password?token=${encodeURIComponent(message.token)}`;
     await this.transporter.sendMail({
+      messageId: message.deliveryId
+        ? `<qualyra-${message.deliveryId}@notifications.local>`
+        : undefined,
       from: this.from,
       to: message.email,
       subject: 'Reset your Qualyra GMP password',
@@ -53,6 +59,9 @@ export class SmtpAuthenticationNotifier extends AuthenticationNotifier {
   async sendInvitation(message: InvitationEmail): Promise<void> {
     const url = `${this.webBaseUrl}/accept-invitation?token=${encodeURIComponent(message.token)}`;
     await this.transporter.sendMail({
+      messageId: message.deliveryId
+        ? `<qualyra-${message.deliveryId}@notifications.local>`
+        : undefined,
       from: this.from,
       to: message.email,
       subject: `You're invited to ${message.tenantName} on Qualyra GMP`,
