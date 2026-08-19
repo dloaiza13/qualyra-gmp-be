@@ -2685,6 +2685,412 @@
         ]
       }
     },
+    "/api/v1/equipment": {
+      "get": {
+        "operationId": "EquipmentController_list",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 200,
+              "default": 100,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ACTIVE",
+                "OUT_OF_SERVICE",
+                "RETIRED"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EquipmentSummaryResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "GMP equipment"
+        ]
+      },
+      "post": {
+        "operationId": "EquipmentController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateEquipmentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EquipmentDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "GMP equipment"
+        ]
+      }
+    },
+    "/api/v1/equipment/participants": {
+      "get": {
+        "operationId": "EquipmentController_participants",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EquipmentParticipantResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "GMP equipment"
+        ]
+      }
+    },
+    "/api/v1/equipment/{equipmentId}": {
+      "get": {
+        "operationId": "EquipmentController_get",
+        "parameters": [
+          {
+            "name": "equipmentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EquipmentDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "GMP equipment"
+        ]
+      }
+    },
+    "/api/v1/equipment/{equipmentId}/calibrations": {
+      "post": {
+        "operationId": "EquipmentController_completeCalibration",
+        "parameters": [
+          {
+            "name": "equipmentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteCalibrationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EquipmentDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "GMP equipment"
+        ]
+      }
+    },
+    "/api/v1/equipment/{equipmentId}/calibrations/{calibrationId}/review": {
+      "post": {
+        "operationId": "EquipmentController_reviewCalibration",
+        "parameters": [
+          {
+            "name": "equipmentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "calibrationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewEquipmentRecordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EquipmentDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "GMP equipment"
+        ]
+      }
+    },
+    "/api/v1/equipment/{equipmentId}/maintenances": {
+      "post": {
+        "operationId": "EquipmentController_completeMaintenance",
+        "parameters": [
+          {
+            "name": "equipmentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteMaintenanceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EquipmentDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "GMP equipment"
+        ]
+      }
+    },
+    "/api/v1/equipment/{equipmentId}/maintenances/{maintenanceId}/review": {
+      "post": {
+        "operationId": "EquipmentController_reviewMaintenance",
+        "parameters": [
+          {
+            "name": "equipmentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "maintenanceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewEquipmentRecordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EquipmentDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "GMP equipment"
+        ]
+      }
+    },
+    "/api/v1/equipment/{equipmentId}/retirement": {
+      "post": {
+        "operationId": "EquipmentController_retire",
+        "parameters": [
+          {
+            "name": "equipmentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetireEquipmentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EquipmentDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "GMP equipment"
+        ]
+      }
+    },
     "/api/v1/documents": {
       "get": {
         "operationId": "DocumentsController_list",
@@ -8318,6 +8724,515 @@
         "required": [
           "decision",
           "comment",
+          "password",
+          "attestationAccepted"
+        ]
+      },
+      "EquipmentUserSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "email"
+        ]
+      },
+      "EquipmentSummaryResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "example": "EQP-2026-0001"
+          },
+          "name": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "criticality": {
+            "type": "string"
+          },
+          "manufacturer": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "serialNumber": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "processArea": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "approvedForUse": {
+            "type": "boolean"
+          },
+          "complianceState": {
+            "type": "string"
+          },
+          "calibrationRequired": {
+            "type": "boolean"
+          },
+          "nextCalibrationAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          },
+          "maintenanceRequired": {
+            "type": "boolean"
+          },
+          "nextMaintenanceAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          },
+          "owner": {
+            "$ref": "#/components/schemas/EquipmentUserSummaryDto"
+          },
+          "verifier": {
+            "$ref": "#/components/schemas/EquipmentUserSummaryDto"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "category",
+          "criticality",
+          "manufacturer",
+          "model",
+          "serialNumber",
+          "location",
+          "processArea",
+          "status",
+          "approvedForUse",
+          "complianceState",
+          "calibrationRequired",
+          "maintenanceRequired",
+          "owner",
+          "verifier",
+          "createdAt"
+        ]
+      },
+      "EquipmentParticipantResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "email",
+          "permissions"
+        ]
+      },
+      "EquipmentDetailResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "example": "EQP-2026-0001"
+          },
+          "name": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "criticality": {
+            "type": "string"
+          },
+          "manufacturer": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "serialNumber": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "processArea": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "approvedForUse": {
+            "type": "boolean"
+          },
+          "complianceState": {
+            "type": "string"
+          },
+          "calibrationRequired": {
+            "type": "boolean"
+          },
+          "nextCalibrationAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          },
+          "maintenanceRequired": {
+            "type": "boolean"
+          },
+          "nextMaintenanceAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          },
+          "owner": {
+            "$ref": "#/components/schemas/EquipmentUserSummaryDto"
+          },
+          "verifier": {
+            "$ref": "#/components/schemas/EquipmentUserSummaryDto"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "intendedUse": {
+            "type": "string"
+          },
+          "outOfServiceReason": {
+            "type": "object",
+            "nullable": true
+          },
+          "retirementReason": {
+            "type": "object",
+            "nullable": true
+          },
+          "retiredAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          },
+          "retirementRecordHash": {
+            "type": "object",
+            "nullable": true
+          },
+          "calibrationIntervalDays": {
+            "type": "object"
+          },
+          "maintenanceIntervalDays": {
+            "type": "object"
+          },
+          "createdBy": {
+            "$ref": "#/components/schemas/EquipmentUserSummaryDto"
+          },
+          "calibrations": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "maintenances": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "category",
+          "criticality",
+          "manufacturer",
+          "model",
+          "serialNumber",
+          "location",
+          "processArea",
+          "status",
+          "approvedForUse",
+          "complianceState",
+          "calibrationRequired",
+          "maintenanceRequired",
+          "owner",
+          "verifier",
+          "createdAt",
+          "intendedUse",
+          "calibrationIntervalDays",
+          "maintenanceIntervalDays",
+          "createdBy",
+          "calibrations",
+          "maintenances"
+        ]
+      },
+      "CreateEquipmentDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "PRODUCTION",
+              "LABORATORY",
+              "UTILITY",
+              "MEASUREMENT",
+              "COMPUTERIZED_SYSTEM",
+              "OTHER"
+            ]
+          },
+          "criticality": {
+            "type": "string",
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "CRITICAL"
+            ]
+          },
+          "manufacturer": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "serialNumber": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "processArea": {
+            "type": "string"
+          },
+          "intendedUse": {
+            "type": "string"
+          },
+          "ownerUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "verifierUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "calibrationRequired": {
+            "type": "boolean"
+          },
+          "calibrationIntervalDays": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 3650
+          },
+          "nextCalibrationAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "maintenanceRequired": {
+            "type": "boolean"
+          },
+          "maintenanceIntervalDays": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 3650
+          },
+          "nextMaintenanceAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "name",
+          "category",
+          "criticality",
+          "manufacturer",
+          "model",
+          "serialNumber",
+          "location",
+          "processArea",
+          "intendedUse",
+          "ownerUserId",
+          "verifierUserId",
+          "calibrationRequired",
+          "maintenanceRequired"
+        ]
+      },
+      "CompleteCalibrationDto": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL"
+            ]
+          },
+          "certificateReference": {
+            "type": "string"
+          },
+          "standardReference": {
+            "type": "string"
+          },
+          "readingsSummary": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "attestationAccepted": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "result",
+          "certificateReference",
+          "standardReference",
+          "readingsSummary",
+          "password",
+          "attestationAccepted"
+        ]
+      },
+      "ReviewEquipmentRecordDto": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "ACCEPT",
+              "REJECT"
+            ]
+          },
+          "rationale": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "attestationAccepted": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "decision",
+          "rationale",
+          "password",
+          "attestationAccepted"
+        ]
+      },
+      "CompleteMaintenanceDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "PREVENTIVE",
+              "CORRECTIVE"
+            ]
+          },
+          "workOrderReference": {
+            "type": "string"
+          },
+          "workPerformed": {
+            "type": "string"
+          },
+          "partsAndMaterials": {
+            "type": "string"
+          },
+          "evidenceReference": {
+            "type": "string"
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "SATISFACTORY",
+              "UNSATISFACTORY"
+            ]
+          },
+          "password": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "attestationAccepted": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "type",
+          "workOrderReference",
+          "workPerformed",
+          "partsAndMaterials",
+          "evidenceReference",
+          "result",
+          "password",
+          "attestationAccepted"
+        ]
+      },
+      "RetireEquipmentDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "attestationAccepted": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "reason",
           "password",
           "attestationAccepted"
         ]

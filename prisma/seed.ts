@@ -73,6 +73,18 @@ const permissions = [
     'suppliers.review_scar',
     'Independently review and sign SCAR response decisions.',
   ],
+  [
+    'equipment.read',
+    'View GMP equipment, calibration, and maintenance evidence.',
+  ],
+  ['equipment.create', 'Create controlled GMP equipment master records.'],
+  ['equipment.calibrate', 'Complete and sign equipment calibration records.'],
+  ['equipment.maintain', 'Complete and sign equipment maintenance records.'],
+  [
+    'equipment.verify',
+    'Independently review calibration and maintenance records.',
+  ],
+  ['equipment.retire', 'Independently sign equipment retirement.'],
   ['changes.read', 'View GMP change controls.'],
   ['changes.create', 'Propose GMP change controls.'],
   ['changes.assess', 'Assess change impact, risk, and implementation plans.'],

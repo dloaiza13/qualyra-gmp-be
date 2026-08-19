@@ -425,6 +425,66 @@ enum SupplierAuthenticationMethod {
   PASSWORD_REAUTHENTICATION
 }
 
+enum EquipmentCategory {
+  PRODUCTION
+  LABORATORY
+  UTILITY
+  MEASUREMENT
+  COMPUTERIZED_SYSTEM
+  OTHER
+}
+
+enum EquipmentCriticality {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum EquipmentStatus {
+  ACTIVE
+  OUT_OF_SERVICE
+  RETIRED
+}
+
+enum EquipmentServiceStatus {
+  PENDING_REVIEW
+  COMPLETED
+  REJECTED
+}
+
+enum CalibrationResult {
+  PASS
+  FAIL
+}
+
+enum MaintenanceType {
+  PREVENTIVE
+  CORRECTIVE
+}
+
+enum MaintenanceResult {
+  SATISFACTORY
+  UNSATISFACTORY
+}
+
+enum EquipmentReviewDecision {
+  ACCEPT
+  REJECT
+}
+
+enum EquipmentSignatureMeaning {
+  CALIBRATION_COMPLETION
+  CALIBRATION_REVIEW
+  MAINTENANCE_COMPLETION
+  MAINTENANCE_REVIEW
+  EQUIPMENT_RETIREMENT
+}
+
+enum EquipmentAuthenticationMethod {
+  PASSWORD_REAUTHENTICATION
+}
+
 model Tenant {
   id                       String                          @id @default(uuid()) @db.Uuid
   name                     String                          @db.VarChar(200)
@@ -488,6 +548,12 @@ model Tenant {
   supplierScarSequences    SupplierScarSequence[]
   supplierScars            SupplierScar[]
   supplierScarResponses    SupplierScarResponse[]
+  equipmentSequences       EquipmentSequence[]
+  equipment                Equipment[]
+  equipmentCalibrations    EquipmentCalibration[]
+  calibrationReviews       EquipmentCalibrationReview[]
+  equipmentMaintenances    EquipmentMaintenance[]
+  maintenanceReviews       EquipmentMaintenanceReview[]
 
   @@map("tenants")
 }
@@ -576,6 +642,14 @@ model User {
   supplierScarsCreated              SupplierScar[]                  @relation("SupplierScarCreator")
   supplierScarResponsesSubmitted    SupplierScarResponse[]          @relation("SupplierScarResponseSubmitter")
   supplierScarResponsesReviewed     SupplierScarResponse[]          @relation("SupplierScarResponseReviewer")
+  equipmentOwned                    Equipment[]                     @relation("EquipmentOwner")
+  equipmentVerified                 Equipment[]                     @relation("EquipmentVerifier")
+  equipmentCreated                  Equipment[]                     @relation("EquipmentCreator")
+  equipmentRetired                  Equipment[]                     @relation("EquipmentRetirer")
+  calibrationsPerformed             EquipmentCalibration[]          @relation("CalibrationPerformer")
+  calibrationReviewsCompleted       EquipmentCalibrationReview[]    @relation("CalibrationReviewer")
+  maintenancesPerformed             EquipmentMaintenance[]          @relation("MaintenancePerformer")
+  maintenanceReviewsCompleted       EquipmentMaintenanceReview[]    @relation("MaintenanceReviewer")
 
   @@unique([tenantId, id], map: "users_tenant_id_id_key")
   @@unique([tenantId, email], map: "users_tenant_id_email_key")
@@ -674,6 +748,11 @@ model Session {
   supplierDecisionSignatures        SupplierQualificationDecision[] @relation("SupplierQualificationDecisionSession")
   supplierScarResponseSignatures    SupplierScarResponse[]          @relation("SupplierScarResponseSession")
   supplierScarReviewSignatures      SupplierScarResponse[]          @relation("SupplierScarResponseReviewSession")
+  equipmentRetirementSignatures     Equipment[]                     @relation("EquipmentRetirementSession")
+  calibrationSignatures             EquipmentCalibration[]          @relation("CalibrationCompletionSession")
+  calibrationReviewSignatures       EquipmentCalibrationReview[]    @relation("CalibrationReviewSession")
+  maintenanceSignatures             EquipmentMaintenance[]          @relation("MaintenanceCompletionSession")
+  maintenanceReviewSignatures       EquipmentMaintenanceReview[]    @relation("MaintenanceReviewSession")
 
   @@unique([tenantId, userId, id], map: "sessions_tenant_id_user_id_id_key")
   @@index([tenantId, userId, status], map: "sessions_tenant_id_user_id_status_idx")
@@ -1998,4 +2077,171 @@ model SupplierScarResponse {
   @@unique([tenantId, scarId, attemptNumber], map: "supplier_scar_responses_attempt_key")
   @@index([tenantId, scarId, respondedAt], map: "supplier_scar_responses_scar_idx")
   @@map("supplier_scar_responses")
+}
+
+model EquipmentSequence {
+  tenantId   String   @map("tenant_id") @db.Uuid
+  year       Int
+  lastNumber Int      @default(0) @map("last_number")
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@id([tenantId, year])
+  @@map("equipment_sequences")
+}
+
+model Equipment {
+  id                      String                 @id @default(uuid()) @db.Uuid
+  tenantId                String                 @map("tenant_id") @db.Uuid
+  code                    String                 @db.VarChar(25)
+  name                    String                 @db.VarChar(200)
+  category                EquipmentCategory
+  criticality             EquipmentCriticality
+  manufacturer            String                 @db.VarChar(200)
+  model                   String                 @db.VarChar(150)
+  serialNumber            String                 @map("serial_number") @db.VarChar(150)
+  location                String                 @db.VarChar(300)
+  processArea             String                 @map("process_area") @db.VarChar(150)
+  intendedUse             String                 @map("intended_use") @db.VarChar(3000)
+  ownerUserId             String                 @map("owner_user_id") @db.Uuid
+  verifierUserId          String                 @map("verifier_user_id") @db.Uuid
+  createdByUserId         String                 @map("created_by_user_id") @db.Uuid
+  calibrationRequired     Boolean                @default(false) @map("calibration_required")
+  calibrationIntervalDays Int?                   @map("calibration_interval_days")
+  nextCalibrationAt       DateTime?              @map("next_calibration_at") @db.Timestamptz(3)
+  maintenanceRequired     Boolean                @default(true) @map("maintenance_required")
+  maintenanceIntervalDays Int?                   @map("maintenance_interval_days")
+  nextMaintenanceAt       DateTime?              @map("next_maintenance_at") @db.Timestamptz(3)
+  status                  EquipmentStatus        @default(ACTIVE)
+  outOfServiceReason      String?                @map("out_of_service_reason") @db.VarChar(1000)
+  retiredByUserId         String?                @map("retired_by_user_id") @db.Uuid
+  retirementSessionId     String?                @map("retirement_session_id") @db.Uuid
+  retirementReason        String?                @map("retirement_reason") @db.VarChar(1000)
+  retiredAt               DateTime?              @map("retired_at") @db.Timestamptz(3)
+  retirementRecordHash    String?                @map("retirement_record_hash") @db.Char(64)
+  createdAt               DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant                  Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  owner                   User                   @relation("EquipmentOwner", fields: [tenantId, ownerUserId], references: [tenantId, id], onDelete: Restrict)
+  verifier                User                   @relation("EquipmentVerifier", fields: [tenantId, verifierUserId], references: [tenantId, id], onDelete: Restrict)
+  createdBy               User                   @relation("EquipmentCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
+  retiredBy               User?                  @relation("EquipmentRetirer", fields: [tenantId, retiredByUserId], references: [tenantId, id], onDelete: Restrict, map: "equipment_retirer_fkey")
+  retirementSession       Session?               @relation("EquipmentRetirementSession", fields: [tenantId, retiredByUserId, retirementSessionId], references: [tenantId, userId, id], onDelete: Restrict, map: "equipment_retirement_session_fkey")
+  calibrations            EquipmentCalibration[]
+  maintenances            EquipmentMaintenance[]
+
+  @@unique([tenantId, id], map: "equipment_tenant_id_id_key")
+  @@unique([tenantId, code], map: "equipment_tenant_code_key")
+  @@unique([tenantId, serialNumber], map: "equipment_tenant_serial_key")
+  @@index([tenantId, status, nextCalibrationAt], map: "equipment_calibration_due_idx")
+  @@index([tenantId, status, nextMaintenanceAt], map: "equipment_maintenance_due_idx")
+  @@map("equipment")
+}
+
+model EquipmentCalibration {
+  id                   String                        @id @default(uuid()) @db.Uuid
+  tenantId             String                        @map("tenant_id") @db.Uuid
+  equipmentId          String                        @map("equipment_id") @db.Uuid
+  cycleNumber          Int                           @map("cycle_number")
+  dueAtSnapshot        DateTime?                     @map("due_at_snapshot") @db.Timestamptz(3)
+  result               CalibrationResult
+  certificateReference String                        @map("certificate_reference") @db.VarChar(1000)
+  standardReference    String                        @map("standard_reference") @db.VarChar(1000)
+  readingsSummary      String                        @map("readings_summary") @db.VarChar(5000)
+  performedByUserId    String                        @map("performed_by_user_id") @db.Uuid
+  completionSessionId  String                        @map("completion_session_id") @db.Uuid
+  meaning              EquipmentSignatureMeaning     @default(CALIBRATION_COMPLETION)
+  authenticationMethod EquipmentAuthenticationMethod @default(PASSWORD_REAUTHENTICATION) @map("authentication_method")
+  performedAt          DateTime                      @map("performed_at") @db.Timestamptz(3)
+  recordHash           String                        @map("record_hash") @db.Char(64)
+  status               EquipmentServiceStatus        @default(PENDING_REVIEW)
+  createdAt            DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant               Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  equipment            Equipment                     @relation(fields: [tenantId, equipmentId], references: [tenantId, id], onDelete: Restrict)
+  performedBy          User                          @relation("CalibrationPerformer", fields: [tenantId, performedByUserId], references: [tenantId, id], onDelete: Restrict, map: "calibration_performer_fkey")
+  completionSession    Session                       @relation("CalibrationCompletionSession", fields: [tenantId, performedByUserId, completionSessionId], references: [tenantId, userId, id], onDelete: Restrict, map: "calibration_completion_session_fkey")
+  review               EquipmentCalibrationReview?
+
+  @@unique([tenantId, id], map: "equipment_calibrations_tenant_id_id_key")
+  @@unique([tenantId, equipmentId, cycleNumber], map: "equipment_calibrations_cycle_key")
+  @@index([tenantId, equipmentId, status], map: "equipment_calibrations_status_idx")
+  @@map("equipment_calibrations")
+}
+
+model EquipmentCalibrationReview {
+  id                   String                        @id @default(uuid()) @db.Uuid
+  tenantId             String                        @map("tenant_id") @db.Uuid
+  calibrationId        String                        @map("calibration_id") @db.Uuid
+  decision             EquipmentReviewDecision
+  rationale            String                        @db.VarChar(3000)
+  reviewedByUserId     String                        @map("reviewed_by_user_id") @db.Uuid
+  reviewSessionId      String                        @map("review_session_id") @db.Uuid
+  meaning              EquipmentSignatureMeaning     @default(CALIBRATION_REVIEW)
+  authenticationMethod EquipmentAuthenticationMethod @default(PASSWORD_REAUTHENTICATION) @map("authentication_method")
+  reviewedAt           DateTime                      @map("reviewed_at") @db.Timestamptz(3)
+  recordHash           String                        @map("record_hash") @db.Char(64)
+  createdAt            DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant               Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  calibration          EquipmentCalibration          @relation(fields: [tenantId, calibrationId], references: [tenantId, id], onDelete: Restrict)
+  reviewedBy           User                          @relation("CalibrationReviewer", fields: [tenantId, reviewedByUserId], references: [tenantId, id], onDelete: Restrict, map: "calibration_reviewer_fkey")
+  reviewSession        Session                       @relation("CalibrationReviewSession", fields: [tenantId, reviewedByUserId, reviewSessionId], references: [tenantId, userId, id], onDelete: Restrict, map: "calibration_review_session_fkey")
+
+  @@unique([tenantId, id], map: "calibration_reviews_tenant_id_id_key")
+  @@unique([tenantId, calibrationId], map: "calibration_reviews_calibration_key")
+  @@map("equipment_calibration_reviews")
+}
+
+model EquipmentMaintenance {
+  id                   String                        @id @default(uuid()) @db.Uuid
+  tenantId             String                        @map("tenant_id") @db.Uuid
+  equipmentId          String                        @map("equipment_id") @db.Uuid
+  cycleNumber          Int                           @map("cycle_number")
+  type                 MaintenanceType
+  dueAtSnapshot        DateTime?                     @map("due_at_snapshot") @db.Timestamptz(3)
+  workOrderReference   String                        @map("work_order_reference") @db.VarChar(1000)
+  workPerformed        String                        @map("work_performed") @db.VarChar(5000)
+  partsAndMaterials    String                        @map("parts_and_materials") @db.VarChar(3000)
+  evidenceReference    String                        @map("evidence_reference") @db.VarChar(3000)
+  result               MaintenanceResult
+  performedByUserId    String                        @map("performed_by_user_id") @db.Uuid
+  completionSessionId  String                        @map("completion_session_id") @db.Uuid
+  meaning              EquipmentSignatureMeaning     @default(MAINTENANCE_COMPLETION)
+  authenticationMethod EquipmentAuthenticationMethod @default(PASSWORD_REAUTHENTICATION) @map("authentication_method")
+  performedAt          DateTime                      @map("performed_at") @db.Timestamptz(3)
+  recordHash           String                        @map("record_hash") @db.Char(64)
+  status               EquipmentServiceStatus        @default(PENDING_REVIEW)
+  createdAt            DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant               Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  equipment            Equipment                     @relation(fields: [tenantId, equipmentId], references: [tenantId, id], onDelete: Restrict)
+  performedBy          User                          @relation("MaintenancePerformer", fields: [tenantId, performedByUserId], references: [tenantId, id], onDelete: Restrict, map: "maintenance_performer_fkey")
+  completionSession    Session                       @relation("MaintenanceCompletionSession", fields: [tenantId, performedByUserId, completionSessionId], references: [tenantId, userId, id], onDelete: Restrict, map: "maintenance_completion_session_fkey")
+  review               EquipmentMaintenanceReview?
+
+  @@unique([tenantId, id], map: "equipment_maintenances_tenant_id_id_key")
+  @@unique([tenantId, equipmentId, cycleNumber], map: "equipment_maintenances_cycle_key")
+  @@index([tenantId, equipmentId, status], map: "equipment_maintenances_status_idx")
+  @@map("equipment_maintenances")
+}
+
+model EquipmentMaintenanceReview {
+  id                   String                        @id @default(uuid()) @db.Uuid
+  tenantId             String                        @map("tenant_id") @db.Uuid
+  maintenanceId        String                        @map("maintenance_id") @db.Uuid
+  decision             EquipmentReviewDecision
+  rationale            String                        @db.VarChar(3000)
+  reviewedByUserId     String                        @map("reviewed_by_user_id") @db.Uuid
+  reviewSessionId      String                        @map("review_session_id") @db.Uuid
+  meaning              EquipmentSignatureMeaning     @default(MAINTENANCE_REVIEW)
+  authenticationMethod EquipmentAuthenticationMethod @default(PASSWORD_REAUTHENTICATION) @map("authentication_method")
+  reviewedAt           DateTime                      @map("reviewed_at") @db.Timestamptz(3)
+  recordHash           String                        @map("record_hash") @db.Char(64)
+  createdAt            DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant               Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  maintenance          EquipmentMaintenance          @relation(fields: [tenantId, maintenanceId], references: [tenantId, id], onDelete: Restrict)
+  reviewedBy           User                          @relation("MaintenanceReviewer", fields: [tenantId, reviewedByUserId], references: [tenantId, id], onDelete: Restrict, map: "maintenance_reviewer_fkey")
+  reviewSession        Session                       @relation("MaintenanceReviewSession", fields: [tenantId, reviewedByUserId, reviewSessionId], references: [tenantId, userId, id], onDelete: Restrict, map: "maintenance_review_session_fkey")
+
+  @@unique([tenantId, id], map: "maintenance_reviews_tenant_id_id_key")
+  @@unique([tenantId, maintenanceId], map: "maintenance_reviews_maintenance_key")
+  @@map("equipment_maintenance_reviews")
 }
