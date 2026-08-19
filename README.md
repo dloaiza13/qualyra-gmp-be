@@ -82,6 +82,7 @@ The backend is a modular NestJS monolith with pragmatic ports and adapters, tena
 - [GMP deviations](docs/deviations.md)
 - [Corrective and preventive actions (CAPA)](docs/capa.md)
 - [GMP change control](docs/change-control.md)
+- [GMP audits and inspections](docs/audits.md)
 - [Operations and recovery](docs/operations.md)
 - [Durable notification delivery](docs/notifications.md)
 - [Operational observability](docs/observability.md)

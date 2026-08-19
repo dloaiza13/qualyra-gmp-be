@@ -264,6 +264,51 @@ enum ChangeAuthenticationMethod {
   PASSWORD_REAUTHENTICATION
 }
 
+enum AuditType {
+  INTERNAL
+  SUPPLIER
+  REGULATORY
+  PROCESS
+}
+
+enum AuditStatus {
+  PLANNED
+  IN_PROGRESS
+  FOLLOW_UP
+  READY_FOR_CLOSURE
+  CLOSED
+  CANCELLED
+}
+
+enum AuditFindingClassification {
+  OBSERVATION
+  MINOR
+  MAJOR
+  CRITICAL
+}
+
+enum AuditFindingStatus {
+  OPEN
+  RESPONSE_SUBMITTED
+  CLOSED
+}
+
+enum AuditResponseDecision {
+  ACCEPT
+  REQUEST_REVISION
+}
+
+enum AuditSignatureMeaning {
+  AUDIT_REPORT_COMPLETION
+  FINDING_RESPONSE
+  FINDING_RESPONSE_REVIEW
+  AUDIT_CLOSURE
+}
+
+enum AuditAuthenticationMethod {
+  PASSWORD_REAUTHENTICATION
+}
+
 model Tenant {
   id                       String                        @id @default(uuid()) @db.Uuid
   name                     String                        @db.VarChar(200)
@@ -310,6 +355,12 @@ model Tenant {
   changeDecisions          ChangeControlDecision[]
   changeTasks              ChangeControlTask[]
   changeVerifications      ChangeControlVerification[]
+  auditSequences           AuditSequence[]
+  audits                   GmpAudit[]
+  auditFindings            AuditFinding[]
+  auditReports             AuditReport[]
+  auditFindingResponses    AuditFindingResponse[]
+  auditClosures            AuditClosure[]
 
   @@map("tenants")
 }
@@ -373,6 +424,16 @@ model User {
   changeDecisionsCompleted          ChangeControlDecision[]     @relation("ChangeDecisionSigner")
   changeTasksAssigned               ChangeControlTask[]         @relation("ChangeTaskAssignee")
   changeVerificationsCompleted      ChangeControlVerification[] @relation("ChangeVerificationSigner")
+  auditsCreated                     GmpAudit[]                  @relation("AuditCreator")
+  auditsLed                         GmpAudit[]                  @relation("AuditLeadAuditor")
+  auditsReviewed                    GmpAudit[]                  @relation("AuditReviewer")
+  auditsCancelled                   GmpAudit[]                  @relation("AuditCanceller")
+  auditFindingsCreated              AuditFinding[]              @relation("AuditFindingCreator")
+  auditFindingsAssigned             AuditFinding[]              @relation("AuditFindingResponsible")
+  auditReportsCompleted             AuditReport[]               @relation("AuditReportCompleter")
+  auditResponsesSubmitted           AuditFindingResponse[]      @relation("AuditResponseSubmitter")
+  auditResponsesReviewed            AuditFindingResponse[]      @relation("AuditResponseReviewer")
+  auditsClosed                      AuditClosure[]              @relation("AuditClosureSigner")
 
   @@unique([tenantId, id], map: "users_tenant_id_id_key")
   @@unique([tenantId, email], map: "users_tenant_id_email_key")
@@ -461,6 +522,10 @@ model Session {
   changeDecisionSignatures          ChangeControlDecision[]     @relation("ChangeDecisionSession")
   changeTaskCompletions             ChangeControlTask[]         @relation("ChangeTaskCompletionSession")
   changeVerificationSignatures      ChangeControlVerification[] @relation("ChangeVerificationSession")
+  auditReportSignatures             AuditReport[]               @relation("AuditReportSession")
+  auditResponseSignatures           AuditFindingResponse[]      @relation("AuditResponseSession")
+  auditResponseReviewSignatures     AuditFindingResponse[]      @relation("AuditResponseReviewSession")
+  auditClosureSignatures            AuditClosure[]              @relation("AuditClosureSession")
 
   @@unique([tenantId, userId, id], map: "sessions_tenant_id_user_id_id_key")
   @@index([tenantId, userId, status], map: "sessions_tenant_id_user_id_status_idx")
@@ -912,28 +977,29 @@ model CapaSequence {
 }
 
 model Capa {
-  id                   String                        @id @default(uuid()) @db.Uuid
-  tenantId             String                        @map("tenant_id") @db.Uuid
-  deviationId          String                        @map("deviation_id") @db.Uuid
-  investigationId      String                        @map("investigation_id") @db.Uuid
-  code                 String                        @db.VarChar(25)
-  title                String                        @db.VarChar(200)
-  objective            String                        @db.VarChar(2000)
-  createdByUserId      String                        @map("created_by_user_id") @db.Uuid
-  createdAt            DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
-  lockedAt             DateTime?                     @map("locked_at") @db.Timestamptz(3)
-  tenant               Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  deviation            Deviation                     @relation(fields: [tenantId, deviationId], references: [tenantId, id], onDelete: Restrict)
-  investigation        DeviationInvestigation        @relation(fields: [tenantId, investigationId], references: [tenantId, id], onDelete: Restrict)
-  createdByUser        User                          @relation("CapaCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
-  actions              CapaAction[]
-  effectivenessReviews CapaEffectivenessReview[]
-  followUpCycles       CapaFollowUpCycle[]
-  actionExtensions     CapaActionExtension[]
-  actionEvidence       CapaActionEvidenceReference[]
-  evidenceUploads      CapaEvidenceUpload[]
-  notifications        CapaNotification[]
-  auditExports         CapaAuditExport[]
+  id                    String                        @id @default(uuid()) @db.Uuid
+  tenantId              String                        @map("tenant_id") @db.Uuid
+  deviationId           String                        @map("deviation_id") @db.Uuid
+  investigationId       String                        @map("investigation_id") @db.Uuid
+  code                  String                        @db.VarChar(25)
+  title                 String                        @db.VarChar(200)
+  objective             String                        @db.VarChar(2000)
+  createdByUserId       String                        @map("created_by_user_id") @db.Uuid
+  createdAt             DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  lockedAt              DateTime?                     @map("locked_at") @db.Timestamptz(3)
+  tenant                Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  deviation             Deviation                     @relation(fields: [tenantId, deviationId], references: [tenantId, id], onDelete: Restrict)
+  investigation         DeviationInvestigation        @relation(fields: [tenantId, investigationId], references: [tenantId, id], onDelete: Restrict)
+  createdByUser         User                          @relation("CapaCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
+  actions               CapaAction[]
+  effectivenessReviews  CapaEffectivenessReview[]
+  followUpCycles        CapaFollowUpCycle[]
+  actionExtensions      CapaActionExtension[]
+  actionEvidence        CapaActionEvidenceReference[]
+  evidenceUploads       CapaEvidenceUpload[]
+  notifications         CapaNotification[]
+  auditExports          CapaAuditExport[]
+  auditFindingResponses AuditFindingResponse[]
 
   @@unique([tenantId, id], map: "capas_tenant_id_id_key")
   @@unique([tenantId, code], map: "capas_tenant_id_code_key")
@@ -1176,28 +1242,29 @@ model ChangeControlSequence {
 }
 
 model ChangeControl {
-  id                 String                     @id @default(uuid()) @db.Uuid
-  tenantId           String                     @map("tenant_id") @db.Uuid
-  code               String                     @db.VarChar(25)
-  title              String                     @db.VarChar(200)
-  description        String                     @db.VarChar(5000)
-  justification      String                     @db.VarChar(3000)
-  category           ChangeControlCategory
-  status             ChangeControlStatus        @default(PROPOSED)
-  proposedByUserId   String                     @map("proposed_by_user_id") @db.Uuid
-  targetCompletionAt DateTime                   @map("target_completion_at") @db.Timestamptz(3)
-  cancelledByUserId  String?                    @map("cancelled_by_user_id") @db.Uuid
-  cancelledAt        DateTime?                  @map("cancelled_at") @db.Timestamptz(3)
-  cancellationReason String?                    @map("cancellation_reason") @db.VarChar(500)
-  createdAt          DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt          DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
-  tenant             Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  proposedByUser     User                       @relation("ChangeControlProposer", fields: [tenantId, proposedByUserId], references: [tenantId, id], onDelete: Restrict)
-  cancelledByUser    User?                      @relation("ChangeControlCanceller", fields: [tenantId, cancelledByUserId], references: [tenantId, id], onDelete: Restrict)
-  assessment         ChangeControlAssessment?
-  decision           ChangeControlDecision?
-  tasks              ChangeControlTask[]
-  verification       ChangeControlVerification?
+  id                    String                     @id @default(uuid()) @db.Uuid
+  tenantId              String                     @map("tenant_id") @db.Uuid
+  code                  String                     @db.VarChar(25)
+  title                 String                     @db.VarChar(200)
+  description           String                     @db.VarChar(5000)
+  justification         String                     @db.VarChar(3000)
+  category              ChangeControlCategory
+  status                ChangeControlStatus        @default(PROPOSED)
+  proposedByUserId      String                     @map("proposed_by_user_id") @db.Uuid
+  targetCompletionAt    DateTime                   @map("target_completion_at") @db.Timestamptz(3)
+  cancelledByUserId     String?                    @map("cancelled_by_user_id") @db.Uuid
+  cancelledAt           DateTime?                  @map("cancelled_at") @db.Timestamptz(3)
+  cancellationReason    String?                    @map("cancellation_reason") @db.VarChar(500)
+  createdAt             DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant                Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  proposedByUser        User                       @relation("ChangeControlProposer", fields: [tenantId, proposedByUserId], references: [tenantId, id], onDelete: Restrict)
+  cancelledByUser       User?                      @relation("ChangeControlCanceller", fields: [tenantId, cancelledByUserId], references: [tenantId, id], onDelete: Restrict)
+  assessment            ChangeControlAssessment?
+  decision              ChangeControlDecision?
+  tasks                 ChangeControlTask[]
+  verification          ChangeControlVerification?
+  auditFindingResponses AuditFindingResponse[]
 
   @@unique([tenantId, id], map: "change_controls_tenant_id_id_key")
   @@unique([tenantId, code], map: "change_controls_tenant_id_code_key")
@@ -1310,4 +1377,166 @@ model ChangeControlVerification {
   @@unique([tenantId, id], map: "change_verifications_tenant_id_id_key")
   @@unique([tenantId, changeControlId], map: "change_verifications_change_control_key")
   @@map("change_control_verifications")
+}
+
+model AuditSequence {
+  tenantId   String   @map("tenant_id") @db.Uuid
+  year       Int
+  lastNumber Int      @default(0) @map("last_number")
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@id([tenantId, year])
+  @@map("audit_sequences")
+}
+
+model GmpAudit {
+  id                 String         @id @default(uuid()) @db.Uuid
+  tenantId           String         @map("tenant_id") @db.Uuid
+  code               String         @db.VarChar(25)
+  title              String         @db.VarChar(200)
+  type               AuditType
+  scope              String         @db.VarChar(5000)
+  objectives         String         @db.VarChar(3000)
+  criteria           String         @db.VarChar(3000)
+  scheduledStartAt   DateTime       @map("scheduled_start_at") @db.Timestamptz(3)
+  scheduledEndAt     DateTime       @map("scheduled_end_at") @db.Timestamptz(3)
+  leadAuditorUserId  String         @map("lead_auditor_user_id") @db.Uuid
+  reviewerUserId     String         @map("reviewer_user_id") @db.Uuid
+  createdByUserId    String         @map("created_by_user_id") @db.Uuid
+  status             AuditStatus    @default(PLANNED)
+  startedAt          DateTime?      @map("started_at") @db.Timestamptz(3)
+  cancelledByUserId  String?        @map("cancelled_by_user_id") @db.Uuid
+  cancelledAt        DateTime?      @map("cancelled_at") @db.Timestamptz(3)
+  cancellationReason String?        @map("cancellation_reason") @db.VarChar(500)
+  createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant             Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  leadAuditor        User           @relation("AuditLeadAuditor", fields: [tenantId, leadAuditorUserId], references: [tenantId, id], onDelete: Restrict)
+  reviewer           User           @relation("AuditReviewer", fields: [tenantId, reviewerUserId], references: [tenantId, id], onDelete: Restrict)
+  createdBy          User           @relation("AuditCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
+  cancelledBy        User?          @relation("AuditCanceller", fields: [tenantId, cancelledByUserId], references: [tenantId, id], onDelete: Restrict)
+  findings           AuditFinding[]
+  report             AuditReport?
+  closure            AuditClosure?
+
+  @@unique([tenantId, id], map: "audits_tenant_id_id_key")
+  @@unique([tenantId, code], map: "audits_tenant_id_code_key")
+  @@index([tenantId, status, scheduledEndAt], map: "audits_status_scheduled_end_idx")
+  @@index([tenantId, createdAt], map: "audits_created_idx")
+  @@map("audits")
+}
+
+model AuditFinding {
+  id                   String                     @id @default(uuid()) @db.Uuid
+  tenantId             String                     @map("tenant_id") @db.Uuid
+  auditId              String                     @map("audit_id") @db.Uuid
+  sequenceNumber       Int                        @map("sequence_number")
+  code                 String                     @db.VarChar(35)
+  classification       AuditFindingClassification
+  title                String                     @db.VarChar(200)
+  description          String                     @db.VarChar(5000)
+  requirementReference String                     @map("requirement_reference") @db.VarChar(1000)
+  responsibleUserId    String                     @map("responsible_user_id") @db.Uuid
+  responseDueAt        DateTime                   @map("response_due_at") @db.Timestamptz(3)
+  status               AuditFindingStatus         @default(OPEN)
+  createdByUserId      String                     @map("created_by_user_id") @db.Uuid
+  createdAt            DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant               Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  audit                GmpAudit                   @relation(fields: [tenantId, auditId], references: [tenantId, id], onDelete: Restrict)
+  responsibleUser      User                       @relation("AuditFindingResponsible", fields: [tenantId, responsibleUserId], references: [tenantId, id], onDelete: Restrict)
+  createdByUser        User                       @relation("AuditFindingCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
+  responses            AuditFindingResponse[]
+
+  @@unique([tenantId, id], map: "audit_findings_tenant_id_id_key")
+  @@unique([tenantId, auditId, sequenceNumber], map: "audit_findings_audit_sequence_key")
+  @@unique([tenantId, code], map: "audit_findings_tenant_code_key")
+  @@index([tenantId, responsibleUserId, status, responseDueAt], map: "audit_findings_responsible_status_due_idx")
+  @@map("audit_findings")
+}
+
+model AuditReport {
+  id                   String                    @id @default(uuid()) @db.Uuid
+  tenantId             String                    @map("tenant_id") @db.Uuid
+  auditId              String                    @map("audit_id") @db.Uuid
+  summary              String                    @db.VarChar(5000)
+  conclusion           String                    @db.VarChar(3000)
+  completedByUserId    String                    @map("completed_by_user_id") @db.Uuid
+  completionSessionId  String                    @map("completion_session_id") @db.Uuid
+  meaning              AuditSignatureMeaning     @default(AUDIT_REPORT_COMPLETION)
+  authenticationMethod AuditAuthenticationMethod @default(PASSWORD_REAUTHENTICATION) @map("authentication_method")
+  completedAt          DateTime                  @map("completed_at") @db.Timestamptz(3)
+  recordHash           String                    @map("record_hash") @db.Char(64)
+  createdAt            DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant               Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  audit                GmpAudit                  @relation(fields: [tenantId, auditId], references: [tenantId, id], onDelete: Restrict)
+  completedByUser      User                      @relation("AuditReportCompleter", fields: [tenantId, completedByUserId], references: [tenantId, id], onDelete: Restrict)
+  completionSession    Session                   @relation("AuditReportSession", fields: [tenantId, completedByUserId, completionSessionId], references: [tenantId, userId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id], map: "audit_reports_tenant_id_id_key")
+  @@unique([tenantId, auditId], map: "audit_reports_audit_key")
+  @@map("audit_reports")
+}
+
+model AuditFindingResponse {
+  id                   String                    @id @default(uuid()) @db.Uuid
+  tenantId             String                    @map("tenant_id") @db.Uuid
+  findingId            String                    @map("finding_id") @db.Uuid
+  attemptNumber        Int                       @map("attempt_number")
+  response             String                    @db.VarChar(5000)
+  rootCause            String                    @map("root_cause") @db.VarChar(3000)
+  correction           String                    @db.VarChar(3000)
+  correctiveAction     String                    @map("corrective_action") @db.VarChar(5000)
+  evidenceReference    String                    @map("evidence_reference") @db.VarChar(3000)
+  capaId               String?                   @map("capa_id") @db.Uuid
+  changeControlId      String?                   @map("change_control_id") @db.Uuid
+  respondedByUserId    String                    @map("responded_by_user_id") @db.Uuid
+  responseSessionId    String                    @map("response_session_id") @db.Uuid
+  responseMeaning      AuditSignatureMeaning     @default(FINDING_RESPONSE) @map("response_meaning")
+  authenticationMethod AuditAuthenticationMethod @default(PASSWORD_REAUTHENTICATION) @map("authentication_method")
+  respondedAt          DateTime                  @map("responded_at") @db.Timestamptz(3)
+  responseRecordHash   String                    @map("response_record_hash") @db.Char(64)
+  decision             AuditResponseDecision?
+  reviewComment        String?                   @map("review_comment") @db.VarChar(3000)
+  reviewedByUserId     String?                   @map("reviewed_by_user_id") @db.Uuid
+  reviewSessionId      String?                   @map("review_session_id") @db.Uuid
+  reviewMeaning        AuditSignatureMeaning?    @map("review_meaning")
+  reviewedAt           DateTime?                 @map("reviewed_at") @db.Timestamptz(3)
+  reviewRecordHash     String?                   @map("review_record_hash") @db.Char(64)
+  createdAt            DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant               Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  finding              AuditFinding              @relation(fields: [tenantId, findingId], references: [tenantId, id], onDelete: Restrict)
+  capa                 Capa?                     @relation(fields: [tenantId, capaId], references: [tenantId, id], onDelete: Restrict)
+  changeControl        ChangeControl?            @relation(fields: [tenantId, changeControlId], references: [tenantId, id], onDelete: Restrict)
+  respondedByUser      User                      @relation("AuditResponseSubmitter", fields: [tenantId, respondedByUserId], references: [tenantId, id], onDelete: Restrict)
+  reviewedByUser       User?                     @relation("AuditResponseReviewer", fields: [tenantId, reviewedByUserId], references: [tenantId, id], onDelete: Restrict)
+  responseSession      Session                   @relation("AuditResponseSession", fields: [tenantId, respondedByUserId, responseSessionId], references: [tenantId, userId, id], onDelete: Restrict)
+  reviewSession        Session?                  @relation("AuditResponseReviewSession", fields: [tenantId, reviewedByUserId, reviewSessionId], references: [tenantId, userId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id], map: "audit_finding_responses_tenant_id_id_key")
+  @@unique([tenantId, findingId, attemptNumber], map: "audit_finding_responses_attempt_key")
+  @@index([tenantId, findingId, respondedAt], map: "audit_finding_responses_finding_idx")
+  @@map("audit_finding_responses")
+}
+
+model AuditClosure {
+  id                   String                    @id @default(uuid()) @db.Uuid
+  tenantId             String                    @map("tenant_id") @db.Uuid
+  auditId              String                    @map("audit_id") @db.Uuid
+  conclusion           String                    @db.VarChar(3000)
+  closedByUserId       String                    @map("closed_by_user_id") @db.Uuid
+  closureSessionId     String                    @map("closure_session_id") @db.Uuid
+  meaning              AuditSignatureMeaning     @default(AUDIT_CLOSURE)
+  authenticationMethod AuditAuthenticationMethod @default(PASSWORD_REAUTHENTICATION) @map("authentication_method")
+  closedAt             DateTime                  @map("closed_at") @db.Timestamptz(3)
+  recordHash           String                    @map("record_hash") @db.Char(64)
+  createdAt            DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant               Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  audit                GmpAudit                  @relation(fields: [tenantId, auditId], references: [tenantId, id], onDelete: Restrict)
+  closedByUser         User                      @relation("AuditClosureSigner", fields: [tenantId, closedByUserId], references: [tenantId, id], onDelete: Restrict)
+  closureSession       Session                   @relation("AuditClosureSession", fields: [tenantId, closedByUserId, closureSessionId], references: [tenantId, userId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id], map: "audit_closures_tenant_id_id_key")
+  @@unique([tenantId, auditId], map: "audit_closures_audit_key")
+  @@map("audit_closures")
 }

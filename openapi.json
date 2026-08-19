@@ -1403,6 +1403,503 @@
         ]
       }
     },
+    "/api/v1/audits": {
+      "get": {
+        "operationId": "AuditsController_list",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 200,
+              "default": 100,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PLANNED",
+                "IN_PROGRESS",
+                "FOLLOW_UP",
+                "READY_FOR_CLOSURE",
+                "CLOSED",
+                "CANCELLED"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AuditSummaryResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "GMP audits"
+        ]
+      },
+      "post": {
+        "operationId": "AuditsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAuditDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "GMP audits"
+        ]
+      }
+    },
+    "/api/v1/audits/participants": {
+      "get": {
+        "operationId": "AuditsController_participants",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AuditParticipantResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "GMP audits"
+        ]
+      }
+    },
+    "/api/v1/audits/{auditId}": {
+      "get": {
+        "operationId": "AuditsController_get",
+        "parameters": [
+          {
+            "name": "auditId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "GMP audits"
+        ]
+      }
+    },
+    "/api/v1/audits/{auditId}/start": {
+      "post": {
+        "operationId": "AuditsController_start",
+        "parameters": [
+          {
+            "name": "auditId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "GMP audits"
+        ]
+      }
+    },
+    "/api/v1/audits/{auditId}/findings": {
+      "post": {
+        "operationId": "AuditsController_addFinding",
+        "parameters": [
+          {
+            "name": "auditId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddAuditFindingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "GMP audits"
+        ]
+      }
+    },
+    "/api/v1/audits/{auditId}/report": {
+      "post": {
+        "operationId": "AuditsController_completeReport",
+        "parameters": [
+          {
+            "name": "auditId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteAuditReportDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "GMP audits"
+        ]
+      }
+    },
+    "/api/v1/audits/{auditId}/findings/{findingId}/responses": {
+      "post": {
+        "operationId": "AuditsController_submitResponse",
+        "parameters": [
+          {
+            "name": "auditId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "findingId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitFindingResponseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "GMP audits"
+        ]
+      }
+    },
+    "/api/v1/audits/{auditId}/findings/{findingId}/responses/{responseId}/review": {
+      "post": {
+        "operationId": "AuditsController_reviewResponse",
+        "parameters": [
+          {
+            "name": "auditId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "findingId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "responseId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewFindingResponseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "GMP audits"
+        ]
+      }
+    },
+    "/api/v1/audits/{auditId}/closure": {
+      "post": {
+        "operationId": "AuditsController_close",
+        "parameters": [
+          {
+            "name": "auditId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloseAuditDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "GMP audits"
+        ]
+      }
+    },
+    "/api/v1/audits/{auditId}/cancel": {
+      "post": {
+        "operationId": "AuditsController_cancel",
+        "parameters": [
+          {
+            "name": "auditId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelAuditDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "GMP audits"
+        ]
+      }
+    },
     "/api/v1/documents": {
       "get": {
         "operationId": "DocumentsController_list",
@@ -5267,6 +5764,604 @@
           "evidence",
           "password",
           "attestationAccepted"
+        ]
+      },
+      "AuditUserSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "email"
+        ]
+      },
+      "AuditSummaryResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "example": "AUD-2026-0001"
+          },
+          "title": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "dueState": {
+            "type": "string"
+          },
+          "leadAuditor": {
+            "$ref": "#/components/schemas/AuditUserSummaryDto"
+          },
+          "reviewer": {
+            "$ref": "#/components/schemas/AuditUserSummaryDto"
+          },
+          "scheduledStartAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "scheduledEndAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "openFindingCount": {
+            "type": "number"
+          },
+          "findingCount": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "title",
+          "type",
+          "status",
+          "dueState",
+          "leadAuditor",
+          "reviewer",
+          "scheduledStartAt",
+          "scheduledEndAt",
+          "openFindingCount",
+          "findingCount",
+          "createdAt"
+        ]
+      },
+      "AuditParticipantResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "email",
+          "permissions"
+        ]
+      },
+      "AuditFindingResponseRecordDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "attemptNumber": {
+            "type": "number"
+          },
+          "response": {
+            "type": "string"
+          },
+          "rootCause": {
+            "type": "string"
+          },
+          "correction": {
+            "type": "string"
+          },
+          "correctiveAction": {
+            "type": "string"
+          },
+          "evidenceReference": {
+            "type": "string"
+          },
+          "capaId": {
+            "type": "object",
+            "format": "uuid",
+            "nullable": true
+          },
+          "changeControlId": {
+            "type": "object",
+            "format": "uuid",
+            "nullable": true
+          },
+          "respondedBy": {
+            "$ref": "#/components/schemas/AuditUserSummaryDto"
+          },
+          "responseMeaning": {
+            "type": "string"
+          },
+          "authenticationMethod": {
+            "type": "string"
+          },
+          "respondedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "responseRecordHash": {
+            "type": "string"
+          },
+          "decision": {
+            "type": "object",
+            "nullable": true
+          },
+          "reviewComment": {
+            "type": "object",
+            "nullable": true
+          },
+          "reviewedBy": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AuditUserSummaryDto"
+              }
+            ]
+          },
+          "reviewedAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          },
+          "reviewRecordHash": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "attemptNumber",
+          "response",
+          "rootCause",
+          "correction",
+          "correctiveAction",
+          "evidenceReference",
+          "respondedBy",
+          "responseMeaning",
+          "authenticationMethod",
+          "respondedAt",
+          "responseRecordHash"
+        ]
+      },
+      "AuditFindingResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "sequenceNumber": {
+            "type": "number"
+          },
+          "classification": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "requirementReference": {
+            "type": "string"
+          },
+          "responsible": {
+            "$ref": "#/components/schemas/AuditUserSummaryDto"
+          },
+          "responseDueAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string"
+          },
+          "dueState": {
+            "type": "string"
+          },
+          "responses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditFindingResponseRecordDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "sequenceNumber",
+          "classification",
+          "title",
+          "description",
+          "requirementReference",
+          "responsible",
+          "responseDueAt",
+          "status",
+          "dueState",
+          "responses"
+        ]
+      },
+      "AuditDetailResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "example": "AUD-2026-0001"
+          },
+          "title": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "dueState": {
+            "type": "string"
+          },
+          "leadAuditor": {
+            "$ref": "#/components/schemas/AuditUserSummaryDto"
+          },
+          "reviewer": {
+            "$ref": "#/components/schemas/AuditUserSummaryDto"
+          },
+          "scheduledStartAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "scheduledEndAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "openFindingCount": {
+            "type": "number"
+          },
+          "findingCount": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "scope": {
+            "type": "string"
+          },
+          "objectives": {
+            "type": "string"
+          },
+          "criteria": {
+            "type": "string"
+          },
+          "createdBy": {
+            "$ref": "#/components/schemas/AuditUserSummaryDto"
+          },
+          "startedAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditFindingResponseDto"
+            }
+          },
+          "report": {
+            "type": "object",
+            "nullable": true
+          },
+          "closure": {
+            "type": "object",
+            "nullable": true
+          },
+          "cancellationReason": {
+            "type": "object",
+            "nullable": true
+          },
+          "cancelledAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "title",
+          "type",
+          "status",
+          "dueState",
+          "leadAuditor",
+          "reviewer",
+          "scheduledStartAt",
+          "scheduledEndAt",
+          "openFindingCount",
+          "findingCount",
+          "createdAt",
+          "scope",
+          "objectives",
+          "criteria",
+          "createdBy",
+          "findings"
+        ]
+      },
+      "CreateAuditDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "INTERNAL",
+              "SUPPLIER",
+              "REGULATORY",
+              "PROCESS"
+            ]
+          },
+          "scope": {
+            "type": "string"
+          },
+          "objectives": {
+            "type": "string"
+          },
+          "criteria": {
+            "type": "string"
+          },
+          "scheduledStartAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "scheduledEndAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "leadAuditorUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reviewerUserId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "title",
+          "type",
+          "scope",
+          "objectives",
+          "criteria",
+          "scheduledStartAt",
+          "scheduledEndAt",
+          "leadAuditorUserId",
+          "reviewerUserId"
+        ]
+      },
+      "AddAuditFindingDto": {
+        "type": "object",
+        "properties": {
+          "classification": {
+            "type": "string",
+            "enum": [
+              "OBSERVATION",
+              "MINOR",
+              "MAJOR",
+              "CRITICAL"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "requirementReference": {
+            "type": "string"
+          },
+          "responsibleUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "responseDueAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "classification",
+          "title",
+          "description",
+          "requirementReference",
+          "responsibleUserId",
+          "responseDueAt"
+        ]
+      },
+      "CompleteAuditReportDto": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "string"
+          },
+          "conclusion": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "attestationAccepted": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "summary",
+          "conclusion",
+          "password",
+          "attestationAccepted"
+        ]
+      },
+      "SubmitFindingResponseDto": {
+        "type": "object",
+        "properties": {
+          "response": {
+            "type": "string"
+          },
+          "rootCause": {
+            "type": "string"
+          },
+          "correction": {
+            "type": "string"
+          },
+          "correctiveAction": {
+            "type": "string"
+          },
+          "evidenceReference": {
+            "type": "string"
+          },
+          "capaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "changeControlId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "password": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "attestationAccepted": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "response",
+          "rootCause",
+          "correction",
+          "correctiveAction",
+          "evidenceReference",
+          "password",
+          "attestationAccepted"
+        ]
+      },
+      "ReviewFindingResponseDto": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "ACCEPT",
+              "REQUEST_REVISION"
+            ]
+          },
+          "comment": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "attestationAccepted": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "decision",
+          "comment",
+          "password",
+          "attestationAccepted"
+        ]
+      },
+      "CloseAuditDto": {
+        "type": "object",
+        "properties": {
+          "conclusion": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "attestationAccepted": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "conclusion",
+          "password",
+          "attestationAccepted"
+        ]
+      },
+      "CancelAuditDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
         ]
       },
       "DocumentUserSummaryDto": {
