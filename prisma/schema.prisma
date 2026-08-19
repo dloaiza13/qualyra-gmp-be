@@ -309,6 +309,47 @@ enum AuditAuthenticationMethod {
   PASSWORD_REAUTHENTICATION
 }
 
+enum QualityRiskCategory {
+  PRODUCT
+  PROCESS
+  EQUIPMENT
+  COMPUTERIZED_SYSTEM
+  SUPPLIER
+  FACILITY
+  OTHER
+}
+
+enum QualityRiskMethod {
+  FMEA
+}
+
+enum QualityRiskStatus {
+  OPEN
+  PENDING_REVIEW
+  CLOSED
+  RESIDUAL_RISK_NOT_ACCEPTED
+  CANCELLED
+}
+
+enum QualityRiskItemStatus {
+  OPEN
+  COMPLETED
+}
+
+enum QualityRiskReviewDecision {
+  ACCEPT
+  NOT_ACCEPTABLE
+}
+
+enum QualityRiskSignatureMeaning {
+  MITIGATION_COMPLETION
+  RESIDUAL_RISK_REVIEW
+}
+
+enum QualityRiskAuthenticationMethod {
+  PASSWORD_REAUTHENTICATION
+}
+
 model Tenant {
   id                       String                        @id @default(uuid()) @db.Uuid
   name                     String                        @db.VarChar(200)
@@ -361,6 +402,10 @@ model Tenant {
   auditReports             AuditReport[]
   auditFindingResponses    AuditFindingResponse[]
   auditClosures            AuditClosure[]
+  qualityRiskSequences     QualityRiskSequence[]
+  qualityRisks             QualityRiskAssessment[]
+  qualityRiskItems         QualityRiskItem[]
+  qualityRiskReviews       QualityRiskReview[]
 
   @@map("tenants")
 }
@@ -434,6 +479,13 @@ model User {
   auditResponsesSubmitted           AuditFindingResponse[]      @relation("AuditResponseSubmitter")
   auditResponsesReviewed            AuditFindingResponse[]      @relation("AuditResponseReviewer")
   auditsClosed                      AuditClosure[]              @relation("AuditClosureSigner")
+  qualityRisksOwned                 QualityRiskAssessment[]     @relation("QualityRiskOwner")
+  qualityRisksReviewed              QualityRiskAssessment[]     @relation("QualityRiskReviewer")
+  qualityRisksCreated               QualityRiskAssessment[]     @relation("QualityRiskCreator")
+  qualityRisksCancelled             QualityRiskAssessment[]     @relation("QualityRiskCanceller")
+  qualityRiskItemsAssigned          QualityRiskItem[]           @relation("QualityRiskItemAssignee")
+  qualityRiskMitigationsCompleted   QualityRiskItem[]           @relation("QualityRiskItemCompleter")
+  qualityRiskReviewsCompleted       QualityRiskReview[]         @relation("QualityRiskReviewSigner")
 
   @@unique([tenantId, id], map: "users_tenant_id_id_key")
   @@unique([tenantId, email], map: "users_tenant_id_email_key")
@@ -526,6 +578,8 @@ model Session {
   auditResponseSignatures           AuditFindingResponse[]      @relation("AuditResponseSession")
   auditResponseReviewSignatures     AuditFindingResponse[]      @relation("AuditResponseReviewSession")
   auditClosureSignatures            AuditClosure[]              @relation("AuditClosureSession")
+  qualityRiskMitigationSignatures   QualityRiskItem[]           @relation("QualityRiskItemCompletionSession")
+  qualityRiskReviewSignatures       QualityRiskReview[]         @relation("QualityRiskReviewSession")
 
   @@unique([tenantId, userId, id], map: "sessions_tenant_id_user_id_id_key")
   @@index([tenantId, userId, status], map: "sessions_tenant_id_user_id_status_idx")
@@ -923,6 +977,7 @@ model Deviation {
   cancelledByUser    User?                   @relation("DeviationCanceller", fields: [tenantId, cancelledByUserId], references: [tenantId, id], onDelete: Restrict)
   investigation      DeviationInvestigation?
   capa               Capa?
+  qualityRisks       QualityRiskAssessment[]
 
   @@unique([tenantId, id], map: "deviations_tenant_id_id_key")
   @@unique([tenantId, code], map: "deviations_tenant_id_code_key")
@@ -1000,6 +1055,7 @@ model Capa {
   notifications         CapaNotification[]
   auditExports          CapaAuditExport[]
   auditFindingResponses AuditFindingResponse[]
+  qualityRisks          QualityRiskAssessment[]
 
   @@unique([tenantId, id], map: "capas_tenant_id_id_key")
   @@unique([tenantId, code], map: "capas_tenant_id_code_key")
@@ -1265,6 +1321,7 @@ model ChangeControl {
   tasks                 ChangeControlTask[]
   verification          ChangeControlVerification?
   auditFindingResponses AuditFindingResponse[]
+  qualityRisks          QualityRiskAssessment[]
 
   @@unique([tenantId, id], map: "change_controls_tenant_id_id_key")
   @@unique([tenantId, code], map: "change_controls_tenant_id_code_key")
@@ -1391,34 +1448,35 @@ model AuditSequence {
 }
 
 model GmpAudit {
-  id                 String         @id @default(uuid()) @db.Uuid
-  tenantId           String         @map("tenant_id") @db.Uuid
-  code               String         @db.VarChar(25)
-  title              String         @db.VarChar(200)
+  id                 String                  @id @default(uuid()) @db.Uuid
+  tenantId           String                  @map("tenant_id") @db.Uuid
+  code               String                  @db.VarChar(25)
+  title              String                  @db.VarChar(200)
   type               AuditType
-  scope              String         @db.VarChar(5000)
-  objectives         String         @db.VarChar(3000)
-  criteria           String         @db.VarChar(3000)
-  scheduledStartAt   DateTime       @map("scheduled_start_at") @db.Timestamptz(3)
-  scheduledEndAt     DateTime       @map("scheduled_end_at") @db.Timestamptz(3)
-  leadAuditorUserId  String         @map("lead_auditor_user_id") @db.Uuid
-  reviewerUserId     String         @map("reviewer_user_id") @db.Uuid
-  createdByUserId    String         @map("created_by_user_id") @db.Uuid
-  status             AuditStatus    @default(PLANNED)
-  startedAt          DateTime?      @map("started_at") @db.Timestamptz(3)
-  cancelledByUserId  String?        @map("cancelled_by_user_id") @db.Uuid
-  cancelledAt        DateTime?      @map("cancelled_at") @db.Timestamptz(3)
-  cancellationReason String?        @map("cancellation_reason") @db.VarChar(500)
-  createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt          DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
-  tenant             Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  leadAuditor        User           @relation("AuditLeadAuditor", fields: [tenantId, leadAuditorUserId], references: [tenantId, id], onDelete: Restrict)
-  reviewer           User           @relation("AuditReviewer", fields: [tenantId, reviewerUserId], references: [tenantId, id], onDelete: Restrict)
-  createdBy          User           @relation("AuditCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
-  cancelledBy        User?          @relation("AuditCanceller", fields: [tenantId, cancelledByUserId], references: [tenantId, id], onDelete: Restrict)
+  scope              String                  @db.VarChar(5000)
+  objectives         String                  @db.VarChar(3000)
+  criteria           String                  @db.VarChar(3000)
+  scheduledStartAt   DateTime                @map("scheduled_start_at") @db.Timestamptz(3)
+  scheduledEndAt     DateTime                @map("scheduled_end_at") @db.Timestamptz(3)
+  leadAuditorUserId  String                  @map("lead_auditor_user_id") @db.Uuid
+  reviewerUserId     String                  @map("reviewer_user_id") @db.Uuid
+  createdByUserId    String                  @map("created_by_user_id") @db.Uuid
+  status             AuditStatus             @default(PLANNED)
+  startedAt          DateTime?               @map("started_at") @db.Timestamptz(3)
+  cancelledByUserId  String?                 @map("cancelled_by_user_id") @db.Uuid
+  cancelledAt        DateTime?               @map("cancelled_at") @db.Timestamptz(3)
+  cancellationReason String?                 @map("cancellation_reason") @db.VarChar(500)
+  createdAt          DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant             Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  leadAuditor        User                    @relation("AuditLeadAuditor", fields: [tenantId, leadAuditorUserId], references: [tenantId, id], onDelete: Restrict)
+  reviewer           User                    @relation("AuditReviewer", fields: [tenantId, reviewerUserId], references: [tenantId, id], onDelete: Restrict)
+  createdBy          User                    @relation("AuditCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
+  cancelledBy        User?                   @relation("AuditCanceller", fields: [tenantId, cancelledByUserId], references: [tenantId, id], onDelete: Restrict)
   findings           AuditFinding[]
   report             AuditReport?
   closure            AuditClosure?
+  qualityRisks       QualityRiskAssessment[]
 
   @@unique([tenantId, id], map: "audits_tenant_id_id_key")
   @@unique([tenantId, code], map: "audits_tenant_id_code_key")
@@ -1539,4 +1597,122 @@ model AuditClosure {
   @@unique([tenantId, id], map: "audit_closures_tenant_id_id_key")
   @@unique([tenantId, auditId], map: "audit_closures_audit_key")
   @@map("audit_closures")
+}
+
+model QualityRiskSequence {
+  tenantId   String   @map("tenant_id") @db.Uuid
+  year       Int
+  lastNumber Int      @default(0) @map("last_number")
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@id([tenantId, year])
+  @@map("quality_risk_sequences")
+}
+
+model QualityRiskAssessment {
+  id                 String              @id @default(uuid()) @db.Uuid
+  tenantId           String              @map("tenant_id") @db.Uuid
+  code               String              @db.VarChar(25)
+  title              String              @db.VarChar(200)
+  category           QualityRiskCategory
+  method             QualityRiskMethod   @default(FMEA)
+  processArea        String              @map("process_area") @db.VarChar(120)
+  scope              String              @db.VarChar(3000)
+  riskStatement      String              @map("risk_statement") @db.VarChar(3000)
+  ownerUserId        String              @map("owner_user_id") @db.Uuid
+  reviewerUserId     String              @map("reviewer_user_id") @db.Uuid
+  createdByUserId    String              @map("created_by_user_id") @db.Uuid
+  targetReviewAt     DateTime            @map("target_review_at") @db.Timestamptz(3)
+  deviationId        String?             @map("deviation_id") @db.Uuid
+  capaId             String?             @map("capa_id") @db.Uuid
+  changeControlId    String?             @map("change_control_id") @db.Uuid
+  auditId            String?             @map("audit_id") @db.Uuid
+  status             QualityRiskStatus   @default(OPEN)
+  cancelledByUserId  String?             @map("cancelled_by_user_id") @db.Uuid
+  cancelledAt        DateTime?           @map("cancelled_at") @db.Timestamptz(3)
+  cancellationReason String?             @map("cancellation_reason") @db.VarChar(500)
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  owner              User                @relation("QualityRiskOwner", fields: [tenantId, ownerUserId], references: [tenantId, id], onDelete: Restrict)
+  reviewer           User                @relation("QualityRiskReviewer", fields: [tenantId, reviewerUserId], references: [tenantId, id], onDelete: Restrict)
+  createdBy          User                @relation("QualityRiskCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
+  cancelledBy        User?               @relation("QualityRiskCanceller", fields: [tenantId, cancelledByUserId], references: [tenantId, id], onDelete: Restrict)
+  deviation          Deviation?          @relation(fields: [tenantId, deviationId], references: [tenantId, id], onDelete: Restrict)
+  capa               Capa?               @relation(fields: [tenantId, capaId], references: [tenantId, id], onDelete: Restrict)
+  changeControl      ChangeControl?      @relation(fields: [tenantId, changeControlId], references: [tenantId, id], onDelete: Restrict)
+  audit              GmpAudit?           @relation(fields: [tenantId, auditId], references: [tenantId, id], onDelete: Restrict)
+  items              QualityRiskItem[]
+  review             QualityRiskReview?
+
+  @@unique([tenantId, id], map: "quality_risks_tenant_id_id_key")
+  @@unique([tenantId, code], map: "quality_risks_tenant_id_code_key")
+  @@index([tenantId, status, targetReviewAt], map: "quality_risks_status_review_idx")
+  @@index([tenantId, category, createdAt], map: "quality_risks_category_created_idx")
+  @@map("quality_risk_assessments")
+}
+
+model QualityRiskItem {
+  id                    String                           @id @default(uuid()) @db.Uuid
+  tenantId              String                           @map("tenant_id") @db.Uuid
+  riskId                String                           @map("risk_id") @db.Uuid
+  sequenceNumber        Int                              @map("sequence_number")
+  failureMode           String                           @map("failure_mode") @db.VarChar(500)
+  cause                 String                           @db.VarChar(2000)
+  effect                String                           @db.VarChar(2000)
+  currentControls       String                           @map("current_controls") @db.VarChar(3000)
+  initialSeverity       Int                              @map("initial_severity")
+  initialProbability    Int                              @map("initial_probability")
+  initialDetectability  Int                              @map("initial_detectability")
+  initialRpn            Int                              @map("initial_rpn")
+  mitigationPlan        String                           @map("mitigation_plan") @db.VarChar(3000)
+  assignedToUserId      String                           @map("assigned_to_user_id") @db.Uuid
+  dueAt                 DateTime                         @map("due_at") @db.Timestamptz(3)
+  status                QualityRiskItemStatus            @default(OPEN)
+  completionEvidence    String?                          @map("completion_evidence") @db.VarChar(5000)
+  residualSeverity      Int?                             @map("residual_severity")
+  residualProbability   Int?                             @map("residual_probability")
+  residualDetectability Int?                             @map("residual_detectability")
+  residualRpn           Int?                             @map("residual_rpn")
+  completedByUserId     String?                          @map("completed_by_user_id") @db.Uuid
+  completionSessionId   String?                          @map("completion_session_id") @db.Uuid
+  meaning               QualityRiskSignatureMeaning?
+  authenticationMethod  QualityRiskAuthenticationMethod? @map("authentication_method")
+  completedAt           DateTime?                        @map("completed_at") @db.Timestamptz(3)
+  recordHash            String?                          @map("record_hash") @db.Char(64)
+  createdAt             DateTime                         @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant                Tenant                           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  risk                  QualityRiskAssessment            @relation(fields: [tenantId, riskId], references: [tenantId, id], onDelete: Restrict)
+  assignedTo            User                             @relation("QualityRiskItemAssignee", fields: [tenantId, assignedToUserId], references: [tenantId, id], onDelete: Restrict)
+  completedBy           User?                            @relation("QualityRiskItemCompleter", fields: [tenantId, completedByUserId], references: [tenantId, id], onDelete: Restrict)
+  completionSession     Session?                         @relation("QualityRiskItemCompletionSession", fields: [tenantId, completedByUserId, completionSessionId], references: [tenantId, userId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id], map: "quality_risk_items_tenant_id_id_key")
+  @@unique([tenantId, riskId, sequenceNumber], map: "quality_risk_items_risk_sequence_key")
+  @@index([tenantId, assignedToUserId, status, dueAt], map: "quality_risk_items_assignee_status_due_idx")
+  @@map("quality_risk_items")
+}
+
+model QualityRiskReview {
+  id                   String                          @id @default(uuid()) @db.Uuid
+  tenantId             String                          @map("tenant_id") @db.Uuid
+  riskId               String                          @map("risk_id") @db.Uuid
+  decision             QualityRiskReviewDecision
+  rationale            String                          @db.VarChar(3000)
+  reviewedByUserId     String                          @map("reviewed_by_user_id") @db.Uuid
+  reviewSessionId      String                          @map("review_session_id") @db.Uuid
+  meaning              QualityRiskSignatureMeaning     @default(RESIDUAL_RISK_REVIEW)
+  authenticationMethod QualityRiskAuthenticationMethod @default(PASSWORD_REAUTHENTICATION) @map("authentication_method")
+  reviewedAt           DateTime                        @map("reviewed_at") @db.Timestamptz(3)
+  recordHash           String                          @map("record_hash") @db.Char(64)
+  createdAt            DateTime                        @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant               Tenant                          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  risk                 QualityRiskAssessment           @relation(fields: [tenantId, riskId], references: [tenantId, id], onDelete: Restrict)
+  reviewedBy           User                            @relation("QualityRiskReviewSigner", fields: [tenantId, reviewedByUserId], references: [tenantId, id], onDelete: Restrict)
+  reviewSession        Session                         @relation("QualityRiskReviewSession", fields: [tenantId, reviewedByUserId, reviewSessionId], references: [tenantId, userId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id], map: "quality_risk_reviews_tenant_id_id_key")
+  @@unique([tenantId, riskId], map: "quality_risk_reviews_risk_key")
+  @@map("quality_risk_reviews")
 }

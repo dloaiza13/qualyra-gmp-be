@@ -1900,6 +1900,342 @@
         ]
       }
     },
+    "/api/v1/quality-risks": {
+      "get": {
+        "operationId": "QualityRisksController_list",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 200,
+              "default": 100,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "OPEN",
+                "PENDING_REVIEW",
+                "CLOSED",
+                "RESIDUAL_RISK_NOT_ACCEPTED",
+                "CANCELLED"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/QualityRiskSummaryResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Quality risk management"
+        ]
+      },
+      "post": {
+        "operationId": "QualityRisksController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateQualityRiskDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QualityRiskDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Quality risk management"
+        ]
+      }
+    },
+    "/api/v1/quality-risks/participants": {
+      "get": {
+        "operationId": "QualityRisksController_participants",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/QualityRiskParticipantResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Quality risk management"
+        ]
+      }
+    },
+    "/api/v1/quality-risks/references": {
+      "get": {
+        "operationId": "QualityRisksController_references",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QualityRiskReferencesResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Quality risk management"
+        ]
+      }
+    },
+    "/api/v1/quality-risks/{riskId}": {
+      "get": {
+        "operationId": "QualityRisksController_get",
+        "parameters": [
+          {
+            "name": "riskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QualityRiskDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Quality risk management"
+        ]
+      }
+    },
+    "/api/v1/quality-risks/{riskId}/items/{itemId}/complete": {
+      "post": {
+        "operationId": "QualityRisksController_completeItem",
+        "parameters": [
+          {
+            "name": "riskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "itemId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteQualityRiskItemDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QualityRiskDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Quality risk management"
+        ]
+      }
+    },
+    "/api/v1/quality-risks/{riskId}/review": {
+      "post": {
+        "operationId": "QualityRisksController_review",
+        "parameters": [
+          {
+            "name": "riskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewQualityRiskDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QualityRiskDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Quality risk management"
+        ]
+      }
+    },
+    "/api/v1/quality-risks/{riskId}/cancel": {
+      "post": {
+        "operationId": "QualityRisksController_cancel",
+        "parameters": [
+          {
+            "name": "riskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelQualityRiskDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QualityRiskDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Quality risk management"
+        ]
+      }
+    },
     "/api/v1/documents": {
       "get": {
         "operationId": "DocumentsController_list",
@@ -6354,6 +6690,623 @@
         ]
       },
       "CancelAuditDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "QualityRiskUserSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "email"
+        ]
+      },
+      "QualityRiskSummaryResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "example": "QRM-2026-0001"
+          },
+          "title": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          },
+          "processArea": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "dueState": {
+            "type": "string"
+          },
+          "owner": {
+            "$ref": "#/components/schemas/QualityRiskUserSummaryDto"
+          },
+          "reviewer": {
+            "$ref": "#/components/schemas/QualityRiskUserSummaryDto"
+          },
+          "targetReviewAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "highestInitialRpn": {
+            "type": "number"
+          },
+          "highestResidualRpn": {
+            "type": "object",
+            "nullable": true
+          },
+          "openItemCount": {
+            "type": "number"
+          },
+          "itemCount": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "title",
+          "category",
+          "method",
+          "processArea",
+          "status",
+          "dueState",
+          "owner",
+          "reviewer",
+          "targetReviewAt",
+          "highestInitialRpn",
+          "openItemCount",
+          "itemCount",
+          "createdAt"
+        ]
+      },
+      "QualityRiskParticipantResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "email",
+          "permissions"
+        ]
+      },
+      "QualityRiskReferencesResponseDto": {
+        "type": "object",
+        "properties": {
+          "deviations": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "capas": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "changeControls": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "audits": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "deviations",
+          "capas",
+          "changeControls",
+          "audits"
+        ]
+      },
+      "QualityRiskItemResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sequenceNumber": {
+            "type": "number"
+          },
+          "failureMode": {
+            "type": "string"
+          },
+          "cause": {
+            "type": "string"
+          },
+          "effect": {
+            "type": "string"
+          },
+          "currentControls": {
+            "type": "string"
+          },
+          "initialSeverity": {
+            "type": "number"
+          },
+          "initialProbability": {
+            "type": "number"
+          },
+          "initialDetectability": {
+            "type": "number"
+          },
+          "initialRpn": {
+            "type": "number"
+          },
+          "initialLevel": {
+            "type": "string"
+          },
+          "mitigationPlan": {
+            "type": "string"
+          },
+          "assignedTo": {
+            "$ref": "#/components/schemas/QualityRiskUserSummaryDto"
+          },
+          "dueAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dueState": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "completionEvidence": {
+            "type": "object",
+            "nullable": true
+          },
+          "residualSeverity": {
+            "type": "object",
+            "nullable": true
+          },
+          "residualProbability": {
+            "type": "object",
+            "nullable": true
+          },
+          "residualDetectability": {
+            "type": "object",
+            "nullable": true
+          },
+          "residualRpn": {
+            "type": "object",
+            "nullable": true
+          },
+          "residualLevel": {
+            "type": "object",
+            "nullable": true
+          },
+          "completedBy": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/QualityRiskUserSummaryDto"
+              }
+            ]
+          },
+          "meaning": {
+            "type": "object",
+            "nullable": true
+          },
+          "authenticationMethod": {
+            "type": "object",
+            "nullable": true
+          },
+          "completedAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          },
+          "recordHash": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "sequenceNumber",
+          "failureMode",
+          "cause",
+          "effect",
+          "currentControls",
+          "initialSeverity",
+          "initialProbability",
+          "initialDetectability",
+          "initialRpn",
+          "initialLevel",
+          "mitigationPlan",
+          "assignedTo",
+          "dueAt",
+          "dueState",
+          "status"
+        ]
+      },
+      "QualityRiskDetailResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "example": "QRM-2026-0001"
+          },
+          "title": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          },
+          "processArea": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "dueState": {
+            "type": "string"
+          },
+          "owner": {
+            "$ref": "#/components/schemas/QualityRiskUserSummaryDto"
+          },
+          "reviewer": {
+            "$ref": "#/components/schemas/QualityRiskUserSummaryDto"
+          },
+          "targetReviewAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "highestInitialRpn": {
+            "type": "number"
+          },
+          "highestResidualRpn": {
+            "type": "object",
+            "nullable": true
+          },
+          "openItemCount": {
+            "type": "number"
+          },
+          "itemCount": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "scope": {
+            "type": "string"
+          },
+          "riskStatement": {
+            "type": "string"
+          },
+          "createdBy": {
+            "$ref": "#/components/schemas/QualityRiskUserSummaryDto"
+          },
+          "deviationId": {
+            "type": "object",
+            "format": "uuid",
+            "nullable": true
+          },
+          "capaId": {
+            "type": "object",
+            "format": "uuid",
+            "nullable": true
+          },
+          "changeControlId": {
+            "type": "object",
+            "format": "uuid",
+            "nullable": true
+          },
+          "auditId": {
+            "type": "object",
+            "format": "uuid",
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QualityRiskItemResponseDto"
+            }
+          },
+          "review": {
+            "type": "object",
+            "nullable": true
+          },
+          "cancellationReason": {
+            "type": "object",
+            "nullable": true
+          },
+          "cancelledAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "title",
+          "category",
+          "method",
+          "processArea",
+          "status",
+          "dueState",
+          "owner",
+          "reviewer",
+          "targetReviewAt",
+          "highestInitialRpn",
+          "openItemCount",
+          "itemCount",
+          "createdAt",
+          "scope",
+          "riskStatement",
+          "createdBy",
+          "items"
+        ]
+      },
+      "CreateQualityRiskItemDto": {
+        "type": "object",
+        "properties": {
+          "failureMode": {
+            "type": "string"
+          },
+          "cause": {
+            "type": "string"
+          },
+          "effect": {
+            "type": "string"
+          },
+          "currentControls": {
+            "type": "string"
+          },
+          "initialSeverity": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "initialProbability": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "initialDetectability": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "mitigationPlan": {
+            "type": "string"
+          },
+          "assignedToUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dueAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "failureMode",
+          "cause",
+          "effect",
+          "currentControls",
+          "initialSeverity",
+          "initialProbability",
+          "initialDetectability",
+          "mitigationPlan",
+          "assignedToUserId",
+          "dueAt"
+        ]
+      },
+      "CreateQualityRiskDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "PRODUCT",
+              "PROCESS",
+              "EQUIPMENT",
+              "COMPUTERIZED_SYSTEM",
+              "SUPPLIER",
+              "FACILITY",
+              "OTHER"
+            ]
+          },
+          "processArea": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string"
+          },
+          "riskStatement": {
+            "type": "string"
+          },
+          "ownerUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reviewerUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "targetReviewAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "deviationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "capaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "changeControlId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "auditId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateQualityRiskItemDto"
+            }
+          }
+        },
+        "required": [
+          "title",
+          "category",
+          "processArea",
+          "scope",
+          "riskStatement",
+          "ownerUserId",
+          "reviewerUserId",
+          "targetReviewAt",
+          "items"
+        ]
+      },
+      "CompleteQualityRiskItemDto": {
+        "type": "object",
+        "properties": {
+          "completionEvidence": {
+            "type": "string"
+          },
+          "residualSeverity": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "residualProbability": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "residualDetectability": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "password": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "attestationAccepted": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "completionEvidence",
+          "residualSeverity",
+          "residualProbability",
+          "residualDetectability",
+          "password",
+          "attestationAccepted"
+        ]
+      },
+      "ReviewQualityRiskDto": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "ACCEPT",
+              "NOT_ACCEPTABLE"
+            ]
+          },
+          "rationale": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "attestationAccepted": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "decision",
+          "rationale",
+          "password",
+          "attestationAccepted"
+        ]
+      },
+      "CancelQualityRiskDto": {
         "type": "object",
         "properties": {
           "reason": {
