@@ -61,6 +61,18 @@ const permissions = [
   ['risks.create', 'Create controlled quality risk assessments.'],
   ['risks.mitigate', 'Complete and sign assigned risk mitigations.'],
   ['risks.review', 'Independently review and sign residual risk decisions.'],
+  [
+    'suppliers.read',
+    'View suppliers, qualifications, decisions, and SCAR evidence.',
+  ],
+  ['suppliers.create', 'Create controlled supplier master records.'],
+  ['suppliers.assess', 'Complete and sign supplier qualification assessments.'],
+  ['suppliers.approve', 'Independently approve or disqualify suppliers.'],
+  ['suppliers.scar', 'Issue SCARs and sign supplier responses.'],
+  [
+    'suppliers.review_scar',
+    'Independently review and sign SCAR response decisions.',
+  ],
   ['changes.read', 'View GMP change controls.'],
   ['changes.create', 'Propose GMP change controls.'],
   ['changes.assess', 'Assess change impact, risk, and implementation plans.'],

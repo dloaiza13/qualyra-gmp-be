@@ -350,14 +350,89 @@ enum QualityRiskAuthenticationMethod {
   PASSWORD_REAUTHENTICATION
 }
 
+enum SupplierCategory {
+  RAW_MATERIAL
+  PACKAGING_MATERIAL
+  SERVICE
+  CONTRACT_MANUFACTURER
+  LABORATORY
+  LOGISTICS
+  OTHER
+}
+
+enum SupplierCriticality {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum SupplierStatus {
+  PENDING_QUALIFICATION
+  APPROVED
+  CONDITIONALLY_APPROVED
+  DISQUALIFIED
+}
+
+enum SupplierQualificationType {
+  INITIAL
+  PERIODIC
+  EVENT_DRIVEN
+}
+
+enum SupplierQualificationStatus {
+  PENDING_DECISION
+  COMPLETED
+}
+
+enum SupplierRecommendation {
+  APPROVE
+  CONDITIONALLY_APPROVE
+  REJECT
+}
+
+enum SupplierQualificationDecisionType {
+  APPROVE
+  CONDITIONALLY_APPROVE
+  DISQUALIFY
+}
+
+enum SupplierScarSeverity {
+  MINOR
+  MAJOR
+  CRITICAL
+}
+
+enum SupplierScarStatus {
+  OPEN
+  RESPONSE_SUBMITTED
+  CLOSED
+}
+
+enum SupplierScarResponseDecision {
+  ACCEPT
+  REQUEST_REVISION
+}
+
+enum SupplierSignatureMeaning {
+  QUALIFICATION_ASSESSMENT
+  QUALIFICATION_DECISION
+  SCAR_RESPONSE
+  SCAR_RESPONSE_REVIEW
+}
+
+enum SupplierAuthenticationMethod {
+  PASSWORD_REAUTHENTICATION
+}
+
 model Tenant {
-  id                       String                        @id @default(uuid()) @db.Uuid
-  name                     String                        @db.VarChar(200)
-  slug                     String                        @unique(map: "tenants_slug_key") @db.VarChar(63)
-  status                   TenantStatus                  @default(ACTIVE)
-  plan                     TenantPlan                    @default(TRIAL)
-  createdAt                DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt                DateTime                      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id                       String                          @id @default(uuid()) @db.Uuid
+  name                     String                          @db.VarChar(200)
+  slug                     String                          @unique(map: "tenants_slug_key") @db.VarChar(63)
+  status                   TenantStatus                    @default(ACTIVE)
+  plan                     TenantPlan                      @default(TRIAL)
+  createdAt                DateTime                        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime                        @updatedAt @map("updated_at") @db.Timestamptz(3)
   users                    User[]
   roles                    Role[]
   rolePermissions          RolePermission[]
@@ -406,86 +481,101 @@ model Tenant {
   qualityRisks             QualityRiskAssessment[]
   qualityRiskItems         QualityRiskItem[]
   qualityRiskReviews       QualityRiskReview[]
+  supplierSequences        SupplierSequence[]
+  suppliers                Supplier[]
+  supplierQualifications   SupplierQualification[]
+  supplierDecisions        SupplierQualificationDecision[]
+  supplierScarSequences    SupplierScarSequence[]
+  supplierScars            SupplierScar[]
+  supplierScarResponses    SupplierScarResponse[]
 
   @@map("tenants")
 }
 
 model User {
-  id                                String                      @id @default(uuid()) @db.Uuid
-  tenantId                          String                      @map("tenant_id") @db.Uuid
-  email                             String                      @db.VarChar(320)
-  displayName                       String                      @map("display_name") @db.VarChar(200)
-  passwordHash                      String                      @map("password_hash")
-  status                            UserStatus                  @default(INVITED)
-  emailVerifiedAt                   DateTime?                   @map("email_verified_at") @db.Timestamptz(3)
-  failedLoginCount                  Int                         @default(0) @map("failed_login_count")
-  lockedUntil                       DateTime?                   @map("locked_until") @db.Timestamptz(3)
-  passwordChangedAt                 DateTime?                   @map("password_changed_at") @db.Timestamptz(3)
-  createdAt                         DateTime                    @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt                         DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(3)
-  tenant                            Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  id                                String                          @id @default(uuid()) @db.Uuid
+  tenantId                          String                          @map("tenant_id") @db.Uuid
+  email                             String                          @db.VarChar(320)
+  displayName                       String                          @map("display_name") @db.VarChar(200)
+  passwordHash                      String                          @map("password_hash")
+  status                            UserStatus                      @default(INVITED)
+  emailVerifiedAt                   DateTime?                       @map("email_verified_at") @db.Timestamptz(3)
+  failedLoginCount                  Int                             @default(0) @map("failed_login_count")
+  lockedUntil                       DateTime?                       @map("locked_until") @db.Timestamptz(3)
+  passwordChangedAt                 DateTime?                       @map("password_changed_at") @db.Timestamptz(3)
+  createdAt                         DateTime                        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                         DateTime                        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant                            Tenant                          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   userRoles                         UserRole[]
   sessions                          Session[]
   refreshTokens                     RefreshToken[]
   passwordResetTokens               PasswordResetToken[]
   emailVerificationTokens           EmailVerificationToken[]
-  invitationsCreated                Invitation[]                @relation("InvitationCreator")
-  securityEventsAsActor             SecurityEvent[]             @relation("SecurityEventActor")
-  securityEventsAsSubject           SecurityEvent[]             @relation("SecurityEventSubject")
-  documentsOwned                    Document[]                  @relation("DocumentOwner")
-  documentsCreated                  Document[]                  @relation("DocumentCreator")
-  documentVersionsCreated           DocumentVersion[]           @relation("DocumentVersionCreator")
-  documentWorkflowsRequested        DocumentWorkflow[]          @relation("DocumentWorkflowRequester")
-  documentReviewAssignments         DocumentWorkflow[]          @relation("DocumentWorkflowReviewer")
-  documentApprovalAssignments       DocumentWorkflow[]          @relation("DocumentWorkflowApprover")
-  documentReleases                  DocumentRelease[]           @relation("DocumentReleaseSigner")
-  documentObsolescences             DocumentObsolescence[]      @relation("DocumentObsolescenceSigner")
-  documentsPeriodicReviewConfigured Document[]                  @relation("DocumentPeriodicReviewConfiguration")
-  documentPeriodicReviewAssignments DocumentPeriodicReview[]    @relation("DocumentPeriodicReviewAssignee")
-  documentPeriodicReviewsScheduled  DocumentPeriodicReview[]    @relation("DocumentPeriodicReviewScheduler")
-  trainingAssignmentsReceived       TrainingAssignment[]        @relation("TrainingAssignmentAssignee")
-  trainingAssignmentsCreated        TrainingAssignment[]        @relation("TrainingAssignmentCreator")
-  trainingAssignmentsCancelled      TrainingAssignment[]        @relation("TrainingAssignmentCanceller")
-  deviationsReported                Deviation[]                 @relation("DeviationReporter")
-  deviationInvestigations           Deviation[]                 @relation("DeviationInvestigator")
-  deviationsTriaged                 Deviation[]                 @relation("DeviationTriager")
-  deviationsCancelled               Deviation[]                 @relation("DeviationCanceller")
-  deviationInvestigationsCompleted  DeviationInvestigation[]    @relation("DeviationInvestigationCompleter")
-  capasCreated                      Capa[]                      @relation("CapaCreator")
-  capaActionsAssigned               CapaAction[]                @relation("CapaActionAssignee")
-  capaEffectivenessReviewsAssigned  CapaEffectivenessReview[]   @relation("CapaEffectivenessAssignee")
-  capaEffectivenessReviewsScheduled CapaEffectivenessReview[]   @relation("CapaEffectivenessScheduler")
-  capaFollowUpCyclesCreated         CapaFollowUpCycle[]         @relation("CapaFollowUpCreator")
-  capaActionExtensionsApproved      CapaActionExtension[]       @relation("CapaActionExtensionApprover")
-  capaEvidenceUploadsCreated        CapaEvidenceUpload[]        @relation("CapaEvidenceUploader")
-  capaNotificationsReceived         CapaNotification[]          @relation("CapaNotificationRecipient")
-  capaAuditExportsCreated           CapaAuditExport[]           @relation("CapaAuditExporter")
-  changeControlsProposed            ChangeControl[]             @relation("ChangeControlProposer")
-  changeControlsCancelled           ChangeControl[]             @relation("ChangeControlCanceller")
-  changeAssessmentsCompleted        ChangeControlAssessment[]   @relation("ChangeAssessmentAssessor")
-  changeControlOwners               ChangeControlAssessment[]   @relation("ChangeAssessmentOwner")
-  changeApprovalAssignments         ChangeControlAssessment[]   @relation("ChangeAssessmentApprover")
-  changeVerificationAssignments     ChangeControlAssessment[]   @relation("ChangeAssessmentVerifier")
-  changeDecisionsCompleted          ChangeControlDecision[]     @relation("ChangeDecisionSigner")
-  changeTasksAssigned               ChangeControlTask[]         @relation("ChangeTaskAssignee")
-  changeVerificationsCompleted      ChangeControlVerification[] @relation("ChangeVerificationSigner")
-  auditsCreated                     GmpAudit[]                  @relation("AuditCreator")
-  auditsLed                         GmpAudit[]                  @relation("AuditLeadAuditor")
-  auditsReviewed                    GmpAudit[]                  @relation("AuditReviewer")
-  auditsCancelled                   GmpAudit[]                  @relation("AuditCanceller")
-  auditFindingsCreated              AuditFinding[]              @relation("AuditFindingCreator")
-  auditFindingsAssigned             AuditFinding[]              @relation("AuditFindingResponsible")
-  auditReportsCompleted             AuditReport[]               @relation("AuditReportCompleter")
-  auditResponsesSubmitted           AuditFindingResponse[]      @relation("AuditResponseSubmitter")
-  auditResponsesReviewed            AuditFindingResponse[]      @relation("AuditResponseReviewer")
-  auditsClosed                      AuditClosure[]              @relation("AuditClosureSigner")
-  qualityRisksOwned                 QualityRiskAssessment[]     @relation("QualityRiskOwner")
-  qualityRisksReviewed              QualityRiskAssessment[]     @relation("QualityRiskReviewer")
-  qualityRisksCreated               QualityRiskAssessment[]     @relation("QualityRiskCreator")
-  qualityRisksCancelled             QualityRiskAssessment[]     @relation("QualityRiskCanceller")
-  qualityRiskItemsAssigned          QualityRiskItem[]           @relation("QualityRiskItemAssignee")
-  qualityRiskMitigationsCompleted   QualityRiskItem[]           @relation("QualityRiskItemCompleter")
-  qualityRiskReviewsCompleted       QualityRiskReview[]         @relation("QualityRiskReviewSigner")
+  invitationsCreated                Invitation[]                    @relation("InvitationCreator")
+  securityEventsAsActor             SecurityEvent[]                 @relation("SecurityEventActor")
+  securityEventsAsSubject           SecurityEvent[]                 @relation("SecurityEventSubject")
+  documentsOwned                    Document[]                      @relation("DocumentOwner")
+  documentsCreated                  Document[]                      @relation("DocumentCreator")
+  documentVersionsCreated           DocumentVersion[]               @relation("DocumentVersionCreator")
+  documentWorkflowsRequested        DocumentWorkflow[]              @relation("DocumentWorkflowRequester")
+  documentReviewAssignments         DocumentWorkflow[]              @relation("DocumentWorkflowReviewer")
+  documentApprovalAssignments       DocumentWorkflow[]              @relation("DocumentWorkflowApprover")
+  documentReleases                  DocumentRelease[]               @relation("DocumentReleaseSigner")
+  documentObsolescences             DocumentObsolescence[]          @relation("DocumentObsolescenceSigner")
+  documentsPeriodicReviewConfigured Document[]                      @relation("DocumentPeriodicReviewConfiguration")
+  documentPeriodicReviewAssignments DocumentPeriodicReview[]        @relation("DocumentPeriodicReviewAssignee")
+  documentPeriodicReviewsScheduled  DocumentPeriodicReview[]        @relation("DocumentPeriodicReviewScheduler")
+  trainingAssignmentsReceived       TrainingAssignment[]            @relation("TrainingAssignmentAssignee")
+  trainingAssignmentsCreated        TrainingAssignment[]            @relation("TrainingAssignmentCreator")
+  trainingAssignmentsCancelled      TrainingAssignment[]            @relation("TrainingAssignmentCanceller")
+  deviationsReported                Deviation[]                     @relation("DeviationReporter")
+  deviationInvestigations           Deviation[]                     @relation("DeviationInvestigator")
+  deviationsTriaged                 Deviation[]                     @relation("DeviationTriager")
+  deviationsCancelled               Deviation[]                     @relation("DeviationCanceller")
+  deviationInvestigationsCompleted  DeviationInvestigation[]        @relation("DeviationInvestigationCompleter")
+  capasCreated                      Capa[]                          @relation("CapaCreator")
+  capaActionsAssigned               CapaAction[]                    @relation("CapaActionAssignee")
+  capaEffectivenessReviewsAssigned  CapaEffectivenessReview[]       @relation("CapaEffectivenessAssignee")
+  capaEffectivenessReviewsScheduled CapaEffectivenessReview[]       @relation("CapaEffectivenessScheduler")
+  capaFollowUpCyclesCreated         CapaFollowUpCycle[]             @relation("CapaFollowUpCreator")
+  capaActionExtensionsApproved      CapaActionExtension[]           @relation("CapaActionExtensionApprover")
+  capaEvidenceUploadsCreated        CapaEvidenceUpload[]            @relation("CapaEvidenceUploader")
+  capaNotificationsReceived         CapaNotification[]              @relation("CapaNotificationRecipient")
+  capaAuditExportsCreated           CapaAuditExport[]               @relation("CapaAuditExporter")
+  changeControlsProposed            ChangeControl[]                 @relation("ChangeControlProposer")
+  changeControlsCancelled           ChangeControl[]                 @relation("ChangeControlCanceller")
+  changeAssessmentsCompleted        ChangeControlAssessment[]       @relation("ChangeAssessmentAssessor")
+  changeControlOwners               ChangeControlAssessment[]       @relation("ChangeAssessmentOwner")
+  changeApprovalAssignments         ChangeControlAssessment[]       @relation("ChangeAssessmentApprover")
+  changeVerificationAssignments     ChangeControlAssessment[]       @relation("ChangeAssessmentVerifier")
+  changeDecisionsCompleted          ChangeControlDecision[]         @relation("ChangeDecisionSigner")
+  changeTasksAssigned               ChangeControlTask[]             @relation("ChangeTaskAssignee")
+  changeVerificationsCompleted      ChangeControlVerification[]     @relation("ChangeVerificationSigner")
+  auditsCreated                     GmpAudit[]                      @relation("AuditCreator")
+  auditsLed                         GmpAudit[]                      @relation("AuditLeadAuditor")
+  auditsReviewed                    GmpAudit[]                      @relation("AuditReviewer")
+  auditsCancelled                   GmpAudit[]                      @relation("AuditCanceller")
+  auditFindingsCreated              AuditFinding[]                  @relation("AuditFindingCreator")
+  auditFindingsAssigned             AuditFinding[]                  @relation("AuditFindingResponsible")
+  auditReportsCompleted             AuditReport[]                   @relation("AuditReportCompleter")
+  auditResponsesSubmitted           AuditFindingResponse[]          @relation("AuditResponseSubmitter")
+  auditResponsesReviewed            AuditFindingResponse[]          @relation("AuditResponseReviewer")
+  auditsClosed                      AuditClosure[]                  @relation("AuditClosureSigner")
+  qualityRisksOwned                 QualityRiskAssessment[]         @relation("QualityRiskOwner")
+  qualityRisksReviewed              QualityRiskAssessment[]         @relation("QualityRiskReviewer")
+  qualityRisksCreated               QualityRiskAssessment[]         @relation("QualityRiskCreator")
+  qualityRisksCancelled             QualityRiskAssessment[]         @relation("QualityRiskCanceller")
+  qualityRiskItemsAssigned          QualityRiskItem[]               @relation("QualityRiskItemAssignee")
+  qualityRiskMitigationsCompleted   QualityRiskItem[]               @relation("QualityRiskItemCompleter")
+  qualityRiskReviewsCompleted       QualityRiskReview[]             @relation("QualityRiskReviewSigner")
+  suppliersOwned                    Supplier[]                      @relation("SupplierQualityOwner")
+  suppliersApproved                 Supplier[]                      @relation("SupplierApprover")
+  suppliersCreated                  Supplier[]                      @relation("SupplierCreator")
+  supplierQualificationsCompleted   SupplierQualification[]         @relation("SupplierQualificationEvaluator")
+  supplierDecisionsCompleted        SupplierQualificationDecision[] @relation("SupplierQualificationDecisionSigner")
+  supplierScarsCreated              SupplierScar[]                  @relation("SupplierScarCreator")
+  supplierScarResponsesSubmitted    SupplierScarResponse[]          @relation("SupplierScarResponseSubmitter")
+  supplierScarResponsesReviewed     SupplierScarResponse[]          @relation("SupplierScarResponseReviewer")
 
   @@unique([tenantId, id], map: "users_tenant_id_id_key")
   @@unique([tenantId, email], map: "users_tenant_id_email_key")
@@ -550,36 +640,40 @@ model UserRole {
 }
 
 model Session {
-  id                                String                      @id @default(uuid()) @db.Uuid
-  tenantId                          String                      @map("tenant_id") @db.Uuid
-  userId                            String                      @map("user_id") @db.Uuid
-  status                            SessionStatus               @default(ACTIVE)
-  userAgent                         String?                     @map("user_agent") @db.VarChar(1024)
-  ipAddress                         String?                     @map("ip_address") @db.Inet
-  createdAt                         DateTime                    @default(now()) @map("created_at") @db.Timestamptz(3)
-  lastUsedAt                        DateTime                    @default(now()) @map("last_used_at") @db.Timestamptz(3)
-  expiresAt                         DateTime                    @map("expires_at") @db.Timestamptz(3)
-  revokedAt                         DateTime?                   @map("revoked_at") @db.Timestamptz(3)
-  revokeReason                      String?                     @map("revoke_reason") @db.VarChar(300)
-  tenant                            Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  user                              User                        @relation(fields: [tenantId, userId], references: [tenantId, id], onDelete: Restrict)
+  id                                String                          @id @default(uuid()) @db.Uuid
+  tenantId                          String                          @map("tenant_id") @db.Uuid
+  userId                            String                          @map("user_id") @db.Uuid
+  status                            SessionStatus                   @default(ACTIVE)
+  userAgent                         String?                         @map("user_agent") @db.VarChar(1024)
+  ipAddress                         String?                         @map("ip_address") @db.Inet
+  createdAt                         DateTime                        @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastUsedAt                        DateTime                        @default(now()) @map("last_used_at") @db.Timestamptz(3)
+  expiresAt                         DateTime                        @map("expires_at") @db.Timestamptz(3)
+  revokedAt                         DateTime?                       @map("revoked_at") @db.Timestamptz(3)
+  revokeReason                      String?                         @map("revoke_reason") @db.VarChar(300)
+  tenant                            Tenant                          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user                              User                            @relation(fields: [tenantId, userId], references: [tenantId, id], onDelete: Restrict)
   refreshTokens                     RefreshToken[]
-  documentReleases                  DocumentRelease[]           @relation("DocumentReleaseSession")
-  documentObsolescences             DocumentObsolescence[]      @relation("DocumentObsolescenceSession")
-  trainingCompletions               TrainingAssignment[]        @relation("TrainingCompletionSession")
-  deviationInvestigationCompletions DeviationInvestigation[]    @relation("DeviationInvestigationSession")
-  capaActionCompletions             CapaAction[]                @relation("CapaActionCompletionSession")
-  capaEffectivenessCompletions      CapaEffectivenessReview[]   @relation("CapaEffectivenessCompletionSession")
-  capaActionExtensionApprovals      CapaActionExtension[]       @relation("CapaActionExtensionApprovalSession")
-  changeDecisionSignatures          ChangeControlDecision[]     @relation("ChangeDecisionSession")
-  changeTaskCompletions             ChangeControlTask[]         @relation("ChangeTaskCompletionSession")
-  changeVerificationSignatures      ChangeControlVerification[] @relation("ChangeVerificationSession")
-  auditReportSignatures             AuditReport[]               @relation("AuditReportSession")
-  auditResponseSignatures           AuditFindingResponse[]      @relation("AuditResponseSession")
-  auditResponseReviewSignatures     AuditFindingResponse[]      @relation("AuditResponseReviewSession")
-  auditClosureSignatures            AuditClosure[]              @relation("AuditClosureSession")
-  qualityRiskMitigationSignatures   QualityRiskItem[]           @relation("QualityRiskItemCompletionSession")
-  qualityRiskReviewSignatures       QualityRiskReview[]         @relation("QualityRiskReviewSession")
+  documentReleases                  DocumentRelease[]               @relation("DocumentReleaseSession")
+  documentObsolescences             DocumentObsolescence[]          @relation("DocumentObsolescenceSession")
+  trainingCompletions               TrainingAssignment[]            @relation("TrainingCompletionSession")
+  deviationInvestigationCompletions DeviationInvestigation[]        @relation("DeviationInvestigationSession")
+  capaActionCompletions             CapaAction[]                    @relation("CapaActionCompletionSession")
+  capaEffectivenessCompletions      CapaEffectivenessReview[]       @relation("CapaEffectivenessCompletionSession")
+  capaActionExtensionApprovals      CapaActionExtension[]           @relation("CapaActionExtensionApprovalSession")
+  changeDecisionSignatures          ChangeControlDecision[]         @relation("ChangeDecisionSession")
+  changeTaskCompletions             ChangeControlTask[]             @relation("ChangeTaskCompletionSession")
+  changeVerificationSignatures      ChangeControlVerification[]     @relation("ChangeVerificationSession")
+  auditReportSignatures             AuditReport[]                   @relation("AuditReportSession")
+  auditResponseSignatures           AuditFindingResponse[]          @relation("AuditResponseSession")
+  auditResponseReviewSignatures     AuditFindingResponse[]          @relation("AuditResponseReviewSession")
+  auditClosureSignatures            AuditClosure[]                  @relation("AuditClosureSession")
+  qualityRiskMitigationSignatures   QualityRiskItem[]               @relation("QualityRiskItemCompletionSession")
+  qualityRiskReviewSignatures       QualityRiskReview[]             @relation("QualityRiskReviewSession")
+  supplierQualificationSignatures   SupplierQualification[]         @relation("SupplierQualificationSession")
+  supplierDecisionSignatures        SupplierQualificationDecision[] @relation("SupplierQualificationDecisionSession")
+  supplierScarResponseSignatures    SupplierScarResponse[]          @relation("SupplierScarResponseSession")
+  supplierScarReviewSignatures      SupplierScarResponse[]          @relation("SupplierScarResponseReviewSession")
 
   @@unique([tenantId, userId, id], map: "sessions_tenant_id_user_id_id_key")
   @@index([tenantId, userId, status], map: "sessions_tenant_id_user_id_status_idx")
@@ -1056,6 +1150,7 @@ model Capa {
   auditExports          CapaAuditExport[]
   auditFindingResponses AuditFindingResponse[]
   qualityRisks          QualityRiskAssessment[]
+  supplierScars         SupplierScar[]
 
   @@unique([tenantId, id], map: "capas_tenant_id_id_key")
   @@unique([tenantId, code], map: "capas_tenant_id_code_key")
@@ -1322,6 +1417,7 @@ model ChangeControl {
   verification          ChangeControlVerification?
   auditFindingResponses AuditFindingResponse[]
   qualityRisks          QualityRiskAssessment[]
+  supplierScars         SupplierScar[]
 
   @@unique([tenantId, id], map: "change_controls_tenant_id_id_key")
   @@unique([tenantId, code], map: "change_controls_tenant_id_code_key")
@@ -1477,6 +1573,7 @@ model GmpAudit {
   report             AuditReport?
   closure            AuditClosure?
   qualityRisks       QualityRiskAssessment[]
+  supplierScars      SupplierScar[]
 
   @@unique([tenantId, id], map: "audits_tenant_id_id_key")
   @@unique([tenantId, code], map: "audits_tenant_id_code_key")
@@ -1603,7 +1700,7 @@ model QualityRiskSequence {
   tenantId   String   @map("tenant_id") @db.Uuid
   year       Int
   lastNumber Int      @default(0) @map("last_number")
-  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@id([tenantId, year])
@@ -1611,40 +1708,41 @@ model QualityRiskSequence {
 }
 
 model QualityRiskAssessment {
-  id                 String              @id @default(uuid()) @db.Uuid
-  tenantId           String              @map("tenant_id") @db.Uuid
-  code               String              @db.VarChar(25)
-  title              String              @db.VarChar(200)
-  category           QualityRiskCategory
-  method             QualityRiskMethod   @default(FMEA)
-  processArea        String              @map("process_area") @db.VarChar(120)
-  scope              String              @db.VarChar(3000)
-  riskStatement      String              @map("risk_statement") @db.VarChar(3000)
-  ownerUserId        String              @map("owner_user_id") @db.Uuid
-  reviewerUserId     String              @map("reviewer_user_id") @db.Uuid
-  createdByUserId    String              @map("created_by_user_id") @db.Uuid
-  targetReviewAt     DateTime            @map("target_review_at") @db.Timestamptz(3)
-  deviationId        String?             @map("deviation_id") @db.Uuid
-  capaId             String?             @map("capa_id") @db.Uuid
-  changeControlId    String?             @map("change_control_id") @db.Uuid
-  auditId            String?             @map("audit_id") @db.Uuid
-  status             QualityRiskStatus   @default(OPEN)
-  cancelledByUserId  String?             @map("cancelled_by_user_id") @db.Uuid
-  cancelledAt        DateTime?           @map("cancelled_at") @db.Timestamptz(3)
-  cancellationReason String?             @map("cancellation_reason") @db.VarChar(500)
-  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt          DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
-  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  owner              User                @relation("QualityRiskOwner", fields: [tenantId, ownerUserId], references: [tenantId, id], onDelete: Restrict)
-  reviewer           User                @relation("QualityRiskReviewer", fields: [tenantId, reviewerUserId], references: [tenantId, id], onDelete: Restrict)
-  createdBy          User                @relation("QualityRiskCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
-  cancelledBy        User?               @relation("QualityRiskCanceller", fields: [tenantId, cancelledByUserId], references: [tenantId, id], onDelete: Restrict)
-  deviation          Deviation?          @relation(fields: [tenantId, deviationId], references: [tenantId, id], onDelete: Restrict)
-  capa               Capa?               @relation(fields: [tenantId, capaId], references: [tenantId, id], onDelete: Restrict)
-  changeControl      ChangeControl?      @relation(fields: [tenantId, changeControlId], references: [tenantId, id], onDelete: Restrict)
-  audit              GmpAudit?           @relation(fields: [tenantId, auditId], references: [tenantId, id], onDelete: Restrict)
-  items              QualityRiskItem[]
-  review             QualityRiskReview?
+  id                     String                  @id @default(uuid()) @db.Uuid
+  tenantId               String                  @map("tenant_id") @db.Uuid
+  code                   String                  @db.VarChar(25)
+  title                  String                  @db.VarChar(200)
+  category               QualityRiskCategory
+  method                 QualityRiskMethod       @default(FMEA)
+  processArea            String                  @map("process_area") @db.VarChar(120)
+  scope                  String                  @db.VarChar(3000)
+  riskStatement          String                  @map("risk_statement") @db.VarChar(3000)
+  ownerUserId            String                  @map("owner_user_id") @db.Uuid
+  reviewerUserId         String                  @map("reviewer_user_id") @db.Uuid
+  createdByUserId        String                  @map("created_by_user_id") @db.Uuid
+  targetReviewAt         DateTime                @map("target_review_at") @db.Timestamptz(3)
+  deviationId            String?                 @map("deviation_id") @db.Uuid
+  capaId                 String?                 @map("capa_id") @db.Uuid
+  changeControlId        String?                 @map("change_control_id") @db.Uuid
+  auditId                String?                 @map("audit_id") @db.Uuid
+  status                 QualityRiskStatus       @default(OPEN)
+  cancelledByUserId      String?                 @map("cancelled_by_user_id") @db.Uuid
+  cancelledAt            DateTime?               @map("cancelled_at") @db.Timestamptz(3)
+  cancellationReason     String?                 @map("cancellation_reason") @db.VarChar(500)
+  createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant                 Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  owner                  User                    @relation("QualityRiskOwner", fields: [tenantId, ownerUserId], references: [tenantId, id], onDelete: Restrict)
+  reviewer               User                    @relation("QualityRiskReviewer", fields: [tenantId, reviewerUserId], references: [tenantId, id], onDelete: Restrict)
+  createdBy              User                    @relation("QualityRiskCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
+  cancelledBy            User?                   @relation("QualityRiskCanceller", fields: [tenantId, cancelledByUserId], references: [tenantId, id], onDelete: Restrict)
+  deviation              Deviation?              @relation(fields: [tenantId, deviationId], references: [tenantId, id], onDelete: Restrict)
+  capa                   Capa?                   @relation(fields: [tenantId, capaId], references: [tenantId, id], onDelete: Restrict)
+  changeControl          ChangeControl?          @relation(fields: [tenantId, changeControlId], references: [tenantId, id], onDelete: Restrict)
+  audit                  GmpAudit?               @relation(fields: [tenantId, auditId], references: [tenantId, id], onDelete: Restrict)
+  items                  QualityRiskItem[]
+  review                 QualityRiskReview?
+  supplierQualifications SupplierQualification[]
 
   @@unique([tenantId, id], map: "quality_risks_tenant_id_id_key")
   @@unique([tenantId, code], map: "quality_risks_tenant_id_code_key")
@@ -1715,4 +1813,189 @@ model QualityRiskReview {
   @@unique([tenantId, id], map: "quality_risk_reviews_tenant_id_id_key")
   @@unique([tenantId, riskId], map: "quality_risk_reviews_risk_key")
   @@map("quality_risk_reviews")
+}
+
+model SupplierSequence {
+  tenantId   String   @map("tenant_id") @db.Uuid
+  year       Int
+  lastNumber Int      @default(0) @map("last_number")
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@id([tenantId, year])
+  @@map("supplier_sequences")
+}
+
+model Supplier {
+  id                 String                  @id @default(uuid()) @db.Uuid
+  tenantId           String                  @map("tenant_id") @db.Uuid
+  code               String                  @db.VarChar(25)
+  legalName          String                  @map("legal_name") @db.VarChar(200)
+  tradeName          String?                 @map("trade_name") @db.VarChar(200)
+  registrationNumber String                  @map("registration_number") @db.VarChar(100)
+  category           SupplierCategory
+  criticality        SupplierCriticality
+  scopeOfSupply      String                  @map("scope_of_supply") @db.VarChar(3000)
+  manufacturingSite  String                  @map("manufacturing_site") @db.VarChar(500)
+  countryCode        String                  @map("country_code") @db.Char(2)
+  contactName        String                  @map("contact_name") @db.VarChar(200)
+  contactEmail       String                  @map("contact_email") @db.VarChar(320)
+  qualityOwnerUserId String                  @map("quality_owner_user_id") @db.Uuid
+  approverUserId     String                  @map("approver_user_id") @db.Uuid
+  createdByUserId    String                  @map("created_by_user_id") @db.Uuid
+  status             SupplierStatus          @default(PENDING_QUALIFICATION)
+  nextReviewAt       DateTime?               @map("next_review_at") @db.Timestamptz(3)
+  createdAt          DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant             Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  qualityOwner       User                    @relation("SupplierQualityOwner", fields: [tenantId, qualityOwnerUserId], references: [tenantId, id], onDelete: Restrict)
+  approver           User                    @relation("SupplierApprover", fields: [tenantId, approverUserId], references: [tenantId, id], onDelete: Restrict)
+  createdBy          User                    @relation("SupplierCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
+  qualifications     SupplierQualification[]
+  scars              SupplierScar[]
+
+  @@unique([tenantId, id], map: "suppliers_tenant_id_id_key")
+  @@unique([tenantId, code], map: "suppliers_tenant_id_code_key")
+  @@unique([tenantId, registrationNumber], map: "suppliers_tenant_registration_key")
+  @@index([tenantId, status, nextReviewAt], map: "suppliers_status_review_idx")
+  @@index([tenantId, criticality, category], map: "suppliers_criticality_category_idx")
+  @@map("suppliers")
+}
+
+model SupplierQualification {
+  id                   String                         @id @default(uuid()) @db.Uuid
+  tenantId             String                         @map("tenant_id") @db.Uuid
+  supplierId           String                         @map("supplier_id") @db.Uuid
+  cycleNumber          Int                            @map("cycle_number")
+  type                 SupplierQualificationType
+  qualitySystemScore   Int                            @map("quality_system_score")
+  complianceScore      Int                            @map("compliance_score")
+  deliveryScore        Int                            @map("delivery_score")
+  serviceScore         Int                            @map("service_score")
+  overallScore         Int                            @map("overall_score")
+  evidenceSummary      String                         @map("evidence_summary") @db.VarChar(5000)
+  recommendation       SupplierRecommendation
+  conditions           String?                        @db.VarChar(3000)
+  qualityRiskId        String?                        @map("quality_risk_id") @db.Uuid
+  evaluatedByUserId    String                         @map("evaluated_by_user_id") @db.Uuid
+  evaluationSessionId  String                         @map("evaluation_session_id") @db.Uuid
+  meaning              SupplierSignatureMeaning       @default(QUALIFICATION_ASSESSMENT)
+  authenticationMethod SupplierAuthenticationMethod   @default(PASSWORD_REAUTHENTICATION) @map("authentication_method")
+  evaluatedAt          DateTime                       @map("evaluated_at") @db.Timestamptz(3)
+  recordHash           String                         @map("record_hash") @db.Char(64)
+  status               SupplierQualificationStatus    @default(PENDING_DECISION)
+  createdAt            DateTime                       @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant               Tenant                         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  supplier             Supplier                       @relation(fields: [tenantId, supplierId], references: [tenantId, id], onDelete: Restrict)
+  qualityRisk          QualityRiskAssessment?         @relation(fields: [tenantId, qualityRiskId], references: [tenantId, id], onDelete: Restrict)
+  evaluatedBy          User                           @relation("SupplierQualificationEvaluator", fields: [tenantId, evaluatedByUserId], references: [tenantId, id], onDelete: Restrict, map: "supplier_qualifications_evaluator_fkey")
+  evaluationSession    Session                        @relation("SupplierQualificationSession", fields: [tenantId, evaluatedByUserId, evaluationSessionId], references: [tenantId, userId, id], onDelete: Restrict, map: "supplier_qualifications_session_fkey")
+  decision             SupplierQualificationDecision?
+
+  @@unique([tenantId, id], map: "supplier_qualifications_tenant_id_id_key")
+  @@unique([tenantId, supplierId, cycleNumber], map: "supplier_qualifications_cycle_key")
+  @@index([tenantId, supplierId, status], map: "supplier_qualifications_status_idx")
+  @@map("supplier_qualifications")
+}
+
+model SupplierQualificationDecision {
+  id                   String                            @id @default(uuid()) @db.Uuid
+  tenantId             String                            @map("tenant_id") @db.Uuid
+  qualificationId      String                            @map("qualification_id") @db.Uuid
+  decision             SupplierQualificationDecisionType
+  rationale            String                            @db.VarChar(3000)
+  nextReviewAt         DateTime?                         @map("next_review_at") @db.Timestamptz(3)
+  decidedByUserId      String                            @map("decided_by_user_id") @db.Uuid
+  decisionSessionId    String                            @map("decision_session_id") @db.Uuid
+  meaning              SupplierSignatureMeaning          @default(QUALIFICATION_DECISION)
+  authenticationMethod SupplierAuthenticationMethod      @default(PASSWORD_REAUTHENTICATION) @map("authentication_method")
+  decidedAt            DateTime                          @map("decided_at") @db.Timestamptz(3)
+  recordHash           String                            @map("record_hash") @db.Char(64)
+  createdAt            DateTime                          @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant               Tenant                            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  qualification        SupplierQualification             @relation(fields: [tenantId, qualificationId], references: [tenantId, id], onDelete: Restrict)
+  decidedBy            User                              @relation("SupplierQualificationDecisionSigner", fields: [tenantId, decidedByUserId], references: [tenantId, id], onDelete: Restrict, map: "supplier_decisions_signer_fkey")
+  decisionSession      Session                           @relation("SupplierQualificationDecisionSession", fields: [tenantId, decidedByUserId, decisionSessionId], references: [tenantId, userId, id], onDelete: Restrict, map: "supplier_decisions_session_fkey")
+
+  @@unique([tenantId, id], map: "supplier_decisions_tenant_id_id_key")
+  @@unique([tenantId, qualificationId], map: "supplier_decisions_qualification_key")
+  @@map("supplier_qualification_decisions")
+}
+
+model SupplierScarSequence {
+  tenantId   String   @map("tenant_id") @db.Uuid
+  year       Int
+  lastNumber Int      @default(0) @map("last_number")
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@id([tenantId, year])
+  @@map("supplier_scar_sequences")
+}
+
+model SupplierScar {
+  id                   String                 @id @default(uuid()) @db.Uuid
+  tenantId             String                 @map("tenant_id") @db.Uuid
+  supplierId           String                 @map("supplier_id") @db.Uuid
+  code                 String                 @db.VarChar(30)
+  title                String                 @db.VarChar(200)
+  description          String                 @db.VarChar(5000)
+  requirementReference String                 @map("requirement_reference") @db.VarChar(1000)
+  severity             SupplierScarSeverity
+  dueAt                DateTime               @map("due_at") @db.Timestamptz(3)
+  capaId               String?                @map("capa_id") @db.Uuid
+  changeControlId      String?                @map("change_control_id") @db.Uuid
+  auditId              String?                @map("audit_id") @db.Uuid
+  createdByUserId      String                 @map("created_by_user_id") @db.Uuid
+  status               SupplierScarStatus     @default(OPEN)
+  createdAt            DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant               Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  supplier             Supplier               @relation(fields: [tenantId, supplierId], references: [tenantId, id], onDelete: Restrict)
+  capa                 Capa?                  @relation(fields: [tenantId, capaId], references: [tenantId, id], onDelete: Restrict)
+  changeControl        ChangeControl?         @relation(fields: [tenantId, changeControlId], references: [tenantId, id], onDelete: Restrict)
+  audit                GmpAudit?              @relation(fields: [tenantId, auditId], references: [tenantId, id], onDelete: Restrict)
+  createdBy            User                   @relation("SupplierScarCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
+  responses            SupplierScarResponse[]
+
+  @@unique([tenantId, id], map: "supplier_scars_tenant_id_id_key")
+  @@unique([tenantId, code], map: "supplier_scars_tenant_code_key")
+  @@index([tenantId, supplierId, status, dueAt], map: "supplier_scars_supplier_status_due_idx")
+  @@map("supplier_scars")
+}
+
+model SupplierScarResponse {
+  id                   String                        @id @default(uuid()) @db.Uuid
+  tenantId             String                        @map("tenant_id") @db.Uuid
+  scarId               String                        @map("scar_id") @db.Uuid
+  attemptNumber        Int                           @map("attempt_number")
+  response             String                        @db.VarChar(5000)
+  rootCause            String                        @map("root_cause") @db.VarChar(3000)
+  correction           String                        @db.VarChar(3000)
+  correctiveAction     String                        @map("corrective_action") @db.VarChar(5000)
+  evidenceReference    String                        @map("evidence_reference") @db.VarChar(3000)
+  respondedByUserId    String                        @map("responded_by_user_id") @db.Uuid
+  responseSessionId    String                        @map("response_session_id") @db.Uuid
+  responseMeaning      SupplierSignatureMeaning      @default(SCAR_RESPONSE) @map("response_meaning")
+  authenticationMethod SupplierAuthenticationMethod  @default(PASSWORD_REAUTHENTICATION) @map("authentication_method")
+  respondedAt          DateTime                      @map("responded_at") @db.Timestamptz(3)
+  responseRecordHash   String                        @map("response_record_hash") @db.Char(64)
+  decision             SupplierScarResponseDecision?
+  reviewComment        String?                       @map("review_comment") @db.VarChar(3000)
+  reviewedByUserId     String?                       @map("reviewed_by_user_id") @db.Uuid
+  reviewSessionId      String?                       @map("review_session_id") @db.Uuid
+  reviewMeaning        SupplierSignatureMeaning?     @map("review_meaning")
+  reviewedAt           DateTime?                     @map("reviewed_at") @db.Timestamptz(3)
+  reviewRecordHash     String?                       @map("review_record_hash") @db.Char(64)
+  createdAt            DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant               Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  scar                 SupplierScar                  @relation(fields: [tenantId, scarId], references: [tenantId, id], onDelete: Restrict)
+  respondedBy          User                          @relation("SupplierScarResponseSubmitter", fields: [tenantId, respondedByUserId], references: [tenantId, id], onDelete: Restrict, map: "supplier_scar_responses_submitter_fkey")
+  reviewedBy           User?                         @relation("SupplierScarResponseReviewer", fields: [tenantId, reviewedByUserId], references: [tenantId, id], onDelete: Restrict, map: "supplier_scar_responses_reviewer_fkey")
+  responseSession      Session                       @relation("SupplierScarResponseSession", fields: [tenantId, respondedByUserId, responseSessionId], references: [tenantId, userId, id], onDelete: Restrict, map: "supplier_scar_responses_session_fkey")
+  reviewSession        Session?                      @relation("SupplierScarResponseReviewSession", fields: [tenantId, reviewedByUserId, reviewSessionId], references: [tenantId, userId, id], onDelete: Restrict, map: "supplier_scar_reviews_session_fkey")
+
+  @@unique([tenantId, id], map: "supplier_scar_responses_tenant_id_id_key")
+  @@unique([tenantId, scarId, attemptNumber], map: "supplier_scar_responses_attempt_key")
+  @@index([tenantId, scarId, respondedAt], map: "supplier_scar_responses_scar_idx")
+  @@map("supplier_scar_responses")
 }

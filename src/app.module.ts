@@ -27,6 +27,7 @@ import { CapasModule } from './modules/capas/capas.module.js';
 import { ChangeControlsModule } from './modules/change-controls/change-controls.module.js';
 import { AuditsModule } from './modules/audits/audits.module.js';
 import { QualityRisksModule } from './modules/quality-risks/quality-risks.module.js';
+import { SuppliersModule } from './modules/suppliers/suppliers.module.js';
 import { DocumentsModule } from './modules/documents/documents.module.js';
 import { DeviationsModule } from './modules/deviations/deviations.module.js';
 import { HealthModule } from './modules/health/health.module.js';
@@ -111,6 +112,7 @@ import { ObservabilityModule } from './modules/observability/observability.modul
     ChangeControlsModule,
     AuditsModule,
     QualityRisksModule,
+    SuppliersModule,
     DocumentsModule,
     TrainingModule,
     DeviationsModule,
@@ -125,6 +127,7 @@ import { ObservabilityModule } from './modules/observability/observability.modul
       { path: 'api/v1', module: ChangeControlsModule },
       { path: 'api/v1', module: AuditsModule },
       { path: 'api/v1', module: QualityRisksModule },
+      { path: 'api/v1', module: SuppliersModule },
       { path: 'api/v1', module: DocumentsModule },
       { path: 'api/v1', module: TrainingModule },
       { path: 'api/v1', module: DeviationsModule },

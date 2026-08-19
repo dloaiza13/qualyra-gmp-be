@@ -84,6 +84,7 @@ The backend is a modular NestJS monolith with pragmatic ports and adapters, tena
 - [GMP change control](docs/change-control.md)
 - [GMP audits and inspections](docs/audits.md)
 - [Quality risk management (QRM/FMEA)](docs/quality-risk-management.md)
+- [Supplier quality management](docs/supplier-quality-management.md)
 - [Operations and recovery](docs/operations.md)
 - [Durable notification delivery](docs/notifications.md)
 - [Operational observability](docs/observability.md)

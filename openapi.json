@@ -2236,6 +2236,455 @@
         ]
       }
     },
+    "/api/v1/suppliers": {
+      "get": {
+        "operationId": "SuppliersController_list",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 200,
+              "default": 100,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING_QUALIFICATION",
+                "APPROVED",
+                "CONDITIONALLY_APPROVED",
+                "DISQUALIFIED"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SupplierSummaryResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Supplier quality management"
+        ]
+      },
+      "post": {
+        "operationId": "SuppliersController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSupplierDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupplierDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Supplier quality management"
+        ]
+      }
+    },
+    "/api/v1/suppliers/participants": {
+      "get": {
+        "operationId": "SuppliersController_participants",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SupplierParticipantResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Supplier quality management"
+        ]
+      }
+    },
+    "/api/v1/suppliers/references": {
+      "get": {
+        "operationId": "SuppliersController_references",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupplierReferencesResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Supplier quality management"
+        ]
+      }
+    },
+    "/api/v1/suppliers/{supplierId}": {
+      "get": {
+        "operationId": "SuppliersController_get",
+        "parameters": [
+          {
+            "name": "supplierId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupplierDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Supplier quality management"
+        ]
+      }
+    },
+    "/api/v1/suppliers/{supplierId}/qualifications": {
+      "post": {
+        "operationId": "SuppliersController_qualify",
+        "parameters": [
+          {
+            "name": "supplierId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteSupplierQualificationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupplierDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Supplier quality management"
+        ]
+      }
+    },
+    "/api/v1/suppliers/{supplierId}/qualifications/{qualificationId}/decision": {
+      "post": {
+        "operationId": "SuppliersController_decideQualification",
+        "parameters": [
+          {
+            "name": "supplierId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "qualificationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecideSupplierQualificationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupplierDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Supplier quality management"
+        ]
+      }
+    },
+    "/api/v1/suppliers/{supplierId}/scars": {
+      "post": {
+        "operationId": "SuppliersController_createScar",
+        "parameters": [
+          {
+            "name": "supplierId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSupplierScarDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupplierDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Supplier quality management"
+        ]
+      }
+    },
+    "/api/v1/suppliers/{supplierId}/scars/{scarId}/responses": {
+      "post": {
+        "operationId": "SuppliersController_submitScarResponse",
+        "parameters": [
+          {
+            "name": "supplierId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "scarId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitSupplierScarResponseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupplierDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Supplier quality management"
+        ]
+      }
+    },
+    "/api/v1/suppliers/{supplierId}/scars/{scarId}/responses/{responseId}/review": {
+      "post": {
+        "operationId": "SuppliersController_reviewScarResponse",
+        "parameters": [
+          {
+            "name": "supplierId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "scarId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "responseId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewSupplierScarResponseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupplierDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Supplier quality management"
+        ]
+      }
+    },
     "/api/v1/documents": {
       "get": {
         "operationId": "DocumentsController_list",
@@ -7315,6 +7764,562 @@
         },
         "required": [
           "reason"
+        ]
+      },
+      "SupplierUserSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "email"
+        ]
+      },
+      "SupplierSummaryResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "example": "SUP-2026-0001"
+          },
+          "legalName": {
+            "type": "string"
+          },
+          "tradeName": {
+            "type": "object",
+            "nullable": true
+          },
+          "category": {
+            "type": "string"
+          },
+          "criticality": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "approvedList": {
+            "type": "boolean"
+          },
+          "reviewState": {
+            "type": "string"
+          },
+          "nextReviewAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          },
+          "latestScore": {
+            "type": "object",
+            "nullable": true
+          },
+          "openScarCount": {
+            "type": "number"
+          },
+          "qualityOwner": {
+            "$ref": "#/components/schemas/SupplierUserSummaryDto"
+          },
+          "approver": {
+            "$ref": "#/components/schemas/SupplierUserSummaryDto"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "legalName",
+          "category",
+          "criticality",
+          "status",
+          "approvedList",
+          "reviewState",
+          "openScarCount",
+          "qualityOwner",
+          "approver",
+          "createdAt"
+        ]
+      },
+      "SupplierParticipantResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "email",
+          "permissions"
+        ]
+      },
+      "SupplierReferencesResponseDto": {
+        "type": "object",
+        "properties": {
+          "qualityRisks": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "capas": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "changeControls": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "audits": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "qualityRisks",
+          "capas",
+          "changeControls",
+          "audits"
+        ]
+      },
+      "SupplierDetailResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "example": "SUP-2026-0001"
+          },
+          "legalName": {
+            "type": "string"
+          },
+          "tradeName": {
+            "type": "object",
+            "nullable": true
+          },
+          "category": {
+            "type": "string"
+          },
+          "criticality": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "approvedList": {
+            "type": "boolean"
+          },
+          "reviewState": {
+            "type": "string"
+          },
+          "nextReviewAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          },
+          "latestScore": {
+            "type": "object",
+            "nullable": true
+          },
+          "openScarCount": {
+            "type": "number"
+          },
+          "qualityOwner": {
+            "$ref": "#/components/schemas/SupplierUserSummaryDto"
+          },
+          "approver": {
+            "$ref": "#/components/schemas/SupplierUserSummaryDto"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "registrationNumber": {
+            "type": "string"
+          },
+          "scopeOfSupply": {
+            "type": "string"
+          },
+          "manufacturingSite": {
+            "type": "string"
+          },
+          "countryCode": {
+            "type": "string"
+          },
+          "contactName": {
+            "type": "string"
+          },
+          "contactEmail": {
+            "type": "string"
+          },
+          "createdBy": {
+            "$ref": "#/components/schemas/SupplierUserSummaryDto"
+          },
+          "qualifications": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "scars": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "legalName",
+          "category",
+          "criticality",
+          "status",
+          "approvedList",
+          "reviewState",
+          "openScarCount",
+          "qualityOwner",
+          "approver",
+          "createdAt",
+          "registrationNumber",
+          "scopeOfSupply",
+          "manufacturingSite",
+          "countryCode",
+          "contactName",
+          "contactEmail",
+          "createdBy",
+          "qualifications",
+          "scars"
+        ]
+      },
+      "CreateSupplierDto": {
+        "type": "object",
+        "properties": {
+          "legalName": {
+            "type": "string"
+          },
+          "tradeName": {
+            "type": "string"
+          },
+          "registrationNumber": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "RAW_MATERIAL",
+              "PACKAGING_MATERIAL",
+              "SERVICE",
+              "CONTRACT_MANUFACTURER",
+              "LABORATORY",
+              "LOGISTICS",
+              "OTHER"
+            ]
+          },
+          "criticality": {
+            "type": "string",
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "CRITICAL"
+            ]
+          },
+          "scopeOfSupply": {
+            "type": "string"
+          },
+          "manufacturingSite": {
+            "type": "string"
+          },
+          "countryCode": {
+            "type": "string",
+            "example": "CR"
+          },
+          "contactName": {
+            "type": "string"
+          },
+          "contactEmail": {
+            "type": "string",
+            "format": "email"
+          },
+          "qualityOwnerUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "approverUserId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "legalName",
+          "registrationNumber",
+          "category",
+          "criticality",
+          "scopeOfSupply",
+          "manufacturingSite",
+          "countryCode",
+          "contactName",
+          "contactEmail",
+          "qualityOwnerUserId",
+          "approverUserId"
+        ]
+      },
+      "CompleteSupplierQualificationDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "INITIAL",
+              "PERIODIC",
+              "EVENT_DRIVEN"
+            ]
+          },
+          "qualitySystemScore": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "complianceScore": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "deliveryScore": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "serviceScore": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "evidenceSummary": {
+            "type": "string"
+          },
+          "recommendation": {
+            "type": "string",
+            "enum": [
+              "APPROVE",
+              "CONDITIONALLY_APPROVE",
+              "REJECT"
+            ]
+          },
+          "conditions": {
+            "type": "string"
+          },
+          "qualityRiskId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "password": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "attestationAccepted": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "type",
+          "qualitySystemScore",
+          "complianceScore",
+          "deliveryScore",
+          "serviceScore",
+          "evidenceSummary",
+          "recommendation",
+          "password",
+          "attestationAccepted"
+        ]
+      },
+      "DecideSupplierQualificationDto": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "APPROVE",
+              "CONDITIONALLY_APPROVE",
+              "DISQUALIFY"
+            ]
+          },
+          "rationale": {
+            "type": "string"
+          },
+          "nextReviewAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "password": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "attestationAccepted": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "decision",
+          "rationale",
+          "password",
+          "attestationAccepted"
+        ]
+      },
+      "CreateSupplierScarDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "requirementReference": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "MINOR",
+              "MAJOR",
+              "CRITICAL"
+            ]
+          },
+          "dueAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "capaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "changeControlId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "auditId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "title",
+          "description",
+          "requirementReference",
+          "severity",
+          "dueAt"
+        ]
+      },
+      "SubmitSupplierScarResponseDto": {
+        "type": "object",
+        "properties": {
+          "response": {
+            "type": "string"
+          },
+          "rootCause": {
+            "type": "string"
+          },
+          "correction": {
+            "type": "string"
+          },
+          "correctiveAction": {
+            "type": "string"
+          },
+          "evidenceReference": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "attestationAccepted": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "response",
+          "rootCause",
+          "correction",
+          "correctiveAction",
+          "evidenceReference",
+          "password",
+          "attestationAccepted"
+        ]
+      },
+      "ReviewSupplierScarResponseDto": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "ACCEPT",
+              "REQUEST_REVISION"
+            ]
+          },
+          "comment": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "attestationAccepted": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "decision",
+          "comment",
+          "password",
+          "attestationAccepted"
         ]
       },
       "DocumentUserSummaryDto": {
