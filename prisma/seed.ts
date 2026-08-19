@@ -51,6 +51,12 @@ const permissions = [
     'Approve authenticated CAPA action due-date extensions.',
   ],
   ['audit.read', 'View audit information.'],
+  ['changes.read', 'View GMP change controls.'],
+  ['changes.create', 'Propose GMP change controls.'],
+  ['changes.assess', 'Assess change impact, risk, and implementation plans.'],
+  ['changes.approve', 'Approve or reject independently assessed changes.'],
+  ['changes.implement', 'Complete assigned change implementation tasks.'],
+  ['changes.verify', 'Verify change effectiveness independently.'],
 ] as const;
 
 const migrationDatabaseUrl = process.env.MIGRATION_DATABASE_URL;

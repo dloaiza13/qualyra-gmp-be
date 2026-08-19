@@ -24,6 +24,7 @@ import { PrismaModule } from './infrastructure/database/prisma/prisma.module.js'
 import { EmailModule } from './infrastructure/email/email.module.js';
 import { AuthenticationModule } from './modules/authentication/authentication.module.js';
 import { CapasModule } from './modules/capas/capas.module.js';
+import { ChangeControlsModule } from './modules/change-controls/change-controls.module.js';
 import { DocumentsModule } from './modules/documents/documents.module.js';
 import { DeviationsModule } from './modules/deviations/deviations.module.js';
 import { HealthModule } from './modules/health/health.module.js';
@@ -105,6 +106,7 @@ import { ObservabilityModule } from './modules/observability/observability.modul
     HealthModule,
     AuthenticationModule,
     CapasModule,
+    ChangeControlsModule,
     DocumentsModule,
     TrainingModule,
     DeviationsModule,
@@ -116,6 +118,7 @@ import { ObservabilityModule } from './modules/observability/observability.modul
     RouterModule.register([
       { path: 'api/v1', module: AuthenticationModule },
       { path: 'api/v1', module: CapasModule },
+      { path: 'api/v1', module: ChangeControlsModule },
       { path: 'api/v1', module: DocumentsModule },
       { path: 'api/v1', module: TrainingModule },
       { path: 'api/v1', module: DeviationsModule },

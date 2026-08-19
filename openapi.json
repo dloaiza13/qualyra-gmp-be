@@ -999,6 +999,410 @@
         ]
       }
     },
+    "/api/v1/change-controls": {
+      "get": {
+        "operationId": "ChangeControlsController_list",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 200,
+              "default": 100,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PROPOSED",
+                "ASSESSED",
+                "APPROVED",
+                "IMPLEMENTING",
+                "PENDING_VERIFICATION",
+                "CLOSED",
+                "REJECTED",
+                "VERIFICATION_FAILED",
+                "CANCELLED"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ChangeControlSummaryResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Change controls"
+        ]
+      },
+      "post": {
+        "operationId": "ChangeControlsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateChangeControlDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeControlDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Change controls"
+        ]
+      }
+    },
+    "/api/v1/change-controls/participants": {
+      "get": {
+        "operationId": "ChangeControlsController_listParticipants",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ChangeControlParticipantResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Change controls"
+        ]
+      }
+    },
+    "/api/v1/change-controls/{changeControlId}": {
+      "get": {
+        "operationId": "ChangeControlsController_get",
+        "parameters": [
+          {
+            "name": "changeControlId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeControlDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Change controls"
+        ]
+      }
+    },
+    "/api/v1/change-controls/{changeControlId}/assessment": {
+      "post": {
+        "operationId": "ChangeControlsController_assess",
+        "parameters": [
+          {
+            "name": "changeControlId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssessChangeControlDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeControlDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Change controls"
+        ]
+      }
+    },
+    "/api/v1/change-controls/{changeControlId}/cancel": {
+      "post": {
+        "operationId": "ChangeControlsController_cancel",
+        "parameters": [
+          {
+            "name": "changeControlId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelChangeControlDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeControlDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Change controls"
+        ]
+      }
+    },
+    "/api/v1/change-controls/{changeControlId}/decision": {
+      "post": {
+        "operationId": "ChangeControlsController_decide",
+        "parameters": [
+          {
+            "name": "changeControlId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecideChangeControlDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeControlDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Change controls"
+        ]
+      }
+    },
+    "/api/v1/change-controls/{changeControlId}/tasks/{taskId}/complete": {
+      "post": {
+        "operationId": "ChangeControlsController_completeTask",
+        "parameters": [
+          {
+            "name": "changeControlId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteChangeTaskDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeControlDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Change controls"
+        ]
+      }
+    },
+    "/api/v1/change-controls/{changeControlId}/verification": {
+      "post": {
+        "operationId": "ChangeControlsController_verify",
+        "parameters": [
+          {
+            "name": "changeControlId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyChangeControlDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeControlDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Change controls"
+        ]
+      }
+    },
     "/api/v1/documents": {
       "get": {
         "operationId": "DocumentsController_list",
@@ -4159,6 +4563,698 @@
           "password": {
             "type": "string",
             "example": "current account password",
+            "writeOnly": true
+          },
+          "attestationAccepted": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "decision",
+          "evidence",
+          "password",
+          "attestationAccepted"
+        ]
+      },
+      "ChangeControlUserSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "email"
+        ]
+      },
+      "ChangeControlSummaryResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "example": "CC-2026-0001"
+          },
+          "title": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "dueState": {
+            "type": "string",
+            "enum": [
+              "ON_TRACK",
+              "DUE_SOON",
+              "OVERDUE",
+              "COMPLETED"
+            ]
+          },
+          "proposedBy": {
+            "$ref": "#/components/schemas/ChangeControlUserSummaryDto"
+          },
+          "riskLevel": {
+            "type": "object",
+            "nullable": true
+          },
+          "targetCompletionAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "openTaskCount": {
+            "type": "number"
+          },
+          "totalTaskCount": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "title",
+          "category",
+          "status",
+          "dueState",
+          "proposedBy",
+          "targetCompletionAt",
+          "openTaskCount",
+          "totalTaskCount",
+          "createdAt"
+        ]
+      },
+      "ChangeControlParticipantResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "email",
+          "permissions"
+        ]
+      },
+      "ChangeControlAssessmentResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "impactSummary": {
+            "type": "string"
+          },
+          "qualityImpact": {
+            "type": "string"
+          },
+          "regulatoryImpact": {
+            "type": "string"
+          },
+          "validationImpact": {
+            "type": "string"
+          },
+          "trainingImpact": {
+            "type": "string"
+          },
+          "documentImpact": {
+            "type": "string"
+          },
+          "riskLevel": {
+            "type": "string",
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "CRITICAL"
+            ]
+          },
+          "riskRationale": {
+            "type": "string"
+          },
+          "implementationPlan": {
+            "type": "string"
+          },
+          "rollbackPlan": {
+            "type": "string"
+          },
+          "verificationCriterion": {
+            "type": "string"
+          },
+          "assessedBy": {
+            "$ref": "#/components/schemas/ChangeControlUserSummaryDto"
+          },
+          "owner": {
+            "$ref": "#/components/schemas/ChangeControlUserSummaryDto"
+          },
+          "approver": {
+            "$ref": "#/components/schemas/ChangeControlUserSummaryDto"
+          },
+          "verifier": {
+            "$ref": "#/components/schemas/ChangeControlUserSummaryDto"
+          },
+          "assessedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "impactSummary",
+          "qualityImpact",
+          "regulatoryImpact",
+          "validationImpact",
+          "trainingImpact",
+          "documentImpact",
+          "riskLevel",
+          "riskRationale",
+          "implementationPlan",
+          "rollbackPlan",
+          "verificationCriterion",
+          "assessedBy",
+          "owner",
+          "approver",
+          "verifier",
+          "assessedAt"
+        ]
+      },
+      "ChangeControlDecisionResponseDto": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "APPROVE",
+              "REJECT"
+            ]
+          },
+          "comment": {
+            "type": "string"
+          },
+          "decidedBy": {
+            "$ref": "#/components/schemas/ChangeControlUserSummaryDto"
+          },
+          "meaning": {
+            "type": "string"
+          },
+          "authenticationMethod": {
+            "type": "string"
+          },
+          "decidedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "recordHash": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "comment",
+          "decidedBy",
+          "meaning",
+          "authenticationMethod",
+          "decidedAt",
+          "recordHash"
+        ]
+      },
+      "ChangeControlTaskResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "assignedTo": {
+            "$ref": "#/components/schemas/ChangeControlUserSummaryDto"
+          },
+          "dueAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "COMPLETED"
+            ]
+          },
+          "dueState": {
+            "type": "string",
+            "enum": [
+              "ON_TRACK",
+              "DUE_SOON",
+              "OVERDUE",
+              "COMPLETED"
+            ]
+          },
+          "completionComment": {
+            "type": "object",
+            "nullable": true
+          },
+          "meaning": {
+            "type": "object",
+            "nullable": true
+          },
+          "authenticationMethod": {
+            "type": "object",
+            "nullable": true
+          },
+          "completedAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          },
+          "recordHash": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "description",
+          "assignedTo",
+          "dueAt",
+          "status",
+          "dueState"
+        ]
+      },
+      "ChangeControlVerificationResponseDto": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "EFFECTIVE",
+              "INEFFECTIVE"
+            ]
+          },
+          "evidence": {
+            "type": "string"
+          },
+          "verifiedBy": {
+            "$ref": "#/components/schemas/ChangeControlUserSummaryDto"
+          },
+          "meaning": {
+            "type": "string"
+          },
+          "authenticationMethod": {
+            "type": "string"
+          },
+          "verifiedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "recordHash": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "evidence",
+          "verifiedBy",
+          "meaning",
+          "authenticationMethod",
+          "verifiedAt",
+          "recordHash"
+        ]
+      },
+      "ChangeControlDetailResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "example": "CC-2026-0001"
+          },
+          "title": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "dueState": {
+            "type": "string",
+            "enum": [
+              "ON_TRACK",
+              "DUE_SOON",
+              "OVERDUE",
+              "COMPLETED"
+            ]
+          },
+          "proposedBy": {
+            "$ref": "#/components/schemas/ChangeControlUserSummaryDto"
+          },
+          "riskLevel": {
+            "type": "object",
+            "nullable": true
+          },
+          "targetCompletionAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "openTaskCount": {
+            "type": "number"
+          },
+          "totalTaskCount": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "description": {
+            "type": "string"
+          },
+          "justification": {
+            "type": "string"
+          },
+          "assessment": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeControlAssessmentResponseDto"
+              }
+            ]
+          },
+          "decision": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeControlDecisionResponseDto"
+              }
+            ]
+          },
+          "tasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChangeControlTaskResponseDto"
+            }
+          },
+          "verification": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeControlVerificationResponseDto"
+              }
+            ]
+          },
+          "cancellationReason": {
+            "type": "object",
+            "nullable": true
+          },
+          "cancelledAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "title",
+          "category",
+          "status",
+          "dueState",
+          "proposedBy",
+          "targetCompletionAt",
+          "openTaskCount",
+          "totalTaskCount",
+          "createdAt",
+          "description",
+          "justification",
+          "tasks"
+        ]
+      },
+      "CreateChangeControlDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "justification": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "DOCUMENT",
+              "PROCESS",
+              "EQUIPMENT",
+              "SOFTWARE",
+              "FACILITY",
+              "SUPPLIER",
+              "OTHER"
+            ]
+          },
+          "targetCompletionAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "title",
+          "description",
+          "justification",
+          "category",
+          "targetCompletionAt"
+        ]
+      },
+      "ChangeControlTaskPlanDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "assignedToUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dueAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "title",
+          "description",
+          "assignedToUserId",
+          "dueAt"
+        ]
+      },
+      "AssessChangeControlDto": {
+        "type": "object",
+        "properties": {
+          "impactSummary": {
+            "type": "string"
+          },
+          "qualityImpact": {
+            "type": "string"
+          },
+          "regulatoryImpact": {
+            "type": "string"
+          },
+          "validationImpact": {
+            "type": "string"
+          },
+          "trainingImpact": {
+            "type": "string"
+          },
+          "documentImpact": {
+            "type": "string"
+          },
+          "riskLevel": {
+            "type": "string",
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "CRITICAL"
+            ]
+          },
+          "riskRationale": {
+            "type": "string"
+          },
+          "implementationPlan": {
+            "type": "string"
+          },
+          "rollbackPlan": {
+            "type": "string"
+          },
+          "ownerUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "approverUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "verifierUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "verificationCriterion": {
+            "type": "string"
+          },
+          "tasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChangeControlTaskPlanDto"
+            }
+          }
+        },
+        "required": [
+          "impactSummary",
+          "qualityImpact",
+          "regulatoryImpact",
+          "validationImpact",
+          "trainingImpact",
+          "documentImpact",
+          "riskLevel",
+          "riskRationale",
+          "implementationPlan",
+          "rollbackPlan",
+          "ownerUserId",
+          "approverUserId",
+          "verifierUserId",
+          "verificationCriterion",
+          "tasks"
+        ]
+      },
+      "CancelChangeControlDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "DecideChangeControlDto": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "APPROVE",
+              "REJECT"
+            ]
+          },
+          "comment": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "attestationAccepted": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "decision",
+          "comment",
+          "password",
+          "attestationAccepted"
+        ]
+      },
+      "CompleteChangeTaskDto": {
+        "type": "object",
+        "properties": {
+          "comment": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "attestationAccepted": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "comment",
+          "password",
+          "attestationAccepted"
+        ]
+      },
+      "VerifyChangeControlDto": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "EFFECTIVE",
+              "INEFFECTIVE"
+            ]
+          },
+          "evidence": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
             "writeOnly": true
           },
           "attestationAccepted": {

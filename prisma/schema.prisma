@@ -210,6 +210,60 @@ enum CapaNotificationStatus {
   FAILED
 }
 
+enum ChangeControlCategory {
+  DOCUMENT
+  PROCESS
+  EQUIPMENT
+  SOFTWARE
+  FACILITY
+  SUPPLIER
+  OTHER
+}
+
+enum ChangeControlStatus {
+  PROPOSED
+  ASSESSED
+  APPROVED
+  IMPLEMENTING
+  PENDING_VERIFICATION
+  CLOSED
+  REJECTED
+  VERIFICATION_FAILED
+  CANCELLED
+}
+
+enum ChangeRiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ChangeDecision {
+  APPROVE
+  REJECT
+}
+
+enum ChangeTaskStatus {
+  OPEN
+  COMPLETED
+}
+
+enum ChangeVerificationDecision {
+  EFFECTIVE
+  INEFFECTIVE
+}
+
+enum ChangeSignatureMeaning {
+  CHANGE_APPROVAL
+  CHANGE_TASK_COMPLETION
+  CHANGE_VERIFICATION
+}
+
+enum ChangeAuthenticationMethod {
+  PASSWORD_REAUTHENTICATION
+}
+
 model Tenant {
   id                       String                        @id @default(uuid()) @db.Uuid
   name                     String                        @db.VarChar(200)
@@ -250,60 +304,75 @@ model Tenant {
   capaEvidenceUploads      CapaEvidenceUpload[]
   capaNotifications        CapaNotification[]
   capaAuditExports         CapaAuditExport[]
+  changeControlSequences   ChangeControlSequence[]
+  changeControls           ChangeControl[]
+  changeAssessments        ChangeControlAssessment[]
+  changeDecisions          ChangeControlDecision[]
+  changeTasks              ChangeControlTask[]
+  changeVerifications      ChangeControlVerification[]
 
   @@map("tenants")
 }
 
 model User {
-  id                                String                    @id @default(uuid()) @db.Uuid
-  tenantId                          String                    @map("tenant_id") @db.Uuid
-  email                             String                    @db.VarChar(320)
-  displayName                       String                    @map("display_name") @db.VarChar(200)
-  passwordHash                      String                    @map("password_hash")
-  status                            UserStatus                @default(INVITED)
-  emailVerifiedAt                   DateTime?                 @map("email_verified_at") @db.Timestamptz(3)
-  failedLoginCount                  Int                       @default(0) @map("failed_login_count")
-  lockedUntil                       DateTime?                 @map("locked_until") @db.Timestamptz(3)
-  passwordChangedAt                 DateTime?                 @map("password_changed_at") @db.Timestamptz(3)
-  createdAt                         DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt                         DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(3)
-  tenant                            Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  id                                String                      @id @default(uuid()) @db.Uuid
+  tenantId                          String                      @map("tenant_id") @db.Uuid
+  email                             String                      @db.VarChar(320)
+  displayName                       String                      @map("display_name") @db.VarChar(200)
+  passwordHash                      String                      @map("password_hash")
+  status                            UserStatus                  @default(INVITED)
+  emailVerifiedAt                   DateTime?                   @map("email_verified_at") @db.Timestamptz(3)
+  failedLoginCount                  Int                         @default(0) @map("failed_login_count")
+  lockedUntil                       DateTime?                   @map("locked_until") @db.Timestamptz(3)
+  passwordChangedAt                 DateTime?                   @map("password_changed_at") @db.Timestamptz(3)
+  createdAt                         DateTime                    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                         DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant                            Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   userRoles                         UserRole[]
   sessions                          Session[]
   refreshTokens                     RefreshToken[]
   passwordResetTokens               PasswordResetToken[]
   emailVerificationTokens           EmailVerificationToken[]
-  invitationsCreated                Invitation[]              @relation("InvitationCreator")
-  securityEventsAsActor             SecurityEvent[]           @relation("SecurityEventActor")
-  securityEventsAsSubject           SecurityEvent[]           @relation("SecurityEventSubject")
-  documentsOwned                    Document[]                @relation("DocumentOwner")
-  documentsCreated                  Document[]                @relation("DocumentCreator")
-  documentVersionsCreated           DocumentVersion[]         @relation("DocumentVersionCreator")
-  documentWorkflowsRequested        DocumentWorkflow[]        @relation("DocumentWorkflowRequester")
-  documentReviewAssignments         DocumentWorkflow[]        @relation("DocumentWorkflowReviewer")
-  documentApprovalAssignments       DocumentWorkflow[]        @relation("DocumentWorkflowApprover")
-  documentReleases                  DocumentRelease[]         @relation("DocumentReleaseSigner")
-  documentObsolescences             DocumentObsolescence[]    @relation("DocumentObsolescenceSigner")
-  documentsPeriodicReviewConfigured Document[]                @relation("DocumentPeriodicReviewConfiguration")
-  documentPeriodicReviewAssignments DocumentPeriodicReview[]  @relation("DocumentPeriodicReviewAssignee")
-  documentPeriodicReviewsScheduled  DocumentPeriodicReview[]  @relation("DocumentPeriodicReviewScheduler")
-  trainingAssignmentsReceived       TrainingAssignment[]      @relation("TrainingAssignmentAssignee")
-  trainingAssignmentsCreated        TrainingAssignment[]      @relation("TrainingAssignmentCreator")
-  trainingAssignmentsCancelled      TrainingAssignment[]      @relation("TrainingAssignmentCanceller")
-  deviationsReported                Deviation[]               @relation("DeviationReporter")
-  deviationInvestigations           Deviation[]               @relation("DeviationInvestigator")
-  deviationsTriaged                 Deviation[]               @relation("DeviationTriager")
-  deviationsCancelled               Deviation[]               @relation("DeviationCanceller")
-  deviationInvestigationsCompleted  DeviationInvestigation[]  @relation("DeviationInvestigationCompleter")
-  capasCreated                      Capa[]                    @relation("CapaCreator")
-  capaActionsAssigned               CapaAction[]              @relation("CapaActionAssignee")
-  capaEffectivenessReviewsAssigned  CapaEffectivenessReview[] @relation("CapaEffectivenessAssignee")
-  capaEffectivenessReviewsScheduled CapaEffectivenessReview[] @relation("CapaEffectivenessScheduler")
-  capaFollowUpCyclesCreated         CapaFollowUpCycle[]       @relation("CapaFollowUpCreator")
-  capaActionExtensionsApproved      CapaActionExtension[]     @relation("CapaActionExtensionApprover")
-  capaEvidenceUploadsCreated        CapaEvidenceUpload[]      @relation("CapaEvidenceUploader")
-  capaNotificationsReceived         CapaNotification[]        @relation("CapaNotificationRecipient")
-  capaAuditExportsCreated           CapaAuditExport[]         @relation("CapaAuditExporter")
+  invitationsCreated                Invitation[]                @relation("InvitationCreator")
+  securityEventsAsActor             SecurityEvent[]             @relation("SecurityEventActor")
+  securityEventsAsSubject           SecurityEvent[]             @relation("SecurityEventSubject")
+  documentsOwned                    Document[]                  @relation("DocumentOwner")
+  documentsCreated                  Document[]                  @relation("DocumentCreator")
+  documentVersionsCreated           DocumentVersion[]           @relation("DocumentVersionCreator")
+  documentWorkflowsRequested        DocumentWorkflow[]          @relation("DocumentWorkflowRequester")
+  documentReviewAssignments         DocumentWorkflow[]          @relation("DocumentWorkflowReviewer")
+  documentApprovalAssignments       DocumentWorkflow[]          @relation("DocumentWorkflowApprover")
+  documentReleases                  DocumentRelease[]           @relation("DocumentReleaseSigner")
+  documentObsolescences             DocumentObsolescence[]      @relation("DocumentObsolescenceSigner")
+  documentsPeriodicReviewConfigured Document[]                  @relation("DocumentPeriodicReviewConfiguration")
+  documentPeriodicReviewAssignments DocumentPeriodicReview[]    @relation("DocumentPeriodicReviewAssignee")
+  documentPeriodicReviewsScheduled  DocumentPeriodicReview[]    @relation("DocumentPeriodicReviewScheduler")
+  trainingAssignmentsReceived       TrainingAssignment[]        @relation("TrainingAssignmentAssignee")
+  trainingAssignmentsCreated        TrainingAssignment[]        @relation("TrainingAssignmentCreator")
+  trainingAssignmentsCancelled      TrainingAssignment[]        @relation("TrainingAssignmentCanceller")
+  deviationsReported                Deviation[]                 @relation("DeviationReporter")
+  deviationInvestigations           Deviation[]                 @relation("DeviationInvestigator")
+  deviationsTriaged                 Deviation[]                 @relation("DeviationTriager")
+  deviationsCancelled               Deviation[]                 @relation("DeviationCanceller")
+  deviationInvestigationsCompleted  DeviationInvestigation[]    @relation("DeviationInvestigationCompleter")
+  capasCreated                      Capa[]                      @relation("CapaCreator")
+  capaActionsAssigned               CapaAction[]                @relation("CapaActionAssignee")
+  capaEffectivenessReviewsAssigned  CapaEffectivenessReview[]   @relation("CapaEffectivenessAssignee")
+  capaEffectivenessReviewsScheduled CapaEffectivenessReview[]   @relation("CapaEffectivenessScheduler")
+  capaFollowUpCyclesCreated         CapaFollowUpCycle[]         @relation("CapaFollowUpCreator")
+  capaActionExtensionsApproved      CapaActionExtension[]       @relation("CapaActionExtensionApprover")
+  capaEvidenceUploadsCreated        CapaEvidenceUpload[]        @relation("CapaEvidenceUploader")
+  capaNotificationsReceived         CapaNotification[]          @relation("CapaNotificationRecipient")
+  capaAuditExportsCreated           CapaAuditExport[]           @relation("CapaAuditExporter")
+  changeControlsProposed            ChangeControl[]             @relation("ChangeControlProposer")
+  changeControlsCancelled           ChangeControl[]             @relation("ChangeControlCanceller")
+  changeAssessmentsCompleted        ChangeControlAssessment[]   @relation("ChangeAssessmentAssessor")
+  changeControlOwners               ChangeControlAssessment[]   @relation("ChangeAssessmentOwner")
+  changeApprovalAssignments         ChangeControlAssessment[]   @relation("ChangeAssessmentApprover")
+  changeVerificationAssignments     ChangeControlAssessment[]   @relation("ChangeAssessmentVerifier")
+  changeDecisionsCompleted          ChangeControlDecision[]     @relation("ChangeDecisionSigner")
+  changeTasksAssigned               ChangeControlTask[]         @relation("ChangeTaskAssignee")
+  changeVerificationsCompleted      ChangeControlVerification[] @relation("ChangeVerificationSigner")
 
   @@unique([tenantId, id], map: "users_tenant_id_id_key")
   @@unique([tenantId, email], map: "users_tenant_id_email_key")
@@ -368,27 +437,30 @@ model UserRole {
 }
 
 model Session {
-  id                                String                    @id @default(uuid()) @db.Uuid
-  tenantId                          String                    @map("tenant_id") @db.Uuid
-  userId                            String                    @map("user_id") @db.Uuid
-  status                            SessionStatus             @default(ACTIVE)
-  userAgent                         String?                   @map("user_agent") @db.VarChar(1024)
-  ipAddress                         String?                   @map("ip_address") @db.Inet
-  createdAt                         DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
-  lastUsedAt                        DateTime                  @default(now()) @map("last_used_at") @db.Timestamptz(3)
-  expiresAt                         DateTime                  @map("expires_at") @db.Timestamptz(3)
-  revokedAt                         DateTime?                 @map("revoked_at") @db.Timestamptz(3)
-  revokeReason                      String?                   @map("revoke_reason") @db.VarChar(300)
-  tenant                            Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  user                              User                      @relation(fields: [tenantId, userId], references: [tenantId, id], onDelete: Restrict)
+  id                                String                      @id @default(uuid()) @db.Uuid
+  tenantId                          String                      @map("tenant_id") @db.Uuid
+  userId                            String                      @map("user_id") @db.Uuid
+  status                            SessionStatus               @default(ACTIVE)
+  userAgent                         String?                     @map("user_agent") @db.VarChar(1024)
+  ipAddress                         String?                     @map("ip_address") @db.Inet
+  createdAt                         DateTime                    @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastUsedAt                        DateTime                    @default(now()) @map("last_used_at") @db.Timestamptz(3)
+  expiresAt                         DateTime                    @map("expires_at") @db.Timestamptz(3)
+  revokedAt                         DateTime?                   @map("revoked_at") @db.Timestamptz(3)
+  revokeReason                      String?                     @map("revoke_reason") @db.VarChar(300)
+  tenant                            Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user                              User                        @relation(fields: [tenantId, userId], references: [tenantId, id], onDelete: Restrict)
   refreshTokens                     RefreshToken[]
-  documentReleases                  DocumentRelease[]         @relation("DocumentReleaseSession")
-  documentObsolescences             DocumentObsolescence[]    @relation("DocumentObsolescenceSession")
-  trainingCompletions               TrainingAssignment[]      @relation("TrainingCompletionSession")
-  deviationInvestigationCompletions DeviationInvestigation[]  @relation("DeviationInvestigationSession")
-  capaActionCompletions             CapaAction[]              @relation("CapaActionCompletionSession")
-  capaEffectivenessCompletions      CapaEffectivenessReview[] @relation("CapaEffectivenessCompletionSession")
-  capaActionExtensionApprovals      CapaActionExtension[]     @relation("CapaActionExtensionApprovalSession")
+  documentReleases                  DocumentRelease[]           @relation("DocumentReleaseSession")
+  documentObsolescences             DocumentObsolescence[]      @relation("DocumentObsolescenceSession")
+  trainingCompletions               TrainingAssignment[]        @relation("TrainingCompletionSession")
+  deviationInvestigationCompletions DeviationInvestigation[]    @relation("DeviationInvestigationSession")
+  capaActionCompletions             CapaAction[]                @relation("CapaActionCompletionSession")
+  capaEffectivenessCompletions      CapaEffectivenessReview[]   @relation("CapaEffectivenessCompletionSession")
+  capaActionExtensionApprovals      CapaActionExtension[]       @relation("CapaActionExtensionApprovalSession")
+  changeDecisionSignatures          ChangeControlDecision[]     @relation("ChangeDecisionSession")
+  changeTaskCompletions             ChangeControlTask[]         @relation("ChangeTaskCompletionSession")
+  changeVerificationSignatures      ChangeControlVerification[] @relation("ChangeVerificationSession")
 
   @@unique([tenantId, userId, id], map: "sessions_tenant_id_user_id_id_key")
   @@index([tenantId, userId, status], map: "sessions_tenant_id_user_id_status_idx")
@@ -511,24 +583,24 @@ model SecurityEvent {
 }
 
 model OutboxMessage {
-  id                 String       @id @default(uuid()) @db.Uuid
-  tenantId           String       @map("tenant_id") @db.Uuid
-  type               String       @db.VarChar(100)
-  deduplicationKey   String       @map("deduplication_key") @db.VarChar(300)
-  payload            Json
-  status             OutboxStatus @default(PENDING)
-  attempts           Int          @default(0)
-  manualRetries      Int          @default(0) @map("manual_retries")
-  availableAt        DateTime     @default(now()) @map("available_at") @db.Timestamptz(3)
-  lockedAt           DateTime?    @map("locked_at") @db.Timestamptz(3)
-  lockedBy           String?      @map("locked_by") @db.Uuid
-  lastAttemptAt      DateTime?    @map("last_attempt_at") @db.Timestamptz(3)
-  processedAt        DateTime?    @map("processed_at") @db.Timestamptz(3)
-  deadLetteredAt     DateTime?    @map("dead_lettered_at") @db.Timestamptz(3)
-  lastError          String?      @map("last_error") @db.VarChar(100)
-  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt          DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
-  tenant             Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  id               String       @id @default(uuid()) @db.Uuid
+  tenantId         String       @map("tenant_id") @db.Uuid
+  type             String       @db.VarChar(100)
+  deduplicationKey String       @map("deduplication_key") @db.VarChar(300)
+  payload          Json
+  status           OutboxStatus @default(PENDING)
+  attempts         Int          @default(0)
+  manualRetries    Int          @default(0) @map("manual_retries")
+  availableAt      DateTime     @default(now()) @map("available_at") @db.Timestamptz(3)
+  lockedAt         DateTime?    @map("locked_at") @db.Timestamptz(3)
+  lockedBy         String?      @map("locked_by") @db.Uuid
+  lastAttemptAt    DateTime?    @map("last_attempt_at") @db.Timestamptz(3)
+  processedAt      DateTime?    @map("processed_at") @db.Timestamptz(3)
+  deadLetteredAt   DateTime?    @map("dead_lettered_at") @db.Timestamptz(3)
+  lastError        String?      @map("last_error") @db.VarChar(100)
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant           Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@unique([tenantId, deduplicationKey], map: "outbox_messages_tenant_dedup_key")
   @@index([tenantId, status, availableAt], map: "outbox_messages_claim_idx")
@@ -1090,4 +1162,152 @@ model CapaNotification {
   @@index([tenantId, status, createdAt], map: "capa_notifications_status_created_idx")
   @@index([tenantId, recipientUserId, createdAt], map: "capa_notifications_recipient_created_idx")
   @@map("capa_notifications")
+}
+
+model ChangeControlSequence {
+  tenantId   String   @map("tenant_id") @db.Uuid
+  year       Int
+  lastNumber Int      @default(0) @map("last_number")
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@id([tenantId, year])
+  @@map("change_control_sequences")
+}
+
+model ChangeControl {
+  id                 String                     @id @default(uuid()) @db.Uuid
+  tenantId           String                     @map("tenant_id") @db.Uuid
+  code               String                     @db.VarChar(25)
+  title              String                     @db.VarChar(200)
+  description        String                     @db.VarChar(5000)
+  justification      String                     @db.VarChar(3000)
+  category           ChangeControlCategory
+  status             ChangeControlStatus        @default(PROPOSED)
+  proposedByUserId   String                     @map("proposed_by_user_id") @db.Uuid
+  targetCompletionAt DateTime                   @map("target_completion_at") @db.Timestamptz(3)
+  cancelledByUserId  String?                    @map("cancelled_by_user_id") @db.Uuid
+  cancelledAt        DateTime?                  @map("cancelled_at") @db.Timestamptz(3)
+  cancellationReason String?                    @map("cancellation_reason") @db.VarChar(500)
+  createdAt          DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant             Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  proposedByUser     User                       @relation("ChangeControlProposer", fields: [tenantId, proposedByUserId], references: [tenantId, id], onDelete: Restrict)
+  cancelledByUser    User?                      @relation("ChangeControlCanceller", fields: [tenantId, cancelledByUserId], references: [tenantId, id], onDelete: Restrict)
+  assessment         ChangeControlAssessment?
+  decision           ChangeControlDecision?
+  tasks              ChangeControlTask[]
+  verification       ChangeControlVerification?
+
+  @@unique([tenantId, id], map: "change_controls_tenant_id_id_key")
+  @@unique([tenantId, code], map: "change_controls_tenant_id_code_key")
+  @@index([tenantId, status, targetCompletionAt], map: "change_controls_status_target_idx")
+  @@index([tenantId, createdAt], map: "change_controls_created_idx")
+  @@map("change_controls")
+}
+
+model ChangeControlAssessment {
+  id                    String          @id @default(uuid()) @db.Uuid
+  tenantId              String          @map("tenant_id") @db.Uuid
+  changeControlId       String          @map("change_control_id") @db.Uuid
+  impactSummary         String          @map("impact_summary") @db.VarChar(5000)
+  qualityImpact         String          @map("quality_impact") @db.VarChar(3000)
+  regulatoryImpact      String          @map("regulatory_impact") @db.VarChar(3000)
+  validationImpact      String          @map("validation_impact") @db.VarChar(3000)
+  trainingImpact        String          @map("training_impact") @db.VarChar(3000)
+  documentImpact        String          @map("document_impact") @db.VarChar(3000)
+  riskLevel             ChangeRiskLevel @map("risk_level")
+  riskRationale         String          @map("risk_rationale") @db.VarChar(3000)
+  implementationPlan    String          @map("implementation_plan") @db.VarChar(5000)
+  rollbackPlan          String          @map("rollback_plan") @db.VarChar(3000)
+  assessedByUserId      String          @map("assessed_by_user_id") @db.Uuid
+  ownerUserId           String          @map("owner_user_id") @db.Uuid
+  approverUserId        String          @map("approver_user_id") @db.Uuid
+  verifierUserId        String          @map("verifier_user_id") @db.Uuid
+  verificationCriterion String          @map("verification_criterion") @db.VarChar(3000)
+  assessedAt            DateTime        @map("assessed_at") @db.Timestamptz(3)
+  createdAt             DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant                Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  changeControl         ChangeControl   @relation(fields: [tenantId, changeControlId], references: [tenantId, id], onDelete: Restrict)
+  assessedByUser        User            @relation("ChangeAssessmentAssessor", fields: [tenantId, assessedByUserId], references: [tenantId, id], onDelete: Restrict)
+  ownerUser             User            @relation("ChangeAssessmentOwner", fields: [tenantId, ownerUserId], references: [tenantId, id], onDelete: Restrict)
+  approverUser          User            @relation("ChangeAssessmentApprover", fields: [tenantId, approverUserId], references: [tenantId, id], onDelete: Restrict)
+  verifierUser          User            @relation("ChangeAssessmentVerifier", fields: [tenantId, verifierUserId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id], map: "change_assessments_tenant_id_id_key")
+  @@unique([tenantId, changeControlId], map: "change_assessments_change_control_key")
+  @@map("change_control_assessments")
+}
+
+model ChangeControlDecision {
+  id                   String                     @id @default(uuid()) @db.Uuid
+  tenantId             String                     @map("tenant_id") @db.Uuid
+  changeControlId      String                     @map("change_control_id") @db.Uuid
+  decision             ChangeDecision
+  comment              String                     @db.VarChar(2000)
+  decidedByUserId      String                     @map("decided_by_user_id") @db.Uuid
+  decisionSessionId    String                     @map("decision_session_id") @db.Uuid
+  meaning              ChangeSignatureMeaning     @default(CHANGE_APPROVAL)
+  authenticationMethod ChangeAuthenticationMethod @default(PASSWORD_REAUTHENTICATION) @map("authentication_method")
+  decidedAt            DateTime                   @map("decided_at") @db.Timestamptz(3)
+  recordHash           String                     @map("record_hash") @db.Char(64)
+  createdAt            DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant               Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  changeControl        ChangeControl              @relation(fields: [tenantId, changeControlId], references: [tenantId, id], onDelete: Restrict)
+  decidedByUser        User                       @relation("ChangeDecisionSigner", fields: [tenantId, decidedByUserId], references: [tenantId, id], onDelete: Restrict)
+  decisionSession      Session                    @relation("ChangeDecisionSession", fields: [tenantId, decidedByUserId, decisionSessionId], references: [tenantId, userId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id], map: "change_decisions_tenant_id_id_key")
+  @@unique([tenantId, changeControlId], map: "change_decisions_change_control_key")
+  @@map("change_control_decisions")
+}
+
+model ChangeControlTask {
+  id                   String                      @id @default(uuid()) @db.Uuid
+  tenantId             String                      @map("tenant_id") @db.Uuid
+  changeControlId      String                      @map("change_control_id") @db.Uuid
+  title                String                      @db.VarChar(200)
+  description          String                      @db.VarChar(3000)
+  assignedToUserId     String                      @map("assigned_to_user_id") @db.Uuid
+  dueAt                DateTime                    @map("due_at") @db.Timestamptz(3)
+  status               ChangeTaskStatus            @default(OPEN)
+  completionComment    String?                     @map("completion_comment") @db.VarChar(2000)
+  completionSessionId  String?                     @map("completion_session_id") @db.Uuid
+  meaning              ChangeSignatureMeaning?
+  authenticationMethod ChangeAuthenticationMethod? @map("authentication_method")
+  completedAt          DateTime?                   @map("completed_at") @db.Timestamptz(3)
+  recordHash           String?                     @map("record_hash") @db.Char(64)
+  createdAt            DateTime                    @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant               Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  changeControl        ChangeControl               @relation(fields: [tenantId, changeControlId], references: [tenantId, id], onDelete: Restrict)
+  assignedToUser       User                        @relation("ChangeTaskAssignee", fields: [tenantId, assignedToUserId], references: [tenantId, id], onDelete: Restrict)
+  completionSession    Session?                    @relation("ChangeTaskCompletionSession", fields: [tenantId, assignedToUserId, completionSessionId], references: [tenantId, userId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id], map: "change_tasks_tenant_id_id_key")
+  @@index([tenantId, changeControlId, status, dueAt], map: "change_tasks_change_status_due_idx")
+  @@index([tenantId, assignedToUserId, status, dueAt], map: "change_tasks_assignee_status_due_idx")
+  @@map("change_control_tasks")
+}
+
+model ChangeControlVerification {
+  id                    String                     @id @default(uuid()) @db.Uuid
+  tenantId              String                     @map("tenant_id") @db.Uuid
+  changeControlId       String                     @map("change_control_id") @db.Uuid
+  decision              ChangeVerificationDecision
+  evidence              String                     @db.VarChar(5000)
+  verifiedByUserId      String                     @map("verified_by_user_id") @db.Uuid
+  verificationSessionId String                     @map("verification_session_id") @db.Uuid
+  meaning               ChangeSignatureMeaning     @default(CHANGE_VERIFICATION)
+  authenticationMethod  ChangeAuthenticationMethod @default(PASSWORD_REAUTHENTICATION) @map("authentication_method")
+  verifiedAt            DateTime                   @map("verified_at") @db.Timestamptz(3)
+  recordHash            String                     @map("record_hash") @db.Char(64)
+  createdAt             DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant                Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  changeControl         ChangeControl              @relation(fields: [tenantId, changeControlId], references: [tenantId, id], onDelete: Restrict)
+  verifiedByUser        User                       @relation("ChangeVerificationSigner", fields: [tenantId, verifiedByUserId], references: [tenantId, id], onDelete: Restrict, map: "change_verifications_verifier_fkey")
+  verificationSession   Session                    @relation("ChangeVerificationSession", fields: [tenantId, verifiedByUserId, verificationSessionId], references: [tenantId, userId, id], onDelete: Restrict, map: "change_verifications_session_fkey")
+
+  @@unique([tenantId, id], map: "change_verifications_tenant_id_id_key")
+  @@unique([tenantId, changeControlId], map: "change_verifications_change_control_key")
+  @@map("change_control_verifications")
 }

@@ -66,6 +66,12 @@ const initialRolePermissions: Record<(typeof initialRoles)[number], string[]> =
       'capas.export',
       'notifications.read',
       'notifications.retry',
+      'changes.read',
+      'changes.create',
+      'changes.assess',
+      'changes.approve',
+      'changes.implement',
+      'changes.verify',
     ],
     'Document Controller': [
       'documents.read',
@@ -80,6 +86,9 @@ const initialRolePermissions: Record<(typeof initialRoles)[number], string[]> =
       'deviations.investigate',
       'capas.read',
       'capas.execute',
+      'changes.read',
+      'changes.create',
+      'changes.implement',
     ],
     Operator: [
       'documents.read',
@@ -89,6 +98,9 @@ const initialRolePermissions: Record<(typeof initialRoles)[number], string[]> =
       'deviations.create',
       'capas.read',
       'capas.execute',
+      'changes.read',
+      'changes.create',
+      'changes.implement',
     ],
     Auditor: [
       'documents.read',
@@ -100,6 +112,7 @@ const initialRolePermissions: Record<(typeof initialRoles)[number], string[]> =
       'capas.export',
       'audit.read',
       'notifications.read',
+      'changes.read',
     ],
   };
 const failedLoginThreshold = 5;

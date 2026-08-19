@@ -81,6 +81,7 @@ The backend is a modular NestJS monolith with pragmatic ports and adapters, tena
 - [Document training](docs/training.md)
 - [GMP deviations](docs/deviations.md)
 - [Corrective and preventive actions (CAPA)](docs/capa.md)
+- [GMP change control](docs/change-control.md)
 - [Operations and recovery](docs/operations.md)
 - [Durable notification delivery](docs/notifications.md)
 - [Operational observability](docs/observability.md)
