@@ -89,6 +89,7 @@ The backend is a modular NestJS monolith with pragmatic ports and adapters, tena
 - [Product quality complaints](docs/product-complaints.md)
 - [Product recalls and field actions](docs/product-recalls.md)
 - [Periodic product quality reviews (PQR/APR)](docs/product-quality-reviews.md)
+- [Controlled photographic evidence and tablet capture](docs/photographic-evidence.md)
 - [SaaS multi-tenant scalability](docs/saas-scalability.md)
 - [Operations and recovery](docs/operations.md)
 - [Durable notification delivery](docs/notifications.md)

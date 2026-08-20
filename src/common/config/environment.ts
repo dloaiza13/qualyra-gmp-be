@@ -87,6 +87,18 @@ const environmentSchema = z
       .min(1024)
       .max(26_214_400)
       .default(10_485_760),
+    PHOTO_EVIDENCE_MAX_BYTES: z.coerce
+      .number()
+      .int()
+      .min(1024)
+      .max(26_214_400)
+      .default(10_485_760),
+    PHOTO_EVIDENCE_TENANT_QUOTA_BYTES: z.coerce
+      .number()
+      .int()
+      .min(1_048_576)
+      .max(10_995_116_277_760)
+      .default(2_147_483_648),
     CAPA_EVIDENCE_UPLOAD_TTL_HOURS: z.coerce
       .number()
       .int()
@@ -203,6 +215,17 @@ const environmentSchema = z
         code: 'custom',
         path: ['SMTP_USER', 'SMTP_PASSWORD'],
         message: 'SMTP_USER and SMTP_PASSWORD must be provided together.',
+      });
+    }
+
+    if (
+      environment.PHOTO_EVIDENCE_MAX_BYTES > environment.CAPA_EVIDENCE_MAX_BYTES
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['PHOTO_EVIDENCE_MAX_BYTES'],
+        message:
+          'PHOTO_EVIDENCE_MAX_BYTES cannot exceed the managed evidence scanner limit.',
       });
     }
 

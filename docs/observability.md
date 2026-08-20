@@ -16,6 +16,7 @@ curl -H "Authorization: Bearer qualyra_local_metrics_token" http://localhost:300
 - `qualyra_outbox_messages` reports aggregate counts by state across active tenants. Collection enters each tenant RLS context and exposes no tenant label.
 - `qualyra_outbox_delivery_attempts_total`, `qualyra_outbox_delivery_duration_seconds`, `qualyra_outbox_lease_recoveries_total`, and worker run/last-success metrics describe durable delivery behavior.
 - `qualyra_dependency_ready` reports the Redis probe used by metric collection. `qualyra_metrics_collection_success` makes stale or failed dynamic collection visible instead of silently reporting false zeros.
+- `qualyra_photo_evidence_uploads_total` reports accepted, rejected, quota-exceeded, and storage-error outcomes. `qualyra_photo_evidence_uploaded_bytes_total` reports only accepted bytes. Neither metric uses a tenant label.
 - `qualyra_node_*` contains standard process metrics from the Node.js runtime.
 
 The versioned starter rules are in `ops/prometheus/qualyra-alerts.yml`. Import them into the selected Prometheus-compatible platform, tune thresholds from staging load data, attach owned runbooks and notification routes, then fire and acknowledge every alert before launch. The repository does not deploy a monitoring platform or an on-call process.

@@ -32,6 +32,7 @@ import { EquipmentModule } from './modules/equipment/equipment.module.js';
 import { ComplaintsModule } from './modules/complaints/complaints.module.js';
 import { RecallsModule } from './modules/recalls/recalls.module.js';
 import { ProductReviewsModule } from './modules/product-reviews/product-reviews.module.js';
+import { PhotoEvidenceModule } from './modules/photo-evidence/photo-evidence.module.js';
 import { DocumentsModule } from './modules/documents/documents.module.js';
 import { DeviationsModule } from './modules/deviations/deviations.module.js';
 import { HealthModule } from './modules/health/health.module.js';
@@ -121,6 +122,7 @@ import { ObservabilityModule } from './modules/observability/observability.modul
     ComplaintsModule,
     RecallsModule,
     ProductReviewsModule,
+    PhotoEvidenceModule,
     DocumentsModule,
     TrainingModule,
     DeviationsModule,
@@ -140,6 +142,7 @@ import { ObservabilityModule } from './modules/observability/observability.modul
       { path: 'api/v1', module: ComplaintsModule },
       { path: 'api/v1', module: RecallsModule },
       { path: 'api/v1', module: ProductReviewsModule },
+      { path: 'api/v1', module: PhotoEvidenceModule },
       { path: 'api/v1', module: DocumentsModule },
       { path: 'api/v1', module: TrainingModule },
       { path: 'api/v1', module: DeviationsModule },

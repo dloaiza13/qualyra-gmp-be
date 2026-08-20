@@ -19,6 +19,8 @@ const outboxStatuses = [
 ] as const;
 
 type DeliveryOutcome = 'processed' | 'retry_scheduled' | 'dead_letter';
+type PhotoEvidenceOutcome =
+  'success' | 'rejected' | 'quota_exceeded' | 'storage_error';
 
 @Injectable()
 export class MetricsService {
@@ -84,6 +86,17 @@ export class MetricsService {
     labelNames: ['source'] as const,
     registers: [this.registry],
   });
+  private readonly photoEvidenceUploads = new Counter({
+    name: 'qualyra_photo_evidence_uploads_total',
+    help: 'Controlled photographic evidence upload outcomes.',
+    labelNames: ['outcome'] as const,
+    registers: [this.registry],
+  });
+  private readonly photoEvidenceBytes = new Counter({
+    name: 'qualyra_photo_evidence_uploaded_bytes_total',
+    help: 'Bytes accepted as controlled photographic evidence.',
+    registers: [this.registry],
+  });
 
   constructor(
     private readonly prisma: PrismaService,
@@ -130,6 +143,16 @@ export class MetricsService {
   recordOutboxWorkerRun(success: boolean): void {
     this.outboxWorkerRuns.inc({ outcome: success ? 'success' : 'failure' });
     if (success) this.outboxWorkerLastSuccess.set(Date.now() / 1_000);
+  }
+
+  recordPhotoEvidenceUpload(
+    outcome: PhotoEvidenceOutcome,
+    acceptedBytes = 0,
+  ): void {
+    this.photoEvidenceUploads.inc({ outcome });
+    if (outcome === 'success' && acceptedBytes > 0) {
+      this.photoEvidenceBytes.inc(acceptedBytes);
+    }
   }
 
   async render(): Promise<string> {

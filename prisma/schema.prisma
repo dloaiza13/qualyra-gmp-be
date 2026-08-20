@@ -611,6 +611,21 @@ enum ProductReviewAuthenticationMethod {
   PASSWORD_REAUTHENTICATION
 }
 
+enum PhotoEvidenceSubjectType {
+  DOCUMENT
+  TRAINING_ASSIGNMENT
+  DEVIATION
+  CAPA
+  CHANGE_CONTROL
+  AUDIT
+  QUALITY_RISK
+  SUPPLIER
+  EQUIPMENT
+  COMPLAINT
+  RECALL
+  PRODUCT_REVIEW
+}
+
 model Tenant {
   id                       String                          @id @default(uuid()) @db.Uuid
   name                     String                          @db.VarChar(200)
@@ -694,6 +709,7 @@ model Tenant {
   productQualityReviews    ProductQualityReview[]
   productReviewAssessments ProductReviewAssessment[]
   productReviewDecisions   ProductReviewDecision[]
+  photoEvidence            PhotoEvidence[]
 
   @@map("tenants")
 }
@@ -809,6 +825,7 @@ model User {
   productReviewsCancelled           ProductQualityReview[]          @relation("ProductReviewCanceller")
   productReviewAssessmentsCompleted ProductReviewAssessment[]       @relation("ProductReviewAssessmentSigner")
   productReviewDecisionsCompleted   ProductReviewDecision[]         @relation("ProductReviewDecisionSigner")
+  photoEvidenceUploaded             PhotoEvidence[]                 @relation("PhotoEvidenceUploader")
 
   @@unique([tenantId, id], map: "users_tenant_id_id_key")
   @@unique([tenantId, email], map: "users_tenant_id_email_key")
@@ -2816,4 +2833,32 @@ model ProductReviewDecision {
   @@unique([tenantId, id], map: "product_review_decisions_tenant_id_id_key")
   @@unique([tenantId, productReviewId], map: "product_review_decisions_review_key")
   @@map("product_review_decisions")
+}
+
+model PhotoEvidence {
+  id               String                   @id @default(uuid()) @db.Uuid
+  tenantId         String                   @map("tenant_id") @db.Uuid
+  subjectType      PhotoEvidenceSubjectType @map("subject_type")
+  subjectId        String                   @map("subject_id") @db.Uuid
+  fileName         String                   @map("file_name") @db.VarChar(255)
+  contentType      String                   @map("content_type") @db.VarChar(100)
+  sizeBytes        Int                      @map("size_bytes")
+  sha256           String                   @db.Char(64)
+  objectKey        String                   @map("object_key") @db.VarChar(500)
+  storageDriver    String                   @map("storage_driver") @db.VarChar(20)
+  caption          String?                  @db.VarChar(1000)
+  capturedAt       DateTime?                @map("captured_at") @db.Timestamptz(3)
+  scanEngine       String                   @map("scan_engine") @db.VarChar(100)
+  scanResult       String                   @map("scan_result") @db.VarChar(200)
+  scannedAt        DateTime                 @map("scanned_at") @db.Timestamptz(3)
+  uploadedByUserId String                   @map("uploaded_by_user_id") @db.Uuid
+  createdAt        DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant           Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  uploadedBy       User                     @relation("PhotoEvidenceUploader", fields: [tenantId, uploadedByUserId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id], map: "photo_evidence_tenant_id_id_key")
+  @@unique([tenantId, subjectType, subjectId, sha256], map: "photo_evidence_subject_hash_key")
+  @@index([tenantId, subjectType, subjectId, createdAt], map: "photo_evidence_subject_created_idx")
+  @@index([tenantId, createdAt], map: "photo_evidence_tenant_created_idx")
+  @@map("photo_evidence")
 }

@@ -18,6 +18,10 @@ The number of tenants alone is not the primary capacity driver. Workload is dete
 
 Phase 31 adds case-insensitive indexes for complaint and recall trend queries by tenant, product code, and creation date.
 
+Phase 32 keeps photographic binaries out of PostgreSQL, enforces a configurable per-tenant storage quota under a concurrency lock, and records only indexed metadata in the shared database. The frontend now splits each quality module into a lazy-loaded chunk; the initial production JavaScript entry decreased from roughly 829 kB to 428 kB before compression, while individual modules load only when opened.
+
+For 50 customers, capacity planning should therefore use active users, request rate, metadata growth, and object-storage bytes—not the tenant count in isolation. Start with connection-pool, database latency/CPU, HTTP latency/error, object-storage growth, and quota-rejection alerts. Introduce per-plan quotas and load-test targets before self-service onboarding.
+
 ## Organization creation policy
 
 The public **Create organization** action is an onboarding policy, not a database-scaling switch. For the initial paid launch, set `ALLOW_PUBLIC_TENANT_REGISTRATION=false` and provision each tenant only after commercial approval. This prevents uncontrolled trials, spam tenants, ambiguous contracts, and resource abuse.

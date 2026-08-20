@@ -67,6 +67,12 @@ export function validateEvidence(
       content[0] === 0xff &&
       content[1] === 0xd8 &&
       content[2] === 0xff,
+    'image/webp': (content) =>
+      content.length >= 12 &&
+      content.subarray(0, 4).toString('ascii') === 'RIFF' &&
+      content.subarray(8, 12).toString('ascii') === 'WEBP',
+    'image/heic': (content) => isIsoBaseMediaImage(content),
+    'image/heif': (content) => isIsoBaseMediaImage(content),
     'text/plain': (content) => isUtf8Text(content),
   };
   const matchesSignature = signatures[contentType];
@@ -92,6 +98,14 @@ export function validateEvidence(
       'The evidence file was rejected by the built-in safety scan.',
     );
   }
+}
+
+function isIsoBaseMediaImage(bytes: Buffer): boolean {
+  if (bytes.length < 12 || bytes.subarray(4, 8).toString('ascii') !== 'ftyp') {
+    return false;
+  }
+  const brand = bytes.subarray(8, 12).toString('ascii');
+  return new Set(['heic', 'heix', 'hevc', 'hevx', 'mif1', 'msf1']).has(brand);
 }
 
 function isUtf8Text(bytes: Buffer): boolean {

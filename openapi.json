@@ -3091,6 +3091,1298 @@
         ]
       }
     },
+    "/api/v1/complaints": {
+      "get": {
+        "operationId": "ComplaintsController_list",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 200,
+              "default": 100,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "REPORTED",
+                "UNDER_INVESTIGATION",
+                "PENDING_REVIEW",
+                "CLOSED",
+                "CANCELLED"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ComplaintSummaryResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Product quality complaints"
+        ]
+      },
+      "post": {
+        "operationId": "ComplaintsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateComplaintDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplaintDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Product quality complaints"
+        ]
+      }
+    },
+    "/api/v1/complaints/participants": {
+      "get": {
+        "operationId": "ComplaintsController_participants",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ComplaintParticipantResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Product quality complaints"
+        ]
+      }
+    },
+    "/api/v1/complaints/references": {
+      "get": {
+        "operationId": "ComplaintsController_references",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplaintReferencesResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Product quality complaints"
+        ]
+      }
+    },
+    "/api/v1/complaints/{complaintId}": {
+      "get": {
+        "operationId": "ComplaintsController_get",
+        "parameters": [
+          {
+            "name": "complaintId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplaintDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Product quality complaints"
+        ]
+      }
+    },
+    "/api/v1/complaints/{complaintId}/triage": {
+      "post": {
+        "operationId": "ComplaintsController_triage",
+        "parameters": [
+          {
+            "name": "complaintId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TriageComplaintDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplaintDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Product quality complaints"
+        ]
+      }
+    },
+    "/api/v1/complaints/{complaintId}/investigation": {
+      "post": {
+        "operationId": "ComplaintsController_investigate",
+        "parameters": [
+          {
+            "name": "complaintId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteComplaintInvestigationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplaintDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Product quality complaints"
+        ]
+      }
+    },
+    "/api/v1/complaints/{complaintId}/decision": {
+      "post": {
+        "operationId": "ComplaintsController_decide",
+        "parameters": [
+          {
+            "name": "complaintId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecideComplaintDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplaintDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Product quality complaints"
+        ]
+      }
+    },
+    "/api/v1/complaints/{complaintId}/cancellation": {
+      "post": {
+        "operationId": "ComplaintsController_cancel",
+        "parameters": [
+          {
+            "name": "complaintId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelComplaintDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplaintDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Product quality complaints"
+        ]
+      }
+    },
+    "/api/v1/recalls": {
+      "get": {
+        "operationId": "RecallsController_list",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 200,
+              "default": 100,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "REPORTED",
+                "PENDING_APPROVAL",
+                "APPROVED",
+                "REJECTED",
+                "IN_EXECUTION",
+                "CLOSED",
+                "CANCELLED"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecallSummaryResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Product recalls and field actions"
+        ]
+      },
+      "post": {
+        "operationId": "RecallsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRecallDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecallDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Product recalls and field actions"
+        ]
+      }
+    },
+    "/api/v1/recalls/participants": {
+      "get": {
+        "operationId": "RecallsController_participants",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecallParticipantResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Product recalls and field actions"
+        ]
+      }
+    },
+    "/api/v1/recalls/references": {
+      "get": {
+        "operationId": "RecallsController_references",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecallReferencesResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Product recalls and field actions"
+        ]
+      }
+    },
+    "/api/v1/recalls/{recallId}": {
+      "get": {
+        "operationId": "RecallsController_get",
+        "parameters": [
+          {
+            "name": "recallId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecallDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Product recalls and field actions"
+        ]
+      }
+    },
+    "/api/v1/recalls/{recallId}/assessment": {
+      "post": {
+        "operationId": "RecallsController_assess",
+        "parameters": [
+          {
+            "name": "recallId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteRecallAssessmentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecallDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Product recalls and field actions"
+        ]
+      }
+    },
+    "/api/v1/recalls/{recallId}/decision": {
+      "post": {
+        "operationId": "RecallsController_decide",
+        "parameters": [
+          {
+            "name": "recallId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecideRecallDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecallDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Product recalls and field actions"
+        ]
+      }
+    },
+    "/api/v1/recalls/{recallId}/execution-updates": {
+      "post": {
+        "operationId": "RecallsController_recordExecutionUpdate",
+        "parameters": [
+          {
+            "name": "recallId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordRecallExecutionUpdateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecallDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Product recalls and field actions"
+        ]
+      }
+    },
+    "/api/v1/recalls/{recallId}/closure": {
+      "post": {
+        "operationId": "RecallsController_close",
+        "parameters": [
+          {
+            "name": "recallId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloseRecallDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecallDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Product recalls and field actions"
+        ]
+      }
+    },
+    "/api/v1/recalls/{recallId}/cancellation": {
+      "post": {
+        "operationId": "RecallsController_cancel",
+        "parameters": [
+          {
+            "name": "recallId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelRecallDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecallDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Product recalls and field actions"
+        ]
+      }
+    },
+    "/api/v1/product-reviews": {
+      "get": {
+        "operationId": "ProductReviewsController_list",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 200,
+              "default": 100,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DRAFT",
+                "PENDING_APPROVAL",
+                "APPROVED",
+                "FOLLOW_UP_REQUIRED",
+                "CANCELLED"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProductReviewSummaryResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Product quality reviews"
+        ]
+      },
+      "post": {
+        "operationId": "ProductReviewsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProductReviewDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductReviewDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Product quality reviews"
+        ]
+      }
+    },
+    "/api/v1/product-reviews/participants": {
+      "get": {
+        "operationId": "ProductReviewsController_participants",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProductReviewParticipantResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Product quality reviews"
+        ]
+      }
+    },
+    "/api/v1/product-reviews/trend-preview": {
+      "get": {
+        "operationId": "ProductReviewsController_trendPreview",
+        "parameters": [
+          {
+            "name": "productCode",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "name": "periodStart",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "name": "periodEnd",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductReviewTrendSnapshotDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Product quality reviews"
+        ]
+      }
+    },
+    "/api/v1/product-reviews/{reviewId}": {
+      "get": {
+        "operationId": "ProductReviewsController_get",
+        "parameters": [
+          {
+            "name": "reviewId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductReviewDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Product quality reviews"
+        ]
+      }
+    },
+    "/api/v1/product-reviews/{reviewId}/assessment": {
+      "post": {
+        "operationId": "ProductReviewsController_prepare",
+        "parameters": [
+          {
+            "name": "reviewId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrepareProductReviewDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductReviewDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Product quality reviews"
+        ]
+      }
+    },
+    "/api/v1/product-reviews/{reviewId}/decision": {
+      "post": {
+        "operationId": "ProductReviewsController_decide",
+        "parameters": [
+          {
+            "name": "reviewId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecideProductReviewDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductReviewDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Product quality reviews"
+        ]
+      }
+    },
+    "/api/v1/product-reviews/{reviewId}/cancellation": {
+      "post": {
+        "operationId": "ProductReviewsController_cancel",
+        "parameters": [
+          {
+            "name": "reviewId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelProductReviewDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductReviewDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Product quality reviews"
+        ]
+      }
+    },
+    "/api/v1/photo-evidence": {
+      "get": {
+        "operationId": "PhotoEvidenceController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PhotoEvidenceResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Photographic evidence"
+        ]
+      },
+      "post": {
+        "operationId": "PhotoEvidenceController_upload",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file",
+                  "subjectType",
+                  "subjectId"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "subjectType": {
+                    "type": "string"
+                  },
+                  "subjectId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "caption": {
+                    "type": "string",
+                    "maxLength": 1000
+                  },
+                  "capturedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoEvidenceResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Photographic evidence"
+        ]
+      }
+    },
+    "/api/v1/photo-evidence/usage": {
+      "get": {
+        "operationId": "PhotoEvidenceController_usage",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoEvidenceUsageResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Photographic evidence"
+        ]
+      }
+    },
+    "/api/v1/photo-evidence/{evidenceId}/content": {
+      "get": {
+        "operationId": "PhotoEvidenceController_content",
+        "parameters": [
+          {
+            "name": "evidenceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Photographic evidence"
+        ]
+      }
+    },
     "/api/v1/documents": {
       "get": {
         "operationId": "DocumentsController_list",
@@ -9235,6 +10527,1883 @@
           "reason",
           "password",
           "attestationAccepted"
+        ]
+      },
+      "ComplaintUserSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "email"
+        ]
+      },
+      "ComplaintSummaryResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "example": "PQC-2026-0001"
+          },
+          "title": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "productName": {
+            "type": "string"
+          },
+          "productCode": {
+            "type": "string"
+          },
+          "lotNumber": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "object",
+            "nullable": true
+          },
+          "potentialSafetyEvent": {
+            "type": "boolean"
+          },
+          "recallAssessmentRequired": {
+            "type": "object",
+            "nullable": true
+          },
+          "dueState": {
+            "type": "string"
+          },
+          "targetCloseAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          },
+          "investigator": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ComplaintUserSummaryDto"
+              }
+            ]
+          },
+          "reviewer": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ComplaintUserSummaryDto"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "title",
+          "source",
+          "category",
+          "productName",
+          "productCode",
+          "lotNumber",
+          "status",
+          "potentialSafetyEvent",
+          "dueState",
+          "createdAt"
+        ]
+      },
+      "ComplaintParticipantResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "email",
+          "permissions"
+        ]
+      },
+      "ComplaintReferenceDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "title"
+        ]
+      },
+      "ComplaintReferencesResponseDto": {
+        "type": "object",
+        "properties": {
+          "deviations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ComplaintReferenceDto"
+            }
+          },
+          "capas": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ComplaintReferenceDto"
+            }
+          },
+          "suppliers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ComplaintReferenceDto"
+            }
+          },
+          "qualityRisks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ComplaintReferenceDto"
+            }
+          },
+          "changeControls": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ComplaintReferenceDto"
+            }
+          }
+        },
+        "required": [
+          "deviations",
+          "capas",
+          "suppliers",
+          "qualityRisks",
+          "changeControls"
+        ]
+      },
+      "ComplaintDetailResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "example": "PQC-2026-0001"
+          },
+          "title": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "productName": {
+            "type": "string"
+          },
+          "productCode": {
+            "type": "string"
+          },
+          "lotNumber": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "object",
+            "nullable": true
+          },
+          "potentialSafetyEvent": {
+            "type": "boolean"
+          },
+          "recallAssessmentRequired": {
+            "type": "object",
+            "nullable": true
+          },
+          "dueState": {
+            "type": "string"
+          },
+          "targetCloseAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          },
+          "investigator": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ComplaintUserSummaryDto"
+              }
+            ]
+          },
+          "reviewer": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ComplaintUserSummaryDto"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "description": {
+            "type": "string"
+          },
+          "expiryDate": {
+            "type": "object",
+            "format": "date",
+            "nullable": true
+          },
+          "countryCode": {
+            "type": "string"
+          },
+          "receivedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reporterName": {
+            "type": "object",
+            "nullable": true
+          },
+          "reporterContact": {
+            "type": "object",
+            "nullable": true
+          },
+          "evidenceReference": {
+            "type": "string"
+          },
+          "regulatoryAssessment": {
+            "type": "object",
+            "nullable": true
+          },
+          "immediateActions": {
+            "type": "object",
+            "nullable": true
+          },
+          "reportedBy": {
+            "$ref": "#/components/schemas/ComplaintUserSummaryDto"
+          },
+          "triagedBy": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ComplaintUserSummaryDto"
+              }
+            ]
+          },
+          "triagedAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          },
+          "investigation": {
+            "type": "object",
+            "nullable": true
+          },
+          "decision": {
+            "type": "object",
+            "nullable": true
+          },
+          "cancellationReason": {
+            "type": "object",
+            "nullable": true
+          },
+          "cancelledAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "title",
+          "source",
+          "category",
+          "productName",
+          "productCode",
+          "lotNumber",
+          "status",
+          "potentialSafetyEvent",
+          "dueState",
+          "createdAt",
+          "description",
+          "countryCode",
+          "receivedAt",
+          "evidenceReference",
+          "reportedBy"
+        ]
+      },
+      "CreateComplaintDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "CUSTOMER",
+              "DISTRIBUTOR",
+              "HEALTH_AUTHORITY",
+              "INTERNAL",
+              "OTHER"
+            ]
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "PRODUCT_QUALITY",
+              "PACKAGING",
+              "LABELING",
+              "DELIVERY",
+              "COUNTERFEIT_SUSPECTED",
+              "OTHER"
+            ]
+          },
+          "productName": {
+            "type": "string"
+          },
+          "productCode": {
+            "type": "string"
+          },
+          "lotNumber": {
+            "type": "string"
+          },
+          "expiryDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "countryCode": {
+            "type": "string",
+            "example": "GT"
+          },
+          "receivedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reporterName": {
+            "type": "string"
+          },
+          "reporterContact": {
+            "type": "string"
+          },
+          "evidenceReference": {
+            "type": "string"
+          },
+          "potentialSafetyEvent": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "title",
+          "description",
+          "source",
+          "category",
+          "productName",
+          "productCode",
+          "lotNumber",
+          "countryCode",
+          "receivedAt",
+          "evidenceReference",
+          "potentialSafetyEvent"
+        ]
+      },
+      "TriageComplaintDto": {
+        "type": "object",
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "CRITICAL"
+            ]
+          },
+          "regulatoryAssessment": {
+            "type": "string",
+            "enum": [
+              "UNDER_EVALUATION",
+              "NOT_REPORTABLE",
+              "REPORTABLE"
+            ]
+          },
+          "recallAssessmentRequired": {
+            "type": "boolean"
+          },
+          "immediateActions": {
+            "type": "string"
+          },
+          "targetCloseAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "investigatorUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reviewerUserId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "severity",
+          "regulatoryAssessment",
+          "recallAssessmentRequired",
+          "immediateActions",
+          "targetCloseAt",
+          "investigatorUserId",
+          "reviewerUserId"
+        ]
+      },
+      "CompleteComplaintInvestigationDto": {
+        "type": "object",
+        "properties": {
+          "investigationSummary": {
+            "type": "string"
+          },
+          "rootCause": {
+            "type": "string"
+          },
+          "batchImpact": {
+            "type": "string"
+          },
+          "distributedProductImpact": {
+            "type": "string"
+          },
+          "sampleEvaluation": {
+            "type": "string"
+          },
+          "evidenceReference": {
+            "type": "string"
+          },
+          "recommendedDisposition": {
+            "type": "string",
+            "enum": [
+              "SUBSTANTIATED",
+              "UNSUBSTANTIATED",
+              "INCONCLUSIVE"
+            ]
+          },
+          "responseRecommendation": {
+            "type": "string"
+          },
+          "deviationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "capaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "supplierId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "qualityRiskId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "changeControlId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "password": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "attestationAccepted": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "investigationSummary",
+          "rootCause",
+          "batchImpact",
+          "distributedProductImpact",
+          "sampleEvaluation",
+          "evidenceReference",
+          "recommendedDisposition",
+          "responseRecommendation",
+          "password",
+          "attestationAccepted"
+        ]
+      },
+      "DecideComplaintDto": {
+        "type": "object",
+        "properties": {
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "SUBSTANTIATED",
+              "UNSUBSTANTIATED",
+              "INCONCLUSIVE"
+            ]
+          },
+          "rationale": {
+            "type": "string"
+          },
+          "finalResponseReference": {
+            "type": "string"
+          },
+          "regulatoryAction": {
+            "type": "string"
+          },
+          "recallActionRequired": {
+            "type": "boolean"
+          },
+          "password": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "attestationAccepted": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "disposition",
+          "rationale",
+          "finalResponseReference",
+          "regulatoryAction",
+          "recallActionRequired",
+          "password",
+          "attestationAccepted"
+        ]
+      },
+      "CancelComplaintDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "RecallUserSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "email"
+        ]
+      },
+      "RecallSummaryResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "example": "RCL-2026-0001"
+          },
+          "title": {
+            "type": "string"
+          },
+          "actionType": {
+            "type": "string"
+          },
+          "productName": {
+            "type": "string"
+          },
+          "productCode": {
+            "type": "string"
+          },
+          "lotNumbers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "countryCodes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string"
+          },
+          "dueState": {
+            "type": "string"
+          },
+          "targetCloseAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "classification": {
+            "type": "object",
+            "nullable": true
+          },
+          "approver": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RecallUserSummaryDto"
+              }
+            ]
+          },
+          "totalDistributedUnits": {
+            "type": "number"
+          },
+          "recoveredUnits": {
+            "type": "number"
+          },
+          "recoveryRate": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "title",
+          "actionType",
+          "productName",
+          "productCode",
+          "lotNumbers",
+          "countryCodes",
+          "status",
+          "dueState",
+          "targetCloseAt",
+          "totalDistributedUnits",
+          "recoveredUnits",
+          "recoveryRate",
+          "createdAt"
+        ]
+      },
+      "RecallParticipantResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "email",
+          "permissions"
+        ]
+      },
+      "RecallComplaintReferenceDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "productName": {
+            "type": "string"
+          },
+          "productCode": {
+            "type": "string"
+          },
+          "lotNumber": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "title",
+          "productName",
+          "productCode",
+          "lotNumber"
+        ]
+      },
+      "RecallReferencesResponseDto": {
+        "type": "object",
+        "properties": {
+          "complaints": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecallComplaintReferenceDto"
+            }
+          }
+        },
+        "required": [
+          "complaints"
+        ]
+      },
+      "RecallDetailResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "example": "RCL-2026-0001"
+          },
+          "title": {
+            "type": "string"
+          },
+          "actionType": {
+            "type": "string"
+          },
+          "productName": {
+            "type": "string"
+          },
+          "productCode": {
+            "type": "string"
+          },
+          "lotNumbers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "countryCodes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string"
+          },
+          "dueState": {
+            "type": "string"
+          },
+          "targetCloseAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "classification": {
+            "type": "object",
+            "nullable": true
+          },
+          "approver": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RecallUserSummaryDto"
+              }
+            ]
+          },
+          "totalDistributedUnits": {
+            "type": "number"
+          },
+          "recoveredUnits": {
+            "type": "number"
+          },
+          "recoveryRate": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "sourceReference": {
+            "type": "string"
+          },
+          "sourceComplaint": {
+            "type": "object",
+            "nullable": true
+          },
+          "reason": {
+            "type": "string"
+          },
+          "distributionStartDate": {
+            "type": "object",
+            "format": "date",
+            "nullable": true
+          },
+          "distributionEndDate": {
+            "type": "object",
+            "format": "date",
+            "nullable": true
+          },
+          "reportedBy": {
+            "$ref": "#/components/schemas/RecallUserSummaryDto"
+          },
+          "riskAssessment": {
+            "type": "object",
+            "nullable": true
+          },
+          "decision": {
+            "type": "object",
+            "nullable": true
+          },
+          "executionUpdates": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "closure": {
+            "type": "object",
+            "nullable": true
+          },
+          "cancellationReason": {
+            "type": "object",
+            "nullable": true
+          },
+          "cancelledAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "title",
+          "actionType",
+          "productName",
+          "productCode",
+          "lotNumbers",
+          "countryCodes",
+          "status",
+          "dueState",
+          "targetCloseAt",
+          "totalDistributedUnits",
+          "recoveredUnits",
+          "recoveryRate",
+          "createdAt",
+          "sourceReference",
+          "reason",
+          "reportedBy",
+          "executionUpdates"
+        ]
+      },
+      "CreateRecallDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "actionType": {
+            "type": "string",
+            "enum": [
+              "RECALL",
+              "MARKET_WITHDRAWAL",
+              "FIELD_CORRECTION",
+              "SAFETY_NOTICE",
+              "STOCK_RECOVERY"
+            ]
+          },
+          "sourceComplaintId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sourceReference": {
+            "type": "string"
+          },
+          "productName": {
+            "type": "string"
+          },
+          "productCode": {
+            "type": "string"
+          },
+          "lotNumbers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "countryCodes": {
+            "example": [
+              "GT",
+              "CR"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reason": {
+            "type": "string"
+          },
+          "distributionStartDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "distributionEndDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "totalDistributedUnits": {
+            "type": "number",
+            "minimum": 1
+          },
+          "targetCloseAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "title",
+          "actionType",
+          "sourceReference",
+          "productName",
+          "productCode",
+          "lotNumbers",
+          "countryCodes",
+          "reason",
+          "totalDistributedUnits",
+          "targetCloseAt"
+        ]
+      },
+      "CompleteRecallAssessmentDto": {
+        "type": "object",
+        "properties": {
+          "classification": {
+            "type": "string",
+            "enum": [
+              "CLASS_I",
+              "CLASS_II",
+              "CLASS_III",
+              "UNCLASSIFIED"
+            ]
+          },
+          "depth": {
+            "type": "string",
+            "enum": [
+              "CONSUMER",
+              "RETAIL",
+              "WHOLESALE",
+              "INTERNAL"
+            ]
+          },
+          "healthHazard": {
+            "type": "string"
+          },
+          "scopeRationale": {
+            "type": "string"
+          },
+          "regulatoryReportingRequired": {
+            "type": "boolean"
+          },
+          "communicationPlan": {
+            "type": "string"
+          },
+          "recommendedAction": {
+            "type": "string"
+          },
+          "approverUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "password": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "attestationAccepted": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "classification",
+          "depth",
+          "healthHazard",
+          "scopeRationale",
+          "regulatoryReportingRequired",
+          "communicationPlan",
+          "recommendedAction",
+          "approverUserId",
+          "password",
+          "attestationAccepted"
+        ]
+      },
+      "DecideRecallDto": {
+        "type": "object",
+        "properties": {
+          "approved": {
+            "type": "boolean"
+          },
+          "rationale": {
+            "type": "string"
+          },
+          "authorityReference": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "attestationAccepted": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "approved",
+          "rationale",
+          "authorityReference",
+          "password",
+          "attestationAccepted"
+        ]
+      },
+      "RecordRecallExecutionUpdateDto": {
+        "type": "object",
+        "properties": {
+          "updateType": {
+            "type": "string",
+            "enum": [
+              "EXECUTION_STARTED",
+              "ACCOUNT_NOTIFICATION",
+              "PRODUCT_RECOVERY",
+              "PRODUCT_DESTRUCTION",
+              "REGULATORY_COMMUNICATION",
+              "OTHER"
+            ]
+          },
+          "note": {
+            "type": "string"
+          },
+          "evidenceReference": {
+            "type": "string"
+          },
+          "cumulativeNotifiedAccounts": {
+            "type": "number",
+            "minimum": 0
+          },
+          "cumulativeRespondingAccounts": {
+            "type": "number",
+            "minimum": 0
+          },
+          "cumulativeRecoveredUnits": {
+            "type": "number",
+            "minimum": 0
+          },
+          "cumulativeDestroyedUnits": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "updateType",
+          "note",
+          "evidenceReference",
+          "cumulativeNotifiedAccounts",
+          "cumulativeRespondingAccounts",
+          "cumulativeRecoveredUnits",
+          "cumulativeDestroyedUnits"
+        ]
+      },
+      "CloseRecallDto": {
+        "type": "object",
+        "properties": {
+          "effectivenessSummary": {
+            "type": "string"
+          },
+          "reconciliationSummary": {
+            "type": "string"
+          },
+          "finalNotifiedAccounts": {
+            "type": "number",
+            "minimum": 0
+          },
+          "finalRespondingAccounts": {
+            "type": "number",
+            "minimum": 0
+          },
+          "finalRecoveredUnits": {
+            "type": "number",
+            "minimum": 0
+          },
+          "finalDestroyedUnits": {
+            "type": "number",
+            "minimum": 0
+          },
+          "dispositionEvidence": {
+            "type": "string"
+          },
+          "regulatoryClosureReference": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "attestationAccepted": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "effectivenessSummary",
+          "reconciliationSummary",
+          "finalNotifiedAccounts",
+          "finalRespondingAccounts",
+          "finalRecoveredUnits",
+          "finalDestroyedUnits",
+          "dispositionEvidence",
+          "regulatoryClosureReference",
+          "password",
+          "attestationAccepted"
+        ]
+      },
+      "CancelRecallDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "ProductReviewUserSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "email"
+        ]
+      },
+      "ProductReviewSummaryResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "example": "PQR-2026-0001"
+          },
+          "productName": {
+            "type": "string"
+          },
+          "productCode": {
+            "type": "string"
+          },
+          "dosageForm": {
+            "type": "string"
+          },
+          "strength": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "dueState": {
+            "type": "string"
+          },
+          "periodStart": {
+            "type": "string",
+            "format": "date"
+          },
+          "periodEnd": {
+            "type": "string",
+            "format": "date"
+          },
+          "targetCompletionAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "approver": {
+            "$ref": "#/components/schemas/ProductReviewUserSummaryDto"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "productName",
+          "productCode",
+          "dosageForm",
+          "strength",
+          "status",
+          "dueState",
+          "periodStart",
+          "periodEnd",
+          "targetCompletionAt",
+          "approver",
+          "createdAt"
+        ]
+      },
+      "ProductReviewParticipantResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "email",
+          "permissions"
+        ]
+      },
+      "ProductReviewMetricDto": {
+        "type": "object",
+        "properties": {
+          "current": {
+            "type": "number"
+          },
+          "previous": {
+            "type": "number"
+          },
+          "deltaPercent": {
+            "type": "object",
+            "nullable": true
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "INCREASE",
+              "STABLE",
+              "DECREASE"
+            ]
+          }
+        },
+        "required": [
+          "current",
+          "previous",
+          "deltaPercent",
+          "direction"
+        ]
+      },
+      "ProductReviewMonthlyTrendDto": {
+        "type": "object",
+        "properties": {
+          "month": {
+            "type": "string"
+          },
+          "complaints": {
+            "type": "number"
+          },
+          "recalls": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "month",
+          "complaints",
+          "recalls"
+        ]
+      },
+      "ProductReviewTrendSnapshotDto": {
+        "type": "object",
+        "properties": {
+          "productCode": {
+            "type": "string"
+          },
+          "periodStart": {
+            "type": "string"
+          },
+          "periodEnd": {
+            "type": "string"
+          },
+          "previousPeriodStart": {
+            "type": "string"
+          },
+          "previousPeriodEnd": {
+            "type": "string"
+          },
+          "complaints": {
+            "$ref": "#/components/schemas/ProductReviewMetricDto"
+          },
+          "recalls": {
+            "$ref": "#/components/schemas/ProductReviewMetricDto"
+          },
+          "substantiatedComplaints": {
+            "type": "number"
+          },
+          "criticalComplaints": {
+            "type": "number"
+          },
+          "reportableComplaints": {
+            "type": "number"
+          },
+          "closedRecalls": {
+            "type": "number"
+          },
+          "linkedDeviations": {
+            "type": "number"
+          },
+          "linkedCapas": {
+            "type": "number"
+          },
+          "linkedSuppliers": {
+            "type": "number"
+          },
+          "linkedQualityRisks": {
+            "type": "number"
+          },
+          "linkedChangeControls": {
+            "type": "number"
+          },
+          "monthly": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductReviewMonthlyTrendDto"
+            }
+          },
+          "capturedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "productCode",
+          "periodStart",
+          "periodEnd",
+          "previousPeriodStart",
+          "previousPeriodEnd",
+          "complaints",
+          "recalls",
+          "substantiatedComplaints",
+          "criticalComplaints",
+          "reportableComplaints",
+          "closedRecalls",
+          "linkedDeviations",
+          "linkedCapas",
+          "linkedSuppliers",
+          "linkedQualityRisks",
+          "linkedChangeControls",
+          "monthly",
+          "capturedAt"
+        ]
+      },
+      "ProductReviewDetailResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "example": "PQR-2026-0001"
+          },
+          "productName": {
+            "type": "string"
+          },
+          "productCode": {
+            "type": "string"
+          },
+          "dosageForm": {
+            "type": "string"
+          },
+          "strength": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "dueState": {
+            "type": "string"
+          },
+          "periodStart": {
+            "type": "string",
+            "format": "date"
+          },
+          "periodEnd": {
+            "type": "string",
+            "format": "date"
+          },
+          "targetCompletionAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "approver": {
+            "$ref": "#/components/schemas/ProductReviewUserSummaryDto"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "marketAuthorization": {
+            "type": "string"
+          },
+          "createdBy": {
+            "$ref": "#/components/schemas/ProductReviewUserSummaryDto"
+          },
+          "assessment": {
+            "type": "object",
+            "nullable": true
+          },
+          "decision": {
+            "type": "object",
+            "nullable": true
+          },
+          "cancellationReason": {
+            "type": "object",
+            "nullable": true
+          },
+          "cancelledAt": {
+            "type": "object",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "productName",
+          "productCode",
+          "dosageForm",
+          "strength",
+          "status",
+          "dueState",
+          "periodStart",
+          "periodEnd",
+          "targetCompletionAt",
+          "approver",
+          "createdAt",
+          "marketAuthorization",
+          "createdBy"
+        ]
+      },
+      "CreateProductReviewDto": {
+        "type": "object",
+        "properties": {
+          "productName": {
+            "type": "string"
+          },
+          "productCode": {
+            "type": "string"
+          },
+          "dosageForm": {
+            "type": "string"
+          },
+          "strength": {
+            "type": "string"
+          },
+          "marketAuthorization": {
+            "type": "string"
+          },
+          "periodStart": {
+            "type": "string",
+            "format": "date"
+          },
+          "periodEnd": {
+            "type": "string",
+            "format": "date"
+          },
+          "targetCompletionAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "approverUserId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "productName",
+          "productCode",
+          "dosageForm",
+          "strength",
+          "marketAuthorization",
+          "periodStart",
+          "periodEnd",
+          "targetCompletionAt",
+          "approverUserId"
+        ]
+      },
+      "PrepareProductReviewDto": {
+        "type": "object",
+        "properties": {
+          "batchesManufactured": {
+            "type": "number",
+            "minimum": 0
+          },
+          "batchesReleased": {
+            "type": "number",
+            "minimum": 0
+          },
+          "batchesRejected": {
+            "type": "number",
+            "minimum": 0
+          },
+          "outOfSpecificationCount": {
+            "type": "number",
+            "minimum": 0
+          },
+          "stabilityExceptionCount": {
+            "type": "number",
+            "minimum": 0
+          },
+          "returnedUnitCount": {
+            "type": "number",
+            "minimum": 0
+          },
+          "manufacturingSummary": {
+            "type": "string"
+          },
+          "startingMaterialsSummary": {
+            "type": "string"
+          },
+          "criticalQualityAttributesSummary": {
+            "type": "string"
+          },
+          "processPerformanceSummary": {
+            "type": "string"
+          },
+          "stabilitySummary": {
+            "type": "string"
+          },
+          "validationSummary": {
+            "type": "string"
+          },
+          "regulatorySummary": {
+            "type": "string"
+          },
+          "trendAnalysis": {
+            "type": "string"
+          },
+          "benefitRiskConclusion": {
+            "type": "string"
+          },
+          "recommendations": {
+            "type": "string"
+          },
+          "evidenceReference": {
+            "type": "string"
+          },
+          "continuedManufactureRecommended": {
+            "type": "boolean"
+          },
+          "capaRequired": {
+            "type": "boolean"
+          },
+          "changeControlRequired": {
+            "type": "boolean"
+          },
+          "password": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "attestationAccepted": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "batchesManufactured",
+          "batchesReleased",
+          "batchesRejected",
+          "outOfSpecificationCount",
+          "stabilityExceptionCount",
+          "returnedUnitCount",
+          "manufacturingSummary",
+          "startingMaterialsSummary",
+          "criticalQualityAttributesSummary",
+          "processPerformanceSummary",
+          "stabilitySummary",
+          "validationSummary",
+          "regulatorySummary",
+          "trendAnalysis",
+          "benefitRiskConclusion",
+          "recommendations",
+          "evidenceReference",
+          "continuedManufactureRecommended",
+          "capaRequired",
+          "changeControlRequired",
+          "password",
+          "attestationAccepted"
+        ]
+      },
+      "DecideProductReviewDto": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "APPROVE",
+              "REQUIRE_FOLLOW_UP"
+            ]
+          },
+          "rationale": {
+            "type": "string"
+          },
+          "followUpReference": {
+            "type": "string"
+          },
+          "nextReviewAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "password": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "attestationAccepted": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "decision",
+          "rationale",
+          "followUpReference",
+          "nextReviewAt",
+          "password",
+          "attestationAccepted"
+        ]
+      },
+      "CancelProductReviewDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "PhotoEvidenceUploaderDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "displayName"
+        ]
+      },
+      "PhotoEvidenceResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "subjectType": {
+            "type": "string",
+            "enum": [
+              "DOCUMENT",
+              "TRAINING_ASSIGNMENT",
+              "DEVIATION",
+              "CAPA",
+              "CHANGE_CONTROL",
+              "AUDIT",
+              "QUALITY_RISK",
+              "SUPPLIER",
+              "EQUIPMENT",
+              "COMPLAINT",
+              "RECALL",
+              "PRODUCT_REVIEW"
+            ]
+          },
+          "subjectId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "number"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "caption": {
+            "type": "string",
+            "nullable": true
+          },
+          "capturedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "uploadedBy": {
+            "$ref": "#/components/schemas/PhotoEvidenceUploaderDto"
+          },
+          "contentUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "subjectType",
+          "subjectId",
+          "fileName",
+          "contentType",
+          "sizeBytes",
+          "sha256",
+          "caption",
+          "capturedAt",
+          "createdAt",
+          "uploadedBy",
+          "contentUrl"
+        ]
+      },
+      "PhotoEvidenceUsageResponseDto": {
+        "type": "object",
+        "properties": {
+          "usedBytes": {
+            "type": "number"
+          },
+          "quotaBytes": {
+            "type": "number"
+          },
+          "remainingBytes": {
+            "type": "number"
+          },
+          "photoCount": {
+            "type": "number"
+          },
+          "usagePercent": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "usedBytes",
+          "quotaBytes",
+          "remainingBytes",
+          "photoCount",
+          "usagePercent"
         ]
       },
       "DocumentUserSummaryDto": {

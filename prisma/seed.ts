@@ -118,6 +118,11 @@ const permissions = [
     'product_reviews.cancel',
     'Cancel invalid product review scopes before assessment.',
   ],
+  ['photo_evidence.read', 'View controlled photographic evidence.'],
+  [
+    'photo_evidence.upload',
+    'Capture and upload controlled photographic evidence.',
+  ],
   ['changes.read', 'View GMP change controls.'],
   ['changes.create', 'Propose GMP change controls.'],
   ['changes.assess', 'Assess change impact, risk, and implementation plans.'],
