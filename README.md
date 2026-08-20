@@ -87,6 +87,7 @@ The backend is a modular NestJS monolith with pragmatic ports and adapters, tena
 - [Supplier quality management](docs/supplier-quality-management.md)
 - [Equipment, calibration, and maintenance](docs/equipment-management.md)
 - [Product quality complaints](docs/product-complaints.md)
+- [Product recalls and field actions](docs/product-recalls.md)
 - [Operations and recovery](docs/operations.md)
 - [Durable notification delivery](docs/notifications.md)
 - [Operational observability](docs/observability.md)
@@ -110,6 +111,7 @@ The backend is a modular NestJS monolith with pragmatic ports and adapters, tena
 - [ADR-022: transactional notification outbox](docs/adr/ADR-022-transactional-notification-outbox.md)
 - [ADR-023: operational metrics and distributed rate limiting](docs/adr/ADR-023-operational-metrics-and-distributed-rate-limiting.md)
 - [ADR-024: immutable product complaint investigation](docs/adr/ADR-024-immutable-product-complaint-investigation.md)
+- [ADR-025: independent product recall control](docs/adr/ADR-025-independent-product-recall-control.md)
 - [Threat model](docs/threat-model.md)
 - [Production readiness checklist](docs/production-checklist.md)
 

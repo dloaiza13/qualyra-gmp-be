@@ -100,6 +100,13 @@ const initialRolePermissions: Record<(typeof initialRoles)[number], string[]> =
       'complaints.investigate',
       'complaints.review',
       'complaints.cancel',
+      'recalls.read',
+      'recalls.create',
+      'recalls.assess',
+      'recalls.approve',
+      'recalls.execute',
+      'recalls.close',
+      'recalls.cancel',
     ],
     'Document Controller': [
       'documents.read',
@@ -132,6 +139,8 @@ const initialRolePermissions: Record<(typeof initialRoles)[number], string[]> =
       'equipment.maintain',
       'complaints.read',
       'complaints.create',
+      'recalls.read',
+      'recalls.create',
     ],
     Operator: [
       'documents.read',
@@ -157,6 +166,9 @@ const initialRolePermissions: Record<(typeof initialRoles)[number], string[]> =
       'complaints.read',
       'complaints.create',
       'complaints.investigate',
+      'recalls.read',
+      'recalls.create',
+      'recalls.execute',
     ],
     Auditor: [
       'documents.read',
@@ -183,6 +195,9 @@ const initialRolePermissions: Record<(typeof initialRoles)[number], string[]> =
       'equipment.retire',
       'complaints.read',
       'complaints.review',
+      'recalls.read',
+      'recalls.approve',
+      'recalls.close',
     ],
   };
 const failedLoginThreshold = 5;

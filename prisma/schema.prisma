@@ -538,6 +538,57 @@ enum ComplaintAuthenticationMethod {
   PASSWORD_REAUTHENTICATION
 }
 
+enum ProductRecallActionType {
+  RECALL
+  MARKET_WITHDRAWAL
+  FIELD_CORRECTION
+  SAFETY_NOTICE
+  STOCK_RECOVERY
+}
+
+enum ProductRecallStatus {
+  REPORTED
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  IN_EXECUTION
+  CLOSED
+  CANCELLED
+}
+
+enum RecallClassification {
+  CLASS_I
+  CLASS_II
+  CLASS_III
+  UNCLASSIFIED
+}
+
+enum RecallDepth {
+  CONSUMER
+  RETAIL
+  WHOLESALE
+  INTERNAL
+}
+
+enum RecallUpdateType {
+  EXECUTION_STARTED
+  ACCOUNT_NOTIFICATION
+  PRODUCT_RECOVERY
+  PRODUCT_DESTRUCTION
+  REGULATORY_COMMUNICATION
+  OTHER
+}
+
+enum RecallSignatureMeaning {
+  RISK_ASSESSMENT
+  ACTION_DECISION
+  RECONCILIATION_CLOSURE
+}
+
+enum RecallAuthenticationMethod {
+  PASSWORD_REAUTHENTICATION
+}
+
 model Tenant {
   id                       String                          @id @default(uuid()) @db.Uuid
   name                     String                          @db.VarChar(200)
@@ -611,6 +662,12 @@ model Tenant {
   complaints               ProductComplaint[]
   complaintInvestigations  ComplaintInvestigation[]
   complaintDecisions       ComplaintDecision[]
+  recallSequences          RecallSequence[]
+  productRecalls           ProductRecall[]
+  recallRiskAssessments    RecallRiskAssessment[]
+  recallDecisions          RecallDecision[]
+  recallExecutionUpdates   RecallExecutionUpdate[]
+  recallClosures           RecallClosure[]
 
   @@map("tenants")
 }
@@ -714,6 +771,13 @@ model User {
   complaintsCancelled               ProductComplaint[]              @relation("ComplaintCanceller")
   complaintInvestigationsCompleted  ComplaintInvestigation[]        @relation("ComplaintInvestigationSigner")
   complaintDecisionsCompleted       ComplaintDecision[]             @relation("ComplaintDecisionSigner")
+  productRecallsReported            ProductRecall[]                 @relation("ProductRecallReporter")
+  productRecallApprovalAssignments  ProductRecall[]                 @relation("ProductRecallApprover")
+  productRecallsCancelled           ProductRecall[]                 @relation("ProductRecallCanceller")
+  recallRiskAssessmentsCompleted    RecallRiskAssessment[]          @relation("RecallAssessmentSigner")
+  recallDecisionsCompleted          RecallDecision[]                @relation("RecallDecisionSigner")
+  recallExecutionUpdatesRecorded    RecallExecutionUpdate[]         @relation("RecallExecutionRecorder")
+  recallClosuresCompleted           RecallClosure[]                 @relation("RecallClosureSigner")
 
   @@unique([tenantId, id], map: "users_tenant_id_id_key")
   @@unique([tenantId, email], map: "users_tenant_id_email_key")
@@ -819,6 +883,9 @@ model Session {
   maintenanceReviewSignatures       EquipmentMaintenanceReview[]    @relation("MaintenanceReviewSession")
   complaintInvestigationSignatures  ComplaintInvestigation[]        @relation("ComplaintInvestigationSession")
   complaintDecisionSignatures       ComplaintDecision[]             @relation("ComplaintDecisionSession")
+  recallAssessmentSignatures        RecallRiskAssessment[]          @relation("RecallAssessmentSession")
+  recallDecisionSignatures          RecallDecision[]                @relation("RecallDecisionSession")
+  recallClosureSignatures           RecallClosure[]                 @relation("RecallClosureSession")
 
   @@unique([tenantId, userId, id], map: "sessions_tenant_id_user_id_id_key")
   @@index([tenantId, userId, status], map: "sessions_tenant_id_user_id_status_idx")
@@ -2370,6 +2437,7 @@ model ProductComplaint {
   cancelledBy              User?                          @relation("ComplaintCanceller", fields: [tenantId, cancelledByUserId], references: [tenantId, id], onDelete: Restrict)
   investigation            ComplaintInvestigation?
   decision                 ComplaintDecision?
+  productRecalls           ProductRecall[]
 
   @@unique([tenantId, id], map: "product_complaints_tenant_id_id_key")
   @@unique([tenantId, code], map: "product_complaints_tenant_code_key")
@@ -2442,4 +2510,164 @@ model ComplaintDecision {
   @@unique([tenantId, id], map: "complaint_decisions_tenant_id_id_key")
   @@unique([tenantId, complaintId], map: "complaint_decisions_complaint_key")
   @@map("complaint_decisions")
+}
+
+model RecallSequence {
+  tenantId   String   @map("tenant_id") @db.Uuid
+  year       Int
+  lastNumber Int      @default(0) @map("last_number")
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@id([tenantId, year])
+  @@map("recall_sequences")
+}
+
+model ProductRecall {
+  id                    String                  @id @default(uuid()) @db.Uuid
+  tenantId              String                  @map("tenant_id") @db.Uuid
+  code                  String                  @db.VarChar(25)
+  title                 String                  @db.VarChar(200)
+  actionType            ProductRecallActionType @map("action_type")
+  sourceComplaintId     String?                 @map("source_complaint_id") @db.Uuid
+  sourceReference       String                  @map("source_reference") @db.VarChar(1000)
+  productName           String                  @map("product_name") @db.VarChar(200)
+  productCode           String                  @map("product_code") @db.VarChar(100)
+  lotNumbers            String[]                @map("lot_numbers")
+  countryCodes          String[]                @map("country_codes")
+  reason                String                  @db.VarChar(5000)
+  distributionStartDate DateTime?               @map("distribution_start_date") @db.Date
+  distributionEndDate   DateTime?               @map("distribution_end_date") @db.Date
+  totalDistributedUnits Int                     @map("total_distributed_units")
+  targetCloseAt         DateTime                @map("target_close_at") @db.Timestamptz(3)
+  status                ProductRecallStatus     @default(REPORTED)
+  approverUserId        String?                 @map("approver_user_id") @db.Uuid
+  reportedByUserId      String                  @map("reported_by_user_id") @db.Uuid
+  cancelledByUserId     String?                 @map("cancelled_by_user_id") @db.Uuid
+  cancellationReason    String?                 @map("cancellation_reason") @db.VarChar(1000)
+  cancelledAt           DateTime?               @map("cancelled_at") @db.Timestamptz(3)
+  createdAt             DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant                Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  sourceComplaint       ProductComplaint?       @relation(fields: [tenantId, sourceComplaintId], references: [tenantId, id], onDelete: Restrict)
+  approver              User?                   @relation("ProductRecallApprover", fields: [tenantId, approverUserId], references: [tenantId, id], onDelete: Restrict)
+  reportedBy            User                    @relation("ProductRecallReporter", fields: [tenantId, reportedByUserId], references: [tenantId, id], onDelete: Restrict)
+  cancelledBy           User?                   @relation("ProductRecallCanceller", fields: [tenantId, cancelledByUserId], references: [tenantId, id], onDelete: Restrict)
+  riskAssessment        RecallRiskAssessment?
+  decision              RecallDecision?
+  executionUpdates      RecallExecutionUpdate[]
+  closure               RecallClosure?
+
+  @@unique([tenantId, id], map: "product_recalls_tenant_id_id_key")
+  @@unique([tenantId, code], map: "product_recalls_tenant_code_key")
+  @@index([tenantId, status, targetCloseAt], map: "product_recalls_status_due_idx")
+  @@index([tenantId, productCode], map: "product_recalls_product_idx")
+  @@index([tenantId, sourceComplaintId], map: "product_recalls_complaint_idx")
+  @@map("product_recalls")
+}
+
+model RecallRiskAssessment {
+  id                          String                     @id @default(uuid()) @db.Uuid
+  tenantId                    String                     @map("tenant_id") @db.Uuid
+  recallId                    String                     @map("recall_id") @db.Uuid
+  classification              RecallClassification
+  depth                       RecallDepth
+  healthHazard                String                     @map("health_hazard") @db.VarChar(5000)
+  scopeRationale              String                     @map("scope_rationale") @db.VarChar(3000)
+  regulatoryReportingRequired Boolean                    @map("regulatory_reporting_required")
+  communicationPlan           String                     @map("communication_plan") @db.VarChar(3000)
+  recommendedAction           String                     @map("recommended_action") @db.VarChar(3000)
+  assessedByUserId            String                     @map("assessed_by_user_id") @db.Uuid
+  assessmentSessionId         String                     @map("assessment_session_id") @db.Uuid
+  meaning                     RecallSignatureMeaning     @default(RISK_ASSESSMENT)
+  authenticationMethod        RecallAuthenticationMethod @default(PASSWORD_REAUTHENTICATION) @map("authentication_method")
+  assessedAt                  DateTime                   @map("assessed_at") @db.Timestamptz(3)
+  recordHash                  String                     @map("record_hash") @db.Char(64)
+  createdAt                   DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant                      Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  recall                      ProductRecall              @relation(fields: [tenantId, recallId], references: [tenantId, id], onDelete: Restrict)
+  assessedBy                  User                       @relation("RecallAssessmentSigner", fields: [tenantId, assessedByUserId], references: [tenantId, id], onDelete: Restrict, map: "recall_assessment_signer_fkey")
+  assessmentSession           Session                    @relation("RecallAssessmentSession", fields: [tenantId, assessedByUserId, assessmentSessionId], references: [tenantId, userId, id], onDelete: Restrict, map: "recall_assessment_session_fkey")
+
+  @@unique([tenantId, id], map: "recall_risk_assessments_tenant_id_id_key")
+  @@unique([tenantId, recallId], map: "recall_risk_assessments_recall_key")
+  @@map("recall_risk_assessments")
+}
+
+model RecallDecision {
+  id                   String                     @id @default(uuid()) @db.Uuid
+  tenantId             String                     @map("tenant_id") @db.Uuid
+  recallId             String                     @map("recall_id") @db.Uuid
+  approved             Boolean
+  rationale            String                     @db.VarChar(3000)
+  authorityReference   String                     @map("authority_reference") @db.VarChar(2000)
+  decidedByUserId      String                     @map("decided_by_user_id") @db.Uuid
+  decisionSessionId    String                     @map("decision_session_id") @db.Uuid
+  meaning              RecallSignatureMeaning     @default(ACTION_DECISION)
+  authenticationMethod RecallAuthenticationMethod @default(PASSWORD_REAUTHENTICATION) @map("authentication_method")
+  decidedAt            DateTime                   @map("decided_at") @db.Timestamptz(3)
+  recordHash           String                     @map("record_hash") @db.Char(64)
+  createdAt            DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant               Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  recall               ProductRecall              @relation(fields: [tenantId, recallId], references: [tenantId, id], onDelete: Restrict)
+  decidedBy            User                       @relation("RecallDecisionSigner", fields: [tenantId, decidedByUserId], references: [tenantId, id], onDelete: Restrict, map: "recall_decision_signer_fkey")
+  decisionSession      Session                    @relation("RecallDecisionSession", fields: [tenantId, decidedByUserId, decisionSessionId], references: [tenantId, userId, id], onDelete: Restrict, map: "recall_decision_session_fkey")
+
+  @@unique([tenantId, id], map: "recall_decisions_tenant_id_id_key")
+  @@unique([tenantId, recallId], map: "recall_decisions_recall_key")
+  @@map("recall_decisions")
+}
+
+model RecallExecutionUpdate {
+  id                           String           @id @default(uuid()) @db.Uuid
+  tenantId                     String           @map("tenant_id") @db.Uuid
+  recallId                     String           @map("recall_id") @db.Uuid
+  sequenceNumber               Int              @map("sequence_number")
+  updateType                   RecallUpdateType @map("update_type")
+  note                         String           @db.VarChar(3000)
+  evidenceReference            String           @map("evidence_reference") @db.VarChar(2000)
+  cumulativeNotifiedAccounts   Int              @map("cumulative_notified_accounts")
+  cumulativeRespondingAccounts Int              @map("cumulative_responding_accounts")
+  cumulativeRecoveredUnits     Int              @map("cumulative_recovered_units")
+  cumulativeDestroyedUnits     Int              @map("cumulative_destroyed_units")
+  recordedByUserId             String           @map("recorded_by_user_id") @db.Uuid
+  recordedAt                   DateTime         @map("recorded_at") @db.Timestamptz(3)
+  createdAt                    DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant                       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  recall                       ProductRecall    @relation(fields: [tenantId, recallId], references: [tenantId, id], onDelete: Restrict)
+  recordedBy                   User             @relation("RecallExecutionRecorder", fields: [tenantId, recordedByUserId], references: [tenantId, id], onDelete: Restrict, map: "recall_execution_recorder_fkey")
+
+  @@unique([tenantId, id], map: "recall_execution_updates_tenant_id_id_key")
+  @@unique([tenantId, recallId, sequenceNumber], map: "recall_execution_updates_sequence_key")
+  @@index([tenantId, recallId, recordedAt], map: "recall_execution_updates_recorded_idx")
+  @@map("recall_execution_updates")
+}
+
+model RecallClosure {
+  id                         String                     @id @default(uuid()) @db.Uuid
+  tenantId                   String                     @map("tenant_id") @db.Uuid
+  recallId                   String                     @map("recall_id") @db.Uuid
+  effectivenessSummary       String                     @map("effectiveness_summary") @db.VarChar(5000)
+  reconciliationSummary      String                     @map("reconciliation_summary") @db.VarChar(5000)
+  finalNotifiedAccounts      Int                        @map("final_notified_accounts")
+  finalRespondingAccounts    Int                        @map("final_responding_accounts")
+  finalRecoveredUnits        Int                        @map("final_recovered_units")
+  finalDestroyedUnits        Int                        @map("final_destroyed_units")
+  dispositionEvidence        String                     @map("disposition_evidence") @db.VarChar(3000)
+  regulatoryClosureReference String                     @map("regulatory_closure_reference") @db.VarChar(2000)
+  closedByUserId             String                     @map("closed_by_user_id") @db.Uuid
+  closureSessionId           String                     @map("closure_session_id") @db.Uuid
+  meaning                    RecallSignatureMeaning     @default(RECONCILIATION_CLOSURE)
+  authenticationMethod       RecallAuthenticationMethod @default(PASSWORD_REAUTHENTICATION) @map("authentication_method")
+  closedAt                   DateTime                   @map("closed_at") @db.Timestamptz(3)
+  recordHash                 String                     @map("record_hash") @db.Char(64)
+  createdAt                  DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant                     Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  recall                     ProductRecall              @relation(fields: [tenantId, recallId], references: [tenantId, id], onDelete: Restrict)
+  closedBy                   User                       @relation("RecallClosureSigner", fields: [tenantId, closedByUserId], references: [tenantId, id], onDelete: Restrict, map: "recall_closure_signer_fkey")
+  closureSession             Session                    @relation("RecallClosureSession", fields: [tenantId, closedByUserId, closureSessionId], references: [tenantId, userId, id], onDelete: Restrict, map: "recall_closure_session_fkey")
+
+  @@unique([tenantId, id], map: "recall_closures_tenant_id_id_key")
+  @@unique([tenantId, recallId], map: "recall_closures_recall_key")
+  @@map("recall_closures")
 }

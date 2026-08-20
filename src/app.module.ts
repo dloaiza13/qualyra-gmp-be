@@ -30,6 +30,7 @@ import { QualityRisksModule } from './modules/quality-risks/quality-risks.module
 import { SuppliersModule } from './modules/suppliers/suppliers.module.js';
 import { EquipmentModule } from './modules/equipment/equipment.module.js';
 import { ComplaintsModule } from './modules/complaints/complaints.module.js';
+import { RecallsModule } from './modules/recalls/recalls.module.js';
 import { DocumentsModule } from './modules/documents/documents.module.js';
 import { DeviationsModule } from './modules/deviations/deviations.module.js';
 import { HealthModule } from './modules/health/health.module.js';
@@ -117,6 +118,7 @@ import { ObservabilityModule } from './modules/observability/observability.modul
     SuppliersModule,
     EquipmentModule,
     ComplaintsModule,
+    RecallsModule,
     DocumentsModule,
     TrainingModule,
     DeviationsModule,
@@ -134,6 +136,7 @@ import { ObservabilityModule } from './modules/observability/observability.modul
       { path: 'api/v1', module: SuppliersModule },
       { path: 'api/v1', module: EquipmentModule },
       { path: 'api/v1', module: ComplaintsModule },
+      { path: 'api/v1', module: RecallsModule },
       { path: 'api/v1', module: DocumentsModule },
       { path: 'api/v1', module: TrainingModule },
       { path: 'api/v1', module: DeviationsModule },
