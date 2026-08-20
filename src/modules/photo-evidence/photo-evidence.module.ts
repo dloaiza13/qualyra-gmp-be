@@ -21,5 +21,6 @@ import { PhotoEvidenceController } from './presentation/photo-evidence.controlle
     PhotoEvidenceCapacityReconciliationService,
     PhotoEvidenceService,
   ],
+  exports: [PhotoEvidenceCapacityPolicy],
 })
 export class PhotoEvidenceModule {}

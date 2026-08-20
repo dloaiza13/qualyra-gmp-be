@@ -24,6 +24,8 @@ Phase 33 selects photographic quotas from the tenant plan, replaces per-upload a
 
 Phase 34 adds a repeatable, temporary-database capacity drill for 50 tenants, verifies the real S3 adapter against MinIO, reconciles counters against immutable metadata on a bounded schedule, and exports low-cardinality capacity alerts. These controls provide an executable baseline and early-warning signals; they do not replace staging tests with representative concurrency, object sizes, and infrastructure latency.
 
+Phase 35 separates provider commercial operations from tenant administration. The operator API uses bounded cursor pages and enriches tenants in batches of five so a commercial overview cannot create an unbounded fan-out. Tenant users receive only their own aggregate plan and usage summary. Plan and status changes are serialized, audited, and can revoke access without copying tenant business data into a second control database.
+
 Local baseline recorded on 2026-08-20: 50 tenants, 20 photographic metadata records per tenant (1,000 total), 10 pooled runtime connections, cross-tenant RLS verification passed, p50 26.79 ms, p95 44.14 ms, and maximum 64.78 ms. The strictly prefixed temporary database was removed after the drill. Treat these workstation measurements as a regression reference, not as a production service-level guarantee.
 
 For 50 customers, capacity planning should therefore use active users, request rate, metadata growth, and object-storage bytes—not the tenant count in isolation. Start with connection-pool, database latency/CPU, HTTP latency/error, object-storage growth, and quota-rejection alerts. Introduce per-plan quotas and load-test targets before self-service onboarding.

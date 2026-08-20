@@ -711,6 +711,7 @@ model Tenant {
   productReviewDecisions   ProductReviewDecision[]
   photoEvidence            PhotoEvidence[]
   photoEvidenceUsage       TenantPhotoEvidenceUsage?
+  platformAuditEvents      PlatformAuditEvent[]
 
   @@map("tenants")
 }
@@ -2872,4 +2873,23 @@ model TenantPhotoEvidenceUsage {
   tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@map("tenant_photo_evidence_usage")
+}
+
+model PlatformAuditEvent {
+  id            String               @id @default(uuid()) @db.Uuid
+  tenantId      String?              @map("tenant_id") @db.Uuid
+  operatorId    String               @map("operator_id") @db.VarChar(100)
+  eventType     String               @map("event_type") @db.VarChar(100)
+  outcome       SecurityEventOutcome
+  reason        String               @db.VarChar(500)
+  correlationId String               @map("correlation_id") @db.Uuid
+  ipAddress     String?              @map("ip_address") @db.Inet
+  userAgent     String?              @map("user_agent") @db.VarChar(1024)
+  metadata      Json?
+  createdAt     DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant        Tenant?              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([createdAt(sort: Desc), id(sort: Desc)], map: "platform_audit_events_cursor_idx")
+  @@index([tenantId, createdAt(sort: Desc)], map: "platform_audit_events_tenant_created_idx")
+  @@map("platform_audit_events")
 }

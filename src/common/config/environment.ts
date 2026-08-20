@@ -58,6 +58,16 @@ const environmentSchema = z
     SMTP_REQUIRE_TLS: booleanValue.default(false),
     SMTP_FROM: z.string().min(3).max(320),
     ALLOW_PUBLIC_TENANT_REGISTRATION: booleanValue,
+    PLATFORM_ADMIN_ENABLED: booleanValue.default(false),
+    PLATFORM_ADMIN_BEARER_TOKEN: z
+      .string()
+      .min(32)
+      .max(500)
+      .default('qualyra_local_platform_admin_token'),
+    PLATFORM_OPERATOR_ID: z
+      .string()
+      .regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]{2,99}$/)
+      .default('local-operator'),
     TRUST_PROXY: z.string().default('false'),
     REQUEST_BODY_LIMIT: z
       .string()
@@ -363,6 +373,20 @@ const environmentSchema = z
         code: 'custom',
         path: ['METRICS_BEARER_TOKEN'],
         message: 'A dedicated metrics bearer token is required in production.',
+      });
+    }
+
+    if (
+      environment.PLATFORM_ADMIN_ENABLED &&
+      (environment.PLATFORM_ADMIN_BEARER_TOKEN ===
+        'qualyra_local_platform_admin_token' ||
+        environment.PLATFORM_ADMIN_BEARER_TOKEN.length < 48)
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['PLATFORM_ADMIN_BEARER_TOKEN'],
+        message:
+          'A dedicated platform administration bearer token is required when the production API is enabled.',
       });
     }
 

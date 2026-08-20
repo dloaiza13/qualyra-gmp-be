@@ -11,6 +11,10 @@ export function createOpenApiDocument(app: INestApplication): OpenAPIObject {
     .setDescription('Secure multi-tenant quality management API.')
     .setVersion('1.0.0')
     .addBearerAuth()
+    .addBearerAuth(
+      { type: 'http', scheme: 'bearer', bearerFormat: 'opaque' },
+      'platformBearer',
+    )
     .addCookieAuth('qualyra_refresh')
     .build();
   return SwaggerModule.createDocument(app, configuration);

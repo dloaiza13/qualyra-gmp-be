@@ -40,6 +40,10 @@ Protected operations resolve the caller's current roles and permissions from Pos
 
 Membership onboarding for an existing organization is invitation-only. Public creation of a new organization is controlled independently by `ALLOW_PUBLIC_TENANT_REGISTRATION`. Invitation domain records retain only token hashes; the encrypted delivery payload is purged after send or cancellation. Resending rotates the token and cancels the prior pending message. Acceptance, role assignment, user creation, and session creation are atomic. A serialized last-administrator check prevents an organization from losing its final active administrator. See [authorization, users, roles, and invitations](authorization.md).
 
+## Platform administration boundary
+
+Cross-tenant commercial administration is not part of tenant authorization. Its API is disabled by default, rejects tenant JWTs, requires a separate opaque operator credential, and must be restricted to a private operator network. Plan or service-status changes require a reason, use optimistic concurrency, and append a database-enforced immutable platform event. Suspending or disabling an active tenant revokes its sessions and refresh tokens atomically. See [controlled platform administration](platform-administration.md).
+
 ## Compliance statement
 
 These controls support future validation and traceability. They do not by themselves make the system GMP compliant, ISO certified, FDA approved, or 21 CFR Part 11 compliant.
@@ -49,3 +53,4 @@ These controls support future validation and traceability. They do not by themse
 - [Phase 6 security review](security-review.md)
 - [Threat model](threat-model.md)
 - [Production readiness checklist](production-checklist.md)
+- [Controlled platform administration](platform-administration.md)

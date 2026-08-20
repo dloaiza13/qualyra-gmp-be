@@ -6109,6 +6109,257 @@
           "Notification deliveries"
         ]
       }
+    },
+    "/api/v1/platform/tenants": {
+      "get": {
+        "operationId": "PlatformTenantsController_list",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 25,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "name": "plan",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "TRIAL",
+                "STARTER",
+                "PROFESSIONAL",
+                "ENTERPRISE"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ACTIVE",
+                "SUSPENDED",
+                "DISABLED"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformTenantPageResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "platformBearer": []
+          }
+        ],
+        "tags": [
+          "Platform administration"
+        ]
+      }
+    },
+    "/api/v1/platform/tenants/{tenantId}": {
+      "get": {
+        "operationId": "PlatformTenantsController_get",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformTenantResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "platformBearer": []
+          }
+        ],
+        "tags": [
+          "Platform administration"
+        ]
+      },
+      "patch": {
+        "operationId": "PlatformTenantsController_update",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePlatformTenantDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformTenantResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "platformBearer": []
+          }
+        ],
+        "tags": [
+          "Platform administration"
+        ]
+      }
+    },
+    "/api/v1/platform/audit-events": {
+      "get": {
+        "operationId": "PlatformTenantsController_listAuditEvents",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenantId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformAuditEventPageResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "platformBearer": []
+          }
+        ],
+        "tags": [
+          "Platform administration"
+        ]
+      }
+    },
+    "/api/v1/organization/commercial-summary": {
+      "get": {
+        "operationId": "OrganizationController_summary",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationCommercialSummaryDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Organization"
+        ]
+      }
     }
   },
   "info": {
@@ -6124,6 +6375,11 @@
       "bearer": {
         "scheme": "bearer",
         "bearerFormat": "JWT",
+        "type": "http"
+      },
+      "platformBearer": {
+        "scheme": "bearer",
+        "bearerFormat": "opaque",
         "type": "http"
       },
       "cookie": {
@@ -14641,6 +14897,403 @@
           "attempts",
           "manualRetries",
           "availableAt",
+          "createdAt"
+        ]
+      },
+      "PlatformTenantUsersDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number"
+          },
+          "active": {
+            "type": "number"
+          },
+          "invited": {
+            "type": "number"
+          },
+          "locked": {
+            "type": "number"
+          },
+          "disabled": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "total",
+          "active",
+          "invited",
+          "locked",
+          "disabled"
+        ]
+      },
+      "PlatformTenantStorageDto": {
+        "type": "object",
+        "properties": {
+          "usedBytes": {
+            "type": "number"
+          },
+          "quotaBytes": {
+            "type": "number"
+          },
+          "photoCount": {
+            "type": "number"
+          },
+          "usagePercent": {
+            "type": "number"
+          },
+          "capacityStatus": {
+            "type": "string",
+            "enum": [
+              "NORMAL",
+              "WARNING",
+              "CRITICAL",
+              "OVER_QUOTA"
+            ]
+          },
+          "counterAvailable": {
+            "type": "boolean",
+            "description": "Whether a maintained usage counter was available."
+          }
+        },
+        "required": [
+          "usedBytes",
+          "quotaBytes",
+          "photoCount",
+          "usagePercent",
+          "capacityStatus",
+          "counterAvailable"
+        ]
+      },
+      "PlatformTenantResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "SUSPENDED",
+              "DISABLED"
+            ]
+          },
+          "plan": {
+            "type": "string",
+            "enum": [
+              "TRIAL",
+              "STARTER",
+              "PROFESSIONAL",
+              "ENTERPRISE"
+            ]
+          },
+          "users": {
+            "$ref": "#/components/schemas/PlatformTenantUsersDto"
+          },
+          "photographicEvidence": {
+            "$ref": "#/components/schemas/PlatformTenantStorageDto"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "status",
+          "plan",
+          "users",
+          "photographicEvidence",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "PlatformTenantPageResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformTenantResponseDto"
+            }
+          },
+          "nextCursor": {
+            "type": "object",
+            "nullable": true,
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "UpdatePlatformTenantDto": {
+        "type": "object",
+        "properties": {
+          "plan": {
+            "type": "string",
+            "enum": [
+              "TRIAL",
+              "STARTER",
+              "PROFESSIONAL",
+              "ENTERPRISE"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "SUSPENDED",
+              "DISABLED"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 500
+          },
+          "acknowledgeOverQuota": {
+            "type": "object",
+            "default": false
+          },
+          "expectedUpdatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "reason",
+          "expectedUpdatedAt"
+        ]
+      },
+      "PlatformAuditTenantDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug"
+        ]
+      },
+      "PlatformAuditEventResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tenant": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PlatformAuditTenantDto"
+              }
+            ]
+          },
+          "operatorId": {
+            "type": "string"
+          },
+          "eventType": {
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "SUCCESS",
+              "FAILURE"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "correlationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "metadata": {
+            "type": "object",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "operatorId",
+          "eventType",
+          "outcome",
+          "reason",
+          "correlationId",
+          "metadata",
+          "createdAt"
+        ]
+      },
+      "PlatformAuditEventPageResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformAuditEventResponseDto"
+            }
+          },
+          "nextCursor": {
+            "type": "object",
+            "nullable": true,
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "OrganizationUserUsageDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number"
+          },
+          "active": {
+            "type": "number"
+          },
+          "pendingInvitations": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "total",
+          "active",
+          "pendingInvitations"
+        ]
+      },
+      "OrganizationStorageUsageDto": {
+        "type": "object",
+        "properties": {
+          "usedBytes": {
+            "type": "number"
+          },
+          "quotaBytes": {
+            "type": "number"
+          },
+          "remainingBytes": {
+            "type": "number"
+          },
+          "photoCount": {
+            "type": "number"
+          },
+          "usagePercent": {
+            "type": "number"
+          },
+          "capacityStatus": {
+            "type": "string",
+            "enum": [
+              "NORMAL",
+              "WARNING",
+              "CRITICAL",
+              "OVER_QUOTA"
+            ]
+          }
+        },
+        "required": [
+          "usedBytes",
+          "quotaBytes",
+          "remainingBytes",
+          "photoCount",
+          "usagePercent",
+          "capacityStatus"
+        ]
+      },
+      "OrganizationCommercialSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "SUSPENDED",
+              "DISABLED"
+            ]
+          },
+          "plan": {
+            "type": "string",
+            "enum": [
+              "TRIAL",
+              "STARTER",
+              "PROFESSIONAL",
+              "ENTERPRISE"
+            ]
+          },
+          "users": {
+            "$ref": "#/components/schemas/OrganizationUserUsageDto"
+          },
+          "photographicEvidence": {
+            "$ref": "#/components/schemas/OrganizationStorageUsageDto"
+          },
+          "membership": {
+            "type": "string",
+            "enum": [
+              "INVITATION_ONLY"
+            ]
+          },
+          "commercialManagement": {
+            "type": "string",
+            "enum": [
+              "PROVIDER_MANAGED"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "status",
+          "plan",
+          "users",
+          "photographicEvidence",
+          "membership",
+          "commercialManagement",
           "createdAt"
         ]
       }

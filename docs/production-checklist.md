@@ -21,6 +21,7 @@ This checklist is a release gate. Repository controls marked complete still requ
 - [x] Store rate-limit and credential-throttle state atomically in shared Redis and fail protected requests closed when enforcement is unavailable.
 - [ ] Select and document CAPTCHA or equivalent bot defense based on the launch threat assessment.
 - [ ] Define support procedures for account recovery, compromised administrators, and organization ownership disputes.
+- [ ] Keep platform administration disabled or private-network-only; protect and rotate its operator token, assign change authority, and review immutable operator events.
 
 ## Data and multi-tenancy
 

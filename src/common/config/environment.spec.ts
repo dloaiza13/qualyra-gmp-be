@@ -66,6 +66,16 @@ describe('environment configuration', () => {
     ).toMatchObject({ NODE_ENV: 'production', COOKIE_SECURE: true });
   });
 
+  it('requires a dedicated operator token when platform administration is enabled in production', () => {
+    expect(() =>
+      validateEnvironment({
+        ...baseEnvironment,
+        NODE_ENV: 'production',
+        PLATFORM_ADMIN_ENABLED: 'true',
+      }),
+    ).toThrow(/PLATFORM_ADMIN_BEARER_TOKEN/);
+  });
+
   it('rejects insecure production URLs, cookies, and SMTP transport', () => {
     expect(() =>
       validateEnvironment({ ...baseEnvironment, NODE_ENV: 'production' }),
