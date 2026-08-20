@@ -104,6 +104,20 @@ const permissions = [
     'Independently sign field-action reconciliation and closure.',
   ],
   ['recalls.cancel', 'Cancel invalid field-action records before assessment.'],
+  ['product_reviews.read', 'View product quality reviews and trend snapshots.'],
+  [
+    'product_reviews.create',
+    'Create controlled product quality review scopes.',
+  ],
+  [
+    'product_reviews.prepare',
+    'Prepare and sign product quality review assessments.',
+  ],
+  ['product_reviews.approve', 'Independently approve product quality reviews.'],
+  [
+    'product_reviews.cancel',
+    'Cancel invalid product review scopes before assessment.',
+  ],
   ['changes.read', 'View GMP change controls.'],
   ['changes.create', 'Propose GMP change controls.'],
   ['changes.assess', 'Assess change impact, risk, and implementation plans.'],

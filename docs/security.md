@@ -38,7 +38,7 @@ HTTP logs remove URL query values and redact authorization, cookie, CSRF, passwo
 
 Protected operations resolve the caller's current roles and permissions from PostgreSQL instead of trusting stale permission claims in access tokens. Tenant-scoped application checks, composite foreign keys, and RLS provide layered isolation.
 
-Membership onboarding for an existing organization is invitation-only. Public creation of a new organization is controlled independently by `PUBLIC_REGISTRATION_ENABLED`. Invitation domain records retain only token hashes; the encrypted delivery payload is purged after send or cancellation. Resending rotates the token and cancels the prior pending message. Acceptance, role assignment, user creation, and session creation are atomic. A serialized last-administrator check prevents an organization from losing its final active administrator. See [authorization, users, roles, and invitations](authorization.md).
+Membership onboarding for an existing organization is invitation-only. Public creation of a new organization is controlled independently by `ALLOW_PUBLIC_TENANT_REGISTRATION`. Invitation domain records retain only token hashes; the encrypted delivery payload is purged after send or cancellation. Resending rotates the token and cancels the prior pending message. Acceptance, role assignment, user creation, and session creation are atomic. A serialized last-administrator check prevents an organization from losing its final active administrator. See [authorization, users, roles, and invitations](authorization.md).
 
 ## Compliance statement
 

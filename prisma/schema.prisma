@@ -589,6 +589,28 @@ enum RecallAuthenticationMethod {
   PASSWORD_REAUTHENTICATION
 }
 
+enum ProductReviewStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  FOLLOW_UP_REQUIRED
+  CANCELLED
+}
+
+enum ProductReviewDecisionType {
+  APPROVE
+  REQUIRE_FOLLOW_UP
+}
+
+enum ProductReviewSignatureMeaning {
+  REVIEW_ASSESSMENT
+  REVIEW_APPROVAL
+}
+
+enum ProductReviewAuthenticationMethod {
+  PASSWORD_REAUTHENTICATION
+}
+
 model Tenant {
   id                       String                          @id @default(uuid()) @db.Uuid
   name                     String                          @db.VarChar(200)
@@ -668,6 +690,10 @@ model Tenant {
   recallDecisions          RecallDecision[]
   recallExecutionUpdates   RecallExecutionUpdate[]
   recallClosures           RecallClosure[]
+  productReviewSequences   ProductReviewSequence[]
+  productQualityReviews    ProductQualityReview[]
+  productReviewAssessments ProductReviewAssessment[]
+  productReviewDecisions   ProductReviewDecision[]
 
   @@map("tenants")
 }
@@ -778,6 +804,11 @@ model User {
   recallDecisionsCompleted          RecallDecision[]                @relation("RecallDecisionSigner")
   recallExecutionUpdatesRecorded    RecallExecutionUpdate[]         @relation("RecallExecutionRecorder")
   recallClosuresCompleted           RecallClosure[]                 @relation("RecallClosureSigner")
+  productReviewsCreated             ProductQualityReview[]          @relation("ProductReviewCreator")
+  productReviewApprovalAssignments  ProductQualityReview[]          @relation("ProductReviewApprover")
+  productReviewsCancelled           ProductQualityReview[]          @relation("ProductReviewCanceller")
+  productReviewAssessmentsCompleted ProductReviewAssessment[]       @relation("ProductReviewAssessmentSigner")
+  productReviewDecisionsCompleted   ProductReviewDecision[]         @relation("ProductReviewDecisionSigner")
 
   @@unique([tenantId, id], map: "users_tenant_id_id_key")
   @@unique([tenantId, email], map: "users_tenant_id_email_key")
@@ -886,6 +917,8 @@ model Session {
   recallAssessmentSignatures        RecallRiskAssessment[]          @relation("RecallAssessmentSession")
   recallDecisionSignatures          RecallDecision[]                @relation("RecallDecisionSession")
   recallClosureSignatures           RecallClosure[]                 @relation("RecallClosureSession")
+  productReviewAssessmentSignatures ProductReviewAssessment[]       @relation("ProductReviewAssessmentSession")
+  productReviewDecisionSignatures   ProductReviewDecision[]         @relation("ProductReviewDecisionSession")
 
   @@unique([tenantId, userId, id], map: "sessions_tenant_id_user_id_id_key")
   @@index([tenantId, userId, status], map: "sessions_tenant_id_user_id_status_idx")
@@ -2670,4 +2703,117 @@ model RecallClosure {
   @@unique([tenantId, id], map: "recall_closures_tenant_id_id_key")
   @@unique([tenantId, recallId], map: "recall_closures_recall_key")
   @@map("recall_closures")
+}
+
+model ProductReviewSequence {
+  tenantId   String   @map("tenant_id") @db.Uuid
+  year       Int
+  lastNumber Int      @default(0) @map("last_number")
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@id([tenantId, year])
+  @@map("product_review_sequences")
+}
+
+model ProductQualityReview {
+  id                  String                   @id @default(uuid()) @db.Uuid
+  tenantId            String                   @map("tenant_id") @db.Uuid
+  code                String                   @db.VarChar(25)
+  productName         String                   @map("product_name") @db.VarChar(200)
+  productCode         String                   @map("product_code") @db.VarChar(100)
+  dosageForm          String                   @map("dosage_form") @db.VarChar(120)
+  strength            String                   @db.VarChar(120)
+  marketAuthorization String                   @map("market_authorization") @db.VarChar(200)
+  periodStart         DateTime                 @map("period_start") @db.Date
+  periodEnd           DateTime                 @map("period_end") @db.Date
+  targetCompletionAt  DateTime                 @map("target_completion_at") @db.Timestamptz(3)
+  status              ProductReviewStatus      @default(DRAFT)
+  approverUserId      String                   @map("approver_user_id") @db.Uuid
+  createdByUserId     String                   @map("created_by_user_id") @db.Uuid
+  cancelledByUserId   String?                  @map("cancelled_by_user_id") @db.Uuid
+  cancellationReason  String?                  @map("cancellation_reason") @db.VarChar(1000)
+  cancelledAt         DateTime?                @map("cancelled_at") @db.Timestamptz(3)
+  createdAt           DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant              Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  approver            User                     @relation("ProductReviewApprover", fields: [tenantId, approverUserId], references: [tenantId, id], onDelete: Restrict)
+  createdBy           User                     @relation("ProductReviewCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
+  cancelledBy         User?                    @relation("ProductReviewCanceller", fields: [tenantId, cancelledByUserId], references: [tenantId, id], onDelete: Restrict)
+  assessment          ProductReviewAssessment?
+  decision            ProductReviewDecision?
+
+  @@unique([tenantId, id], map: "product_quality_reviews_tenant_id_id_key")
+  @@unique([tenantId, code], map: "product_quality_reviews_tenant_code_key")
+  @@unique([tenantId, productCode, periodStart, periodEnd], map: "product_quality_reviews_product_period_key")
+  @@index([tenantId, status, targetCompletionAt], map: "product_quality_reviews_status_due_idx")
+  @@index([tenantId, productCode, periodEnd], map: "product_quality_reviews_product_period_idx")
+  @@map("product_quality_reviews")
+}
+
+model ProductReviewAssessment {
+  id                               String                            @id @default(uuid()) @db.Uuid
+  tenantId                         String                            @map("tenant_id") @db.Uuid
+  productReviewId                  String                            @map("product_review_id") @db.Uuid
+  batchesManufactured              Int                               @map("batches_manufactured")
+  batchesReleased                  Int                               @map("batches_released")
+  batchesRejected                  Int                               @map("batches_rejected")
+  outOfSpecificationCount          Int                               @map("out_of_specification_count")
+  stabilityExceptionCount          Int                               @map("stability_exception_count")
+  returnedUnitCount                Int                               @map("returned_unit_count")
+  manufacturingSummary             String                            @map("manufacturing_summary") @db.VarChar(5000)
+  startingMaterialsSummary         String                            @map("starting_materials_summary") @db.VarChar(5000)
+  criticalQualityAttributesSummary String                            @map("critical_quality_attributes_summary") @db.VarChar(5000)
+  processPerformanceSummary        String                            @map("process_performance_summary") @db.VarChar(5000)
+  stabilitySummary                 String                            @map("stability_summary") @db.VarChar(5000)
+  validationSummary                String                            @map("validation_summary") @db.VarChar(5000)
+  regulatorySummary                String                            @map("regulatory_summary") @db.VarChar(5000)
+  trendAnalysis                    String                            @map("trend_analysis") @db.VarChar(5000)
+  benefitRiskConclusion            String                            @map("benefit_risk_conclusion") @db.VarChar(5000)
+  recommendations                  String                            @db.VarChar(5000)
+  evidenceReference                String                            @map("evidence_reference") @db.VarChar(3000)
+  continuedManufactureRecommended  Boolean                           @map("continued_manufacture_recommended")
+  capaRequired                     Boolean                           @map("capa_required")
+  changeControlRequired            Boolean                           @map("change_control_required")
+  trendSnapshot                    Json                              @map("trend_snapshot")
+  preparedByUserId                 String                            @map("prepared_by_user_id") @db.Uuid
+  assessmentSessionId              String                            @map("assessment_session_id") @db.Uuid
+  meaning                          ProductReviewSignatureMeaning     @default(REVIEW_ASSESSMENT)
+  authenticationMethod             ProductReviewAuthenticationMethod @default(PASSWORD_REAUTHENTICATION) @map("authentication_method")
+  preparedAt                       DateTime                          @map("prepared_at") @db.Timestamptz(3)
+  recordHash                       String                            @map("record_hash") @db.Char(64)
+  createdAt                        DateTime                          @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant                           Tenant                            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  productReview                    ProductQualityReview              @relation(fields: [tenantId, productReviewId], references: [tenantId, id], onDelete: Restrict)
+  preparedBy                       User                              @relation("ProductReviewAssessmentSigner", fields: [tenantId, preparedByUserId], references: [tenantId, id], onDelete: Restrict, map: "product_review_assessment_signer_fkey")
+  assessmentSession                Session                           @relation("ProductReviewAssessmentSession", fields: [tenantId, preparedByUserId, assessmentSessionId], references: [tenantId, userId, id], onDelete: Restrict, map: "product_review_assessment_session_fkey")
+
+  @@unique([tenantId, id], map: "product_review_assessments_tenant_id_id_key")
+  @@unique([tenantId, productReviewId], map: "product_review_assessments_review_key")
+  @@map("product_review_assessments")
+}
+
+model ProductReviewDecision {
+  id                   String                            @id @default(uuid()) @db.Uuid
+  tenantId             String                            @map("tenant_id") @db.Uuid
+  productReviewId      String                            @map("product_review_id") @db.Uuid
+  decision             ProductReviewDecisionType
+  rationale            String                            @db.VarChar(5000)
+  followUpReference    String                            @map("follow_up_reference") @db.VarChar(2000)
+  nextReviewAt         DateTime                          @map("next_review_at") @db.Timestamptz(3)
+  decidedByUserId      String                            @map("decided_by_user_id") @db.Uuid
+  decisionSessionId    String                            @map("decision_session_id") @db.Uuid
+  meaning              ProductReviewSignatureMeaning     @default(REVIEW_APPROVAL)
+  authenticationMethod ProductReviewAuthenticationMethod @default(PASSWORD_REAUTHENTICATION) @map("authentication_method")
+  decidedAt            DateTime                          @map("decided_at") @db.Timestamptz(3)
+  recordHash           String                            @map("record_hash") @db.Char(64)
+  createdAt            DateTime                          @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant               Tenant                            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  productReview        ProductQualityReview              @relation(fields: [tenantId, productReviewId], references: [tenantId, id], onDelete: Restrict)
+  decidedBy            User                              @relation("ProductReviewDecisionSigner", fields: [tenantId, decidedByUserId], references: [tenantId, id], onDelete: Restrict, map: "product_review_decision_signer_fkey")
+  decisionSession      Session                           @relation("ProductReviewDecisionSession", fields: [tenantId, decidedByUserId, decisionSessionId], references: [tenantId, userId, id], onDelete: Restrict, map: "product_review_decision_session_fkey")
+
+  @@unique([tenantId, id], map: "product_review_decisions_tenant_id_id_key")
+  @@unique([tenantId, productReviewId], map: "product_review_decisions_review_key")
+  @@map("product_review_decisions")
 }

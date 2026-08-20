@@ -11,7 +11,7 @@ Qualyra is a multi-tenant B2B system for regulated organizations. A public user 
 
 Use a hybrid onboarding model:
 
-- public creation of a new organization is controlled by `PUBLIC_REGISTRATION_ENABLED`;
+- public creation of a new organization is controlled by `ALLOW_PUBLIC_TENANT_REGISTRATION`;
 - membership in an existing organization is invitation-only;
 - an authorized administrator chooses the email address and initial roles;
 - invitation tokens are random, expire, are stored only as hashes, and are consumed atomically;

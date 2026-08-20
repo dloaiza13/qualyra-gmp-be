@@ -88,6 +88,8 @@ The backend is a modular NestJS monolith with pragmatic ports and adapters, tena
 - [Equipment, calibration, and maintenance](docs/equipment-management.md)
 - [Product quality complaints](docs/product-complaints.md)
 - [Product recalls and field actions](docs/product-recalls.md)
+- [Periodic product quality reviews (PQR/APR)](docs/product-quality-reviews.md)
+- [SaaS multi-tenant scalability](docs/saas-scalability.md)
 - [Operations and recovery](docs/operations.md)
 - [Durable notification delivery](docs/notifications.md)
 - [Operational observability](docs/observability.md)
@@ -112,6 +114,7 @@ The backend is a modular NestJS monolith with pragmatic ports and adapters, tena
 - [ADR-023: operational metrics and distributed rate limiting](docs/adr/ADR-023-operational-metrics-and-distributed-rate-limiting.md)
 - [ADR-024: immutable product complaint investigation](docs/adr/ADR-024-immutable-product-complaint-investigation.md)
 - [ADR-025: independent product recall control](docs/adr/ADR-025-independent-product-recall-control.md)
+- [ADR-026: signed periodic product review](docs/adr/ADR-026-signed-periodic-product-review.md)
 - [Threat model](docs/threat-model.md)
 - [Production readiness checklist](docs/production-checklist.md)
 

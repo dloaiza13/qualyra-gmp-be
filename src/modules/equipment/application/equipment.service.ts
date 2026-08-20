@@ -814,7 +814,7 @@ export class EquipmentService {
           eventType: failureEvent,
           outcome: 'FAILURE',
           request,
-          metadata: metadata as Prisma.InputJsonObject,
+          metadata,
         }),
       );
       throw reauthenticationFailed();
