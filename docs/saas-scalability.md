@@ -20,6 +20,8 @@ Phase 31 adds case-insensitive indexes for complaint and recall trend queries by
 
 Phase 32 keeps photographic binaries out of PostgreSQL, enforces a configurable per-tenant storage quota under a concurrency lock, and records only indexed metadata in the shared database. The frontend now splits each quality module into a lazy-loaded chunk; the initial production JavaScript entry decreased from roughly 829 kB to 428 kB before compression, while individual modules load only when opened.
 
+Phase 33 selects photographic quotas from the tenant plan, replaces per-upload aggregate scans with a transactionally maintained usage counter, and paginates evidence metadata using a stable compound cursor. This keeps normal quota checks constant-time and bounds browser/API work even for long-lived regulated records. The counter remains tenant-isolated through forced RLS, while the immutable evidence table remains the reconciliation source of truth.
+
 For 50 customers, capacity planning should therefore use active users, request rate, metadata growth, and object-storage bytes—not the tenant count in isolation. Start with connection-pool, database latency/CPU, HTTP latency/error, object-storage growth, and quota-rejection alerts. Introduce per-plan quotas and load-test targets before self-service onboarding.
 
 ## Organization creation policy

@@ -73,21 +73,57 @@ describe('PhotoEvidenceService', () => {
       'quota_exceeded',
     );
   });
+
+  it('reports the quota selected for the current tenant plan', async () => {
+    const fixture = createFixture(9, 'PROFESSIONAL');
+
+    await expect(
+      fixture.service.usage({
+        tenantId,
+        userId,
+        sessionId: 'session',
+        tokenVersion: 0,
+      }),
+    ).resolves.toMatchObject({
+      plan: 'PROFESSIONAL',
+      usedBytes: 9,
+      quotaBytes: 32,
+      photoCount: 1,
+    });
+  });
 });
 
-function createFixture(usedBytes: number) {
+function createFixture(
+  usedBytes: number,
+  plan: 'TRIAL' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE' = 'TRIAL',
+) {
   const createdAt = new Date('2026-08-20T00:00:00.000Z');
   const transaction = {
     $queryRaw: jest.fn(() => Promise.resolve([{ locked: 1 }])),
+    tenant: {
+      findFirst: jest.fn(() => Promise.resolve({ plan })),
+    },
     deviation: {
       findFirst: jest.fn(() => Promise.resolve({ id: subjectId })),
+    },
+    tenantPhotoEvidenceUsage: {
+      findUnique: jest.fn(() =>
+        Promise.resolve({ usedBytes: BigInt(usedBytes), photoCount: 1 }),
+      ),
+      create: jest.fn(
+        ({ data }: { data: { usedBytes: bigint; photoCount: number } }) =>
+          Promise.resolve(data),
+      ),
     },
     photoEvidence: {
       findFirst: jest.fn((): Promise<{ id: string } | null> =>
         Promise.resolve(null),
       ),
       aggregate: jest.fn(() =>
-        Promise.resolve({ _sum: { sizeBytes: usedBytes } }),
+        Promise.resolve({
+          _sum: { sizeBytes: usedBytes },
+          _count: { _all: usedBytes > 0 ? 1 : 0 },
+        }),
       ),
       create: jest.fn(
         ({
@@ -131,9 +167,16 @@ function createFixture(usedBytes: number) {
   };
   const metrics = { recordPhotoEvidenceUpload: jest.fn() };
   const config = {
-    getOrThrow: jest.fn((key: keyof Environment) =>
-      key === 'PHOTO_EVIDENCE_MAX_BYTES' ? 1024 : 8,
-    ),
+    getOrThrow: jest.fn((key: keyof Environment) => {
+      const values: Partial<Record<keyof Environment, number>> = {
+        PHOTO_EVIDENCE_MAX_BYTES: 1024,
+        PHOTO_EVIDENCE_TENANT_QUOTA_BYTES: 8,
+        PHOTO_EVIDENCE_STARTER_QUOTA_BYTES: 16,
+        PHOTO_EVIDENCE_PROFESSIONAL_QUOTA_BYTES: 32,
+        PHOTO_EVIDENCE_ENTERPRISE_QUOTA_BYTES: 64,
+      };
+      return values[key] ?? 8;
+    }),
   };
 
   return {

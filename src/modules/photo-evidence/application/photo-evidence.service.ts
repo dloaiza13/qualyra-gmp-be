@@ -3,7 +3,10 @@ import { basename } from 'node:path';
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Prisma } from '../../../generated/prisma/client.js';
-import type { PhotoEvidenceSubjectType } from '../../../generated/prisma/client.js';
+import type {
+  PhotoEvidenceSubjectType,
+  TenantPlan,
+} from '../../../generated/prisma/client.js';
 import type { Environment } from '../../../common/config/environment.js';
 import { ApplicationError } from '../../../common/errors/application-error.js';
 import { ErrorCode } from '../../../common/errors/error-codes.js';
@@ -20,6 +23,7 @@ import type {
 } from './dto/photo-evidence-request.dto.js';
 import type {
   PhotoEvidenceResponseDto,
+  PhotoEvidencePageResponseDto,
   PhotoEvidenceUsageResponseDto,
 } from './dto/photo-evidence-response.dto.js';
 
@@ -50,7 +54,7 @@ type PhotoRecord = Prisma.PhotoEvidenceGetPayload<{
 @Injectable()
 export class PhotoEvidenceService {
   private readonly maxBytes: number;
-  private readonly quotaBytes: number;
+  private readonly quotaBytesByPlan: Readonly<Record<TenantPlan, number>>;
 
   constructor(
     private readonly tenantUnitOfWork: TenantUnitOfWork,
@@ -62,15 +66,27 @@ export class PhotoEvidenceService {
     this.maxBytes = config.getOrThrow('PHOTO_EVIDENCE_MAX_BYTES', {
       infer: true,
     });
-    this.quotaBytes = config.getOrThrow('PHOTO_EVIDENCE_TENANT_QUOTA_BYTES', {
-      infer: true,
-    });
+    this.quotaBytesByPlan = {
+      TRIAL: config.getOrThrow('PHOTO_EVIDENCE_TENANT_QUOTA_BYTES', {
+        infer: true,
+      }),
+      STARTER: config.getOrThrow('PHOTO_EVIDENCE_STARTER_QUOTA_BYTES', {
+        infer: true,
+      }),
+      PROFESSIONAL: config.getOrThrow(
+        'PHOTO_EVIDENCE_PROFESSIONAL_QUOTA_BYTES',
+        { infer: true },
+      ),
+      ENTERPRISE: config.getOrThrow('PHOTO_EVIDENCE_ENTERPRISE_QUOTA_BYTES', {
+        infer: true,
+      }),
+    };
   }
 
   async list(
     principal: AuthenticatedPrincipal,
     query: PhotoEvidenceSubjectQueryDto,
-  ): Promise<PhotoEvidenceResponseDto[]> {
+  ): Promise<PhotoEvidencePageResponseDto> {
     const records = await this.tenantUnitOfWork.execute(
       principal.tenantId,
       async (transaction) => {
@@ -80,39 +96,71 @@ export class PhotoEvidenceService {
           query.subjectType,
           query.subjectId,
         );
+        let cursorPosition: { createdAt: Date; id: string } | null = null;
+        if (query.cursor) {
+          cursorPosition = await transaction.photoEvidence.findFirst({
+            where: {
+              id: query.cursor,
+              tenantId: principal.tenantId,
+              subjectType: query.subjectType,
+              subjectId: query.subjectId,
+            },
+            select: { createdAt: true, id: true },
+          });
+          if (!cursorPosition) {
+            throw invalidPhoto('The photographic evidence cursor is invalid.');
+          }
+        }
+        const where: Prisma.PhotoEvidenceWhereInput = {
+          tenantId: principal.tenantId,
+          subjectType: query.subjectType,
+          subjectId: query.subjectId,
+          ...(cursorPosition
+            ? {
+                OR: [
+                  { createdAt: { lt: cursorPosition.createdAt } },
+                  {
+                    createdAt: cursorPosition.createdAt,
+                    id: { lt: cursorPosition.id },
+                  },
+                ],
+              }
+            : {}),
+        };
         return transaction.photoEvidence.findMany({
-          where: {
-            tenantId: principal.tenantId,
-            subjectType: query.subjectType,
-            subjectId: query.subjectId,
-          },
+          where,
           include: {
             uploadedBy: { select: { id: true, displayName: true } },
           },
           orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-          take: query.limit,
+          take: query.limit + 1,
         });
       },
     );
-    return records.map(toResponse);
+    const hasMore = records.length > query.limit;
+    const page = hasMore ? records.slice(0, query.limit) : records;
+    return {
+      items: page.map(toResponse),
+      nextCursor: hasMore ? (page.at(-1)?.id ?? null) : null,
+    };
   }
 
   async usage(
     principal: AuthenticatedPrincipal,
   ): Promise<PhotoEvidenceUsageResponseDto> {
-    const aggregate = await this.tenantUnitOfWork.execute(
+    return this.tenantUnitOfWork.execute(
       principal.tenantId,
-      (transaction) =>
-        transaction.photoEvidence.aggregate({
-          where: { tenantId: principal.tenantId },
-          _sum: { sizeBytes: true },
-          _count: { _all: true },
-        }),
-    );
-    return usageResponse(
-      aggregate._sum.sizeBytes ?? 0,
-      aggregate._count._all,
-      this.quotaBytes,
+      async (transaction) => {
+        await lockTenantUsage(transaction, principal.tenantId);
+        const plan = await findTenantPlan(transaction, principal.tenantId);
+        const usage = await ensureUsageCounter(transaction, principal.tenantId);
+        return usageResponse(
+          Number(usage.usedBytes),
+          usage.photoCount,
+          plan,
+          this.quotaBytesByPlan[plan],
+        );
+      },
     );
   }
 
@@ -190,12 +238,7 @@ export class PhotoEvidenceService {
       const record = await this.tenantUnitOfWork.execute(
         principal.tenantId,
         async (transaction) => {
-          await transaction.$queryRaw`
-            SELECT 1::int AS locked
-            FROM pg_advisory_xact_lock(
-              hashtextextended(${`${principal.tenantId}:photo-evidence`}, 0)
-            )
-          `;
+          await lockTenantUsage(transaction, principal.tenantId);
           await assertSubjectExists(
             transaction,
             principal.tenantId,
@@ -218,12 +261,13 @@ export class PhotoEvidenceService {
               HttpStatus.CONFLICT,
             );
           }
-          const usage = await transaction.photoEvidence.aggregate({
-            where: { tenantId: principal.tenantId },
-            _sum: { sizeBytes: true },
-          });
-          const usedBytes = usage._sum.sizeBytes ?? 0;
-          if (usedBytes + file.buffer.length > this.quotaBytes) {
+          const plan = await findTenantPlan(transaction, principal.tenantId);
+          const usage = await ensureUsageCounter(
+            transaction,
+            principal.tenantId,
+          );
+          const usedBytes = Number(usage.usedBytes);
+          if (usedBytes + file.buffer.length > this.quotaBytesByPlan[plan]) {
             throw new ApplicationError(
               ErrorCode.PhotoEvidenceQuotaExceeded,
               'The organization has reached its photographic evidence storage quota.',
@@ -433,15 +477,72 @@ function toResponse(record: PhotoRecord): PhotoEvidenceResponseDto {
 function usageResponse(
   usedBytes: number,
   photoCount: number,
+  plan: TenantPlan,
   quotaBytes: number,
 ): PhotoEvidenceUsageResponseDto {
   return {
+    plan,
     usedBytes,
     quotaBytes,
     remainingBytes: Math.max(0, quotaBytes - usedBytes),
     photoCount,
     usagePercent: Number(((usedBytes / quotaBytes) * 100).toFixed(2)),
   };
+}
+
+async function lockTenantUsage(
+  transaction: Prisma.TransactionClient,
+  tenantId: string,
+): Promise<void> {
+  await transaction.$queryRaw`
+    SELECT 1::int AS locked
+    FROM pg_advisory_xact_lock(
+      hashtextextended(${`${tenantId}:photo-evidence`}, 0)
+    )
+  `;
+}
+
+async function findTenantPlan(
+  transaction: Prisma.TransactionClient,
+  tenantId: string,
+): Promise<TenantPlan> {
+  const tenant = await transaction.tenant.findFirst({
+    where: { id: tenantId },
+    select: { plan: true },
+  });
+  if (!tenant) {
+    throw new ApplicationError(
+      ErrorCode.PhotoEvidenceNotFound,
+      'The organization was not found.',
+      HttpStatus.NOT_FOUND,
+    );
+  }
+  return tenant.plan;
+}
+
+async function ensureUsageCounter(
+  transaction: Prisma.TransactionClient,
+  tenantId: string,
+): Promise<{ usedBytes: bigint; photoCount: number }> {
+  const existing = await transaction.tenantPhotoEvidenceUsage.findUnique({
+    where: { tenantId },
+    select: { usedBytes: true, photoCount: true },
+  });
+  if (existing) return existing;
+
+  const aggregate = await transaction.photoEvidence.aggregate({
+    where: { tenantId },
+    _sum: { sizeBytes: true },
+    _count: { _all: true },
+  });
+  return transaction.tenantPhotoEvidenceUsage.create({
+    data: {
+      tenantId,
+      usedBytes: BigInt(aggregate._sum.sizeBytes ?? 0),
+      photoCount: aggregate._count._all,
+    },
+    select: { usedBytes: true, photoCount: true },
+  });
 }
 
 function safeFileName(value: string): string {

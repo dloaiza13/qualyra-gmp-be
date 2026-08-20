@@ -1,5 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { PhotoEvidenceSubjectType } from '../../../../generated/prisma/client.js';
+import {
+  PhotoEvidenceSubjectType,
+  TenantPlan,
+} from '../../../../generated/prisma/client.js';
 
 export class PhotoEvidenceUploaderDto {
   @ApiProperty({ format: 'uuid' })
@@ -48,6 +51,9 @@ export class PhotoEvidenceResponseDto {
 }
 
 export class PhotoEvidenceUsageResponseDto {
+  @ApiProperty({ enum: TenantPlan })
+  plan!: TenantPlan;
+
   @ApiProperty()
   usedBytes!: number;
 
@@ -62,4 +68,12 @@ export class PhotoEvidenceUsageResponseDto {
 
   @ApiProperty()
   usagePercent!: number;
+}
+
+export class PhotoEvidencePageResponseDto {
+  @ApiProperty({ type: PhotoEvidenceResponseDto, isArray: true })
+  items!: PhotoEvidenceResponseDto[];
+
+  @ApiProperty({ nullable: true, type: String, format: 'uuid' })
+  nextCursor!: string | null;
 }

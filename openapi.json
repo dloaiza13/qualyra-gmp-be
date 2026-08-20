@@ -4250,10 +4250,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/PhotoEvidenceResponseDto"
-                  }
+                  "$ref": "#/components/schemas/PhotoEvidencePageResponseDto"
                 }
               }
             }
@@ -12379,9 +12376,38 @@
           "contentUrl"
         ]
       },
+      "PhotoEvidencePageResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PhotoEvidenceResponseDto"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ]
+      },
       "PhotoEvidenceUsageResponseDto": {
         "type": "object",
         "properties": {
+          "plan": {
+            "type": "string",
+            "enum": [
+              "TRIAL",
+              "STARTER",
+              "PROFESSIONAL",
+              "ENTERPRISE"
+            ]
+          },
           "usedBytes": {
             "type": "number"
           },
@@ -12399,6 +12425,7 @@
           }
         },
         "required": [
+          "plan",
           "usedBytes",
           "quotaBytes",
           "remainingBytes",

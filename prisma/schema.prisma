@@ -710,6 +710,7 @@ model Tenant {
   productReviewAssessments ProductReviewAssessment[]
   productReviewDecisions   ProductReviewDecision[]
   photoEvidence            PhotoEvidence[]
+  photoEvidenceUsage       TenantPhotoEvidenceUsage?
 
   @@map("tenants")
 }
@@ -2858,7 +2859,17 @@ model PhotoEvidence {
 
   @@unique([tenantId, id], map: "photo_evidence_tenant_id_id_key")
   @@unique([tenantId, subjectType, subjectId, sha256], map: "photo_evidence_subject_hash_key")
-  @@index([tenantId, subjectType, subjectId, createdAt], map: "photo_evidence_subject_created_idx")
+  @@index([tenantId, subjectType, subjectId, createdAt(sort: Desc), id(sort: Desc)], map: "photo_evidence_subject_cursor_idx")
   @@index([tenantId, createdAt], map: "photo_evidence_tenant_created_idx")
   @@map("photo_evidence")
+}
+
+model TenantPhotoEvidenceUsage {
+  tenantId   String   @id @map("tenant_id") @db.Uuid
+  usedBytes  BigInt   @default(0) @map("used_bytes")
+  photoCount Int      @default(0) @map("photo_count")
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@map("tenant_photo_evidence_usage")
 }

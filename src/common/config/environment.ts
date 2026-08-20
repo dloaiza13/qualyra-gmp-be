@@ -99,6 +99,24 @@ const environmentSchema = z
       .min(1_048_576)
       .max(10_995_116_277_760)
       .default(2_147_483_648),
+    PHOTO_EVIDENCE_STARTER_QUOTA_BYTES: z.coerce
+      .number()
+      .int()
+      .min(1_048_576)
+      .max(10_995_116_277_760)
+      .default(10_737_418_240),
+    PHOTO_EVIDENCE_PROFESSIONAL_QUOTA_BYTES: z.coerce
+      .number()
+      .int()
+      .min(1_048_576)
+      .max(10_995_116_277_760)
+      .default(53_687_091_200),
+    PHOTO_EVIDENCE_ENTERPRISE_QUOTA_BYTES: z.coerce
+      .number()
+      .int()
+      .min(1_048_576)
+      .max(10_995_116_277_760)
+      .default(214_748_364_800),
     CAPA_EVIDENCE_UPLOAD_TTL_HOURS: z.coerce
       .number()
       .int()

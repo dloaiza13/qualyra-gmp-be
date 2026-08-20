@@ -19,9 +19,20 @@ The device-supplied capture time is useful context, not trusted proof of when or
 
 ## Capacity controls
 
-`PHOTO_EVIDENCE_MAX_BYTES` limits a single image and defaults to 10 MiB. It cannot exceed the managed scanner limit. `PHOTO_EVIDENCE_TENANT_QUOTA_BYTES` limits all photographic evidence for one tenant and defaults to 2 GiB.
+`PHOTO_EVIDENCE_MAX_BYTES` limits a single image and defaults to 10 MiB. It cannot exceed the managed scanner limit. Storage quotas are selected from the tenant's commercial plan at request time:
 
-Quota checks run inside a tenant-specific PostgreSQL advisory lock, so concurrent uploads cannot both spend the same remaining capacity. If the database transaction rejects an image, the newly written storage object is removed. `GET /api/v1/photo-evidence/usage` returns used, remaining, quota, count, and percentage values for the current tenant.
+| Plan         | Configuration                             | Default |
+| ------------ | ----------------------------------------- | ------: |
+| Trial        | `PHOTO_EVIDENCE_TENANT_QUOTA_BYTES`       |   2 GiB |
+| Starter      | `PHOTO_EVIDENCE_STARTER_QUOTA_BYTES`      |  10 GiB |
+| Professional | `PHOTO_EVIDENCE_PROFESSIONAL_QUOTA_BYTES` |  50 GiB |
+| Enterprise   | `PHOTO_EVIDENCE_ENTERPRISE_QUOTA_BYTES`   | 200 GiB |
+
+Changing a tenant's plan changes its available quota immediately; it does not copy or move evidence.
+
+Quota checks run inside a tenant-specific PostgreSQL advisory lock, so concurrent uploads cannot both spend the same remaining capacity. A tenant-scoped usage counter makes the normal check O(1); its first access is initialized from immutable evidence metadata and every accepted insert increments it through a database trigger. If the database transaction rejects an image, the newly written storage object is removed. `GET /api/v1/photo-evidence/usage` returns plan, used, remaining, quota, count, and percentage values for the current tenant.
+
+Evidence lists use a stable `(created_at, id)` descending cursor and return at most the requested page plus a `nextCursor`. The UI requests 12 metadata records at a time and continues to lazy-load image bytes only when a card approaches the viewport.
 
 The API also emits aggregate upload outcome and accepted-byte metrics without tenant labels. This avoids leaking customer identity and prevents unbounded Prometheus label cardinality.
 
@@ -32,3 +43,4 @@ The API also emits aggregate upload outcome and accepted-byte metrics without te
 - Alert on quota rejections, storage/scanner errors, storage growth, latency, and restore-test failures.
 - Validate camera capture on the supported iPadOS/Android browser and device matrix before a regulated release.
 - Include object storage in disaster-recovery exercises; a PostgreSQL backup alone does not contain image bytes.
+- Compare `tenant_photo_evidence_usage` against an aggregate of immutable metadata during scheduled integrity checks. A mismatch is an operational incident and must not be corrected without preserving its investigation evidence.

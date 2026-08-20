@@ -25,6 +25,10 @@ export class PhotoEvidenceSubjectQueryDto {
   @Min(1)
   @Max(100)
   limit = 50;
+
+  @IsOptional()
+  @IsUUID()
+  cursor?: string;
 }
 
 export class UploadPhotoEvidenceDto {

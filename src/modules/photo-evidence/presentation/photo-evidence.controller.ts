@@ -35,6 +35,7 @@ import {
   UploadPhotoEvidenceDto,
 } from '../application/dto/photo-evidence-request.dto.js';
 import {
+  PhotoEvidencePageResponseDto,
   PhotoEvidenceResponseDto,
   PhotoEvidenceUsageResponseDto,
 } from '../application/dto/photo-evidence-response.dto.js';
@@ -52,11 +53,11 @@ export class PhotoEvidenceController {
 
   @Get()
   @Permissions('photo_evidence.read')
-  @ApiOkResponse({ type: PhotoEvidenceResponseDto, isArray: true })
+  @ApiOkResponse({ type: PhotoEvidencePageResponseDto })
   list(
     @CurrentUser() principal: AuthenticatedPrincipal,
     @Query() query: PhotoEvidenceSubjectQueryDto,
-  ): Promise<PhotoEvidenceResponseDto[]> {
+  ): Promise<PhotoEvidencePageResponseDto> {
     return this.evidence.list(principal, query);
   }
 
