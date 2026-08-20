@@ -485,6 +485,59 @@ enum EquipmentAuthenticationMethod {
   PASSWORD_REAUTHENTICATION
 }
 
+enum ComplaintSource {
+  CUSTOMER
+  DISTRIBUTOR
+  HEALTH_AUTHORITY
+  INTERNAL
+  OTHER
+}
+
+enum ComplaintCategory {
+  PRODUCT_QUALITY
+  PACKAGING
+  LABELING
+  DELIVERY
+  COUNTERFEIT_SUSPECTED
+  OTHER
+}
+
+enum ComplaintStatus {
+  REPORTED
+  UNDER_INVESTIGATION
+  PENDING_REVIEW
+  CLOSED
+  CANCELLED
+}
+
+enum ComplaintSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ComplaintRegulatoryAssessment {
+  UNDER_EVALUATION
+  NOT_REPORTABLE
+  REPORTABLE
+}
+
+enum ComplaintDisposition {
+  SUBSTANTIATED
+  UNSUBSTANTIATED
+  INCONCLUSIVE
+}
+
+enum ComplaintSignatureMeaning {
+  INVESTIGATION_COMPLETION
+  COMPLAINT_DECISION
+}
+
+enum ComplaintAuthenticationMethod {
+  PASSWORD_REAUTHENTICATION
+}
+
 model Tenant {
   id                       String                          @id @default(uuid()) @db.Uuid
   name                     String                          @db.VarChar(200)
@@ -554,6 +607,10 @@ model Tenant {
   calibrationReviews       EquipmentCalibrationReview[]
   equipmentMaintenances    EquipmentMaintenance[]
   maintenanceReviews       EquipmentMaintenanceReview[]
+  complaintSequences       ComplaintSequence[]
+  complaints               ProductComplaint[]
+  complaintInvestigations  ComplaintInvestigation[]
+  complaintDecisions       ComplaintDecision[]
 
   @@map("tenants")
 }
@@ -650,6 +707,13 @@ model User {
   calibrationReviewsCompleted       EquipmentCalibrationReview[]    @relation("CalibrationReviewer")
   maintenancesPerformed             EquipmentMaintenance[]          @relation("MaintenancePerformer")
   maintenanceReviewsCompleted       EquipmentMaintenanceReview[]    @relation("MaintenanceReviewer")
+  complaintsReported                ProductComplaint[]              @relation("ComplaintReporter")
+  complaintsInvestigated            ProductComplaint[]              @relation("ComplaintInvestigator")
+  complaintsReviewed                ProductComplaint[]              @relation("ComplaintReviewer")
+  complaintsTriaged                 ProductComplaint[]              @relation("ComplaintTriager")
+  complaintsCancelled               ProductComplaint[]              @relation("ComplaintCanceller")
+  complaintInvestigationsCompleted  ComplaintInvestigation[]        @relation("ComplaintInvestigationSigner")
+  complaintDecisionsCompleted       ComplaintDecision[]             @relation("ComplaintDecisionSigner")
 
   @@unique([tenantId, id], map: "users_tenant_id_id_key")
   @@unique([tenantId, email], map: "users_tenant_id_email_key")
@@ -753,6 +817,8 @@ model Session {
   calibrationReviewSignatures       EquipmentCalibrationReview[]    @relation("CalibrationReviewSession")
   maintenanceSignatures             EquipmentMaintenance[]          @relation("MaintenanceCompletionSession")
   maintenanceReviewSignatures       EquipmentMaintenanceReview[]    @relation("MaintenanceReviewSession")
+  complaintInvestigationSignatures  ComplaintInvestigation[]        @relation("ComplaintInvestigationSession")
+  complaintDecisionSignatures       ComplaintDecision[]             @relation("ComplaintDecisionSession")
 
   @@unique([tenantId, userId, id], map: "sessions_tenant_id_user_id_id_key")
   @@index([tenantId, userId, status], map: "sessions_tenant_id_user_id_status_idx")
@@ -1122,35 +1188,36 @@ model DeviationSequence {
 }
 
 model Deviation {
-  id                 String                  @id @default(uuid()) @db.Uuid
-  tenantId           String                  @map("tenant_id") @db.Uuid
-  code               String                  @db.VarChar(24)
-  title              String                  @db.VarChar(200)
-  description        String                  @db.VarChar(5000)
-  area               String                  @db.VarChar(120)
-  occurredAt         DateTime                @map("occurred_at") @db.Timestamptz(3)
-  reportedByUserId   String                  @map("reported_by_user_id") @db.Uuid
-  status             DeviationStatus         @default(REPORTED)
-  severity           DeviationSeverity?
-  investigatorUserId String?                 @map("investigator_user_id") @db.Uuid
-  investigationDueAt DateTime?               @map("investigation_due_at") @db.Timestamptz(3)
-  impactAssessment   String?                 @map("impact_assessment") @db.VarChar(2000)
-  containmentAction  String?                 @map("containment_action") @db.VarChar(2000)
-  triagedByUserId    String?                 @map("triaged_by_user_id") @db.Uuid
-  triagedAt          DateTime?               @map("triaged_at") @db.Timestamptz(3)
-  cancelledByUserId  String?                 @map("cancelled_by_user_id") @db.Uuid
-  cancelledAt        DateTime?               @map("cancelled_at") @db.Timestamptz(3)
-  cancellationReason String?                 @map("cancellation_reason") @db.VarChar(500)
-  createdAt          DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt          DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
-  tenant             Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  reportedByUser     User                    @relation("DeviationReporter", fields: [tenantId, reportedByUserId], references: [tenantId, id], onDelete: Restrict)
-  investigatorUser   User?                   @relation("DeviationInvestigator", fields: [tenantId, investigatorUserId], references: [tenantId, id], onDelete: Restrict)
-  triagedByUser      User?                   @relation("DeviationTriager", fields: [tenantId, triagedByUserId], references: [tenantId, id], onDelete: Restrict)
-  cancelledByUser    User?                   @relation("DeviationCanceller", fields: [tenantId, cancelledByUserId], references: [tenantId, id], onDelete: Restrict)
-  investigation      DeviationInvestigation?
-  capa               Capa?
-  qualityRisks       QualityRiskAssessment[]
+  id                      String                   @id @default(uuid()) @db.Uuid
+  tenantId                String                   @map("tenant_id") @db.Uuid
+  code                    String                   @db.VarChar(24)
+  title                   String                   @db.VarChar(200)
+  description             String                   @db.VarChar(5000)
+  area                    String                   @db.VarChar(120)
+  occurredAt              DateTime                 @map("occurred_at") @db.Timestamptz(3)
+  reportedByUserId        String                   @map("reported_by_user_id") @db.Uuid
+  status                  DeviationStatus          @default(REPORTED)
+  severity                DeviationSeverity?
+  investigatorUserId      String?                  @map("investigator_user_id") @db.Uuid
+  investigationDueAt      DateTime?                @map("investigation_due_at") @db.Timestamptz(3)
+  impactAssessment        String?                  @map("impact_assessment") @db.VarChar(2000)
+  containmentAction       String?                  @map("containment_action") @db.VarChar(2000)
+  triagedByUserId         String?                  @map("triaged_by_user_id") @db.Uuid
+  triagedAt               DateTime?                @map("triaged_at") @db.Timestamptz(3)
+  cancelledByUserId       String?                  @map("cancelled_by_user_id") @db.Uuid
+  cancelledAt             DateTime?                @map("cancelled_at") @db.Timestamptz(3)
+  cancellationReason      String?                  @map("cancellation_reason") @db.VarChar(500)
+  createdAt               DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant                  Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  reportedByUser          User                     @relation("DeviationReporter", fields: [tenantId, reportedByUserId], references: [tenantId, id], onDelete: Restrict)
+  investigatorUser        User?                    @relation("DeviationInvestigator", fields: [tenantId, investigatorUserId], references: [tenantId, id], onDelete: Restrict)
+  triagedByUser           User?                    @relation("DeviationTriager", fields: [tenantId, triagedByUserId], references: [tenantId, id], onDelete: Restrict)
+  cancelledByUser         User?                    @relation("DeviationCanceller", fields: [tenantId, cancelledByUserId], references: [tenantId, id], onDelete: Restrict)
+  investigation           DeviationInvestigation?
+  capa                    Capa?
+  qualityRisks            QualityRiskAssessment[]
+  complaintInvestigations ComplaintInvestigation[]
 
   @@unique([tenantId, id], map: "deviations_tenant_id_id_key")
   @@unique([tenantId, code], map: "deviations_tenant_id_code_key")
@@ -1205,31 +1272,32 @@ model CapaSequence {
 }
 
 model Capa {
-  id                    String                        @id @default(uuid()) @db.Uuid
-  tenantId              String                        @map("tenant_id") @db.Uuid
-  deviationId           String                        @map("deviation_id") @db.Uuid
-  investigationId       String                        @map("investigation_id") @db.Uuid
-  code                  String                        @db.VarChar(25)
-  title                 String                        @db.VarChar(200)
-  objective             String                        @db.VarChar(2000)
-  createdByUserId       String                        @map("created_by_user_id") @db.Uuid
-  createdAt             DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
-  lockedAt              DateTime?                     @map("locked_at") @db.Timestamptz(3)
-  tenant                Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  deviation             Deviation                     @relation(fields: [tenantId, deviationId], references: [tenantId, id], onDelete: Restrict)
-  investigation         DeviationInvestigation        @relation(fields: [tenantId, investigationId], references: [tenantId, id], onDelete: Restrict)
-  createdByUser         User                          @relation("CapaCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
-  actions               CapaAction[]
-  effectivenessReviews  CapaEffectivenessReview[]
-  followUpCycles        CapaFollowUpCycle[]
-  actionExtensions      CapaActionExtension[]
-  actionEvidence        CapaActionEvidenceReference[]
-  evidenceUploads       CapaEvidenceUpload[]
-  notifications         CapaNotification[]
-  auditExports          CapaAuditExport[]
-  auditFindingResponses AuditFindingResponse[]
-  qualityRisks          QualityRiskAssessment[]
-  supplierScars         SupplierScar[]
+  id                      String                        @id @default(uuid()) @db.Uuid
+  tenantId                String                        @map("tenant_id") @db.Uuid
+  deviationId             String                        @map("deviation_id") @db.Uuid
+  investigationId         String                        @map("investigation_id") @db.Uuid
+  code                    String                        @db.VarChar(25)
+  title                   String                        @db.VarChar(200)
+  objective               String                        @db.VarChar(2000)
+  createdByUserId         String                        @map("created_by_user_id") @db.Uuid
+  createdAt               DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  lockedAt                DateTime?                     @map("locked_at") @db.Timestamptz(3)
+  tenant                  Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  deviation               Deviation                     @relation(fields: [tenantId, deviationId], references: [tenantId, id], onDelete: Restrict)
+  investigation           DeviationInvestigation        @relation(fields: [tenantId, investigationId], references: [tenantId, id], onDelete: Restrict)
+  createdByUser           User                          @relation("CapaCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
+  actions                 CapaAction[]
+  effectivenessReviews    CapaEffectivenessReview[]
+  followUpCycles          CapaFollowUpCycle[]
+  actionExtensions        CapaActionExtension[]
+  actionEvidence          CapaActionEvidenceReference[]
+  evidenceUploads         CapaEvidenceUpload[]
+  notifications           CapaNotification[]
+  auditExports            CapaAuditExport[]
+  auditFindingResponses   AuditFindingResponse[]
+  qualityRisks            QualityRiskAssessment[]
+  supplierScars           SupplierScar[]
+  complaintInvestigations ComplaintInvestigation[]
 
   @@unique([tenantId, id], map: "capas_tenant_id_id_key")
   @@unique([tenantId, code], map: "capas_tenant_id_code_key")
@@ -1472,31 +1540,32 @@ model ChangeControlSequence {
 }
 
 model ChangeControl {
-  id                    String                     @id @default(uuid()) @db.Uuid
-  tenantId              String                     @map("tenant_id") @db.Uuid
-  code                  String                     @db.VarChar(25)
-  title                 String                     @db.VarChar(200)
-  description           String                     @db.VarChar(5000)
-  justification         String                     @db.VarChar(3000)
-  category              ChangeControlCategory
-  status                ChangeControlStatus        @default(PROPOSED)
-  proposedByUserId      String                     @map("proposed_by_user_id") @db.Uuid
-  targetCompletionAt    DateTime                   @map("target_completion_at") @db.Timestamptz(3)
-  cancelledByUserId     String?                    @map("cancelled_by_user_id") @db.Uuid
-  cancelledAt           DateTime?                  @map("cancelled_at") @db.Timestamptz(3)
-  cancellationReason    String?                    @map("cancellation_reason") @db.VarChar(500)
-  createdAt             DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt             DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
-  tenant                Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  proposedByUser        User                       @relation("ChangeControlProposer", fields: [tenantId, proposedByUserId], references: [tenantId, id], onDelete: Restrict)
-  cancelledByUser       User?                      @relation("ChangeControlCanceller", fields: [tenantId, cancelledByUserId], references: [tenantId, id], onDelete: Restrict)
-  assessment            ChangeControlAssessment?
-  decision              ChangeControlDecision?
-  tasks                 ChangeControlTask[]
-  verification          ChangeControlVerification?
-  auditFindingResponses AuditFindingResponse[]
-  qualityRisks          QualityRiskAssessment[]
-  supplierScars         SupplierScar[]
+  id                      String                     @id @default(uuid()) @db.Uuid
+  tenantId                String                     @map("tenant_id") @db.Uuid
+  code                    String                     @db.VarChar(25)
+  title                   String                     @db.VarChar(200)
+  description             String                     @db.VarChar(5000)
+  justification           String                     @db.VarChar(3000)
+  category                ChangeControlCategory
+  status                  ChangeControlStatus        @default(PROPOSED)
+  proposedByUserId        String                     @map("proposed_by_user_id") @db.Uuid
+  targetCompletionAt      DateTime                   @map("target_completion_at") @db.Timestamptz(3)
+  cancelledByUserId       String?                    @map("cancelled_by_user_id") @db.Uuid
+  cancelledAt             DateTime?                  @map("cancelled_at") @db.Timestamptz(3)
+  cancellationReason      String?                    @map("cancellation_reason") @db.VarChar(500)
+  createdAt               DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant                  Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  proposedByUser          User                       @relation("ChangeControlProposer", fields: [tenantId, proposedByUserId], references: [tenantId, id], onDelete: Restrict)
+  cancelledByUser         User?                      @relation("ChangeControlCanceller", fields: [tenantId, cancelledByUserId], references: [tenantId, id], onDelete: Restrict)
+  assessment              ChangeControlAssessment?
+  decision                ChangeControlDecision?
+  tasks                   ChangeControlTask[]
+  verification            ChangeControlVerification?
+  auditFindingResponses   AuditFindingResponse[]
+  qualityRisks            QualityRiskAssessment[]
+  supplierScars           SupplierScar[]
+  complaintInvestigations ComplaintInvestigation[]
 
   @@unique([tenantId, id], map: "change_controls_tenant_id_id_key")
   @@unique([tenantId, code], map: "change_controls_tenant_id_code_key")
@@ -1787,41 +1856,42 @@ model QualityRiskSequence {
 }
 
 model QualityRiskAssessment {
-  id                     String                  @id @default(uuid()) @db.Uuid
-  tenantId               String                  @map("tenant_id") @db.Uuid
-  code                   String                  @db.VarChar(25)
-  title                  String                  @db.VarChar(200)
-  category               QualityRiskCategory
-  method                 QualityRiskMethod       @default(FMEA)
-  processArea            String                  @map("process_area") @db.VarChar(120)
-  scope                  String                  @db.VarChar(3000)
-  riskStatement          String                  @map("risk_statement") @db.VarChar(3000)
-  ownerUserId            String                  @map("owner_user_id") @db.Uuid
-  reviewerUserId         String                  @map("reviewer_user_id") @db.Uuid
-  createdByUserId        String                  @map("created_by_user_id") @db.Uuid
-  targetReviewAt         DateTime                @map("target_review_at") @db.Timestamptz(3)
-  deviationId            String?                 @map("deviation_id") @db.Uuid
-  capaId                 String?                 @map("capa_id") @db.Uuid
-  changeControlId        String?                 @map("change_control_id") @db.Uuid
-  auditId                String?                 @map("audit_id") @db.Uuid
-  status                 QualityRiskStatus       @default(OPEN)
-  cancelledByUserId      String?                 @map("cancelled_by_user_id") @db.Uuid
-  cancelledAt            DateTime?               @map("cancelled_at") @db.Timestamptz(3)
-  cancellationReason     String?                 @map("cancellation_reason") @db.VarChar(500)
-  createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt              DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  tenant                 Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  owner                  User                    @relation("QualityRiskOwner", fields: [tenantId, ownerUserId], references: [tenantId, id], onDelete: Restrict)
-  reviewer               User                    @relation("QualityRiskReviewer", fields: [tenantId, reviewerUserId], references: [tenantId, id], onDelete: Restrict)
-  createdBy              User                    @relation("QualityRiskCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
-  cancelledBy            User?                   @relation("QualityRiskCanceller", fields: [tenantId, cancelledByUserId], references: [tenantId, id], onDelete: Restrict)
-  deviation              Deviation?              @relation(fields: [tenantId, deviationId], references: [tenantId, id], onDelete: Restrict)
-  capa                   Capa?                   @relation(fields: [tenantId, capaId], references: [tenantId, id], onDelete: Restrict)
-  changeControl          ChangeControl?          @relation(fields: [tenantId, changeControlId], references: [tenantId, id], onDelete: Restrict)
-  audit                  GmpAudit?               @relation(fields: [tenantId, auditId], references: [tenantId, id], onDelete: Restrict)
-  items                  QualityRiskItem[]
-  review                 QualityRiskReview?
-  supplierQualifications SupplierQualification[]
+  id                      String                   @id @default(uuid()) @db.Uuid
+  tenantId                String                   @map("tenant_id") @db.Uuid
+  code                    String                   @db.VarChar(25)
+  title                   String                   @db.VarChar(200)
+  category                QualityRiskCategory
+  method                  QualityRiskMethod        @default(FMEA)
+  processArea             String                   @map("process_area") @db.VarChar(120)
+  scope                   String                   @db.VarChar(3000)
+  riskStatement           String                   @map("risk_statement") @db.VarChar(3000)
+  ownerUserId             String                   @map("owner_user_id") @db.Uuid
+  reviewerUserId          String                   @map("reviewer_user_id") @db.Uuid
+  createdByUserId         String                   @map("created_by_user_id") @db.Uuid
+  targetReviewAt          DateTime                 @map("target_review_at") @db.Timestamptz(3)
+  deviationId             String?                  @map("deviation_id") @db.Uuid
+  capaId                  String?                  @map("capa_id") @db.Uuid
+  changeControlId         String?                  @map("change_control_id") @db.Uuid
+  auditId                 String?                  @map("audit_id") @db.Uuid
+  status                  QualityRiskStatus        @default(OPEN)
+  cancelledByUserId       String?                  @map("cancelled_by_user_id") @db.Uuid
+  cancelledAt             DateTime?                @map("cancelled_at") @db.Timestamptz(3)
+  cancellationReason      String?                  @map("cancellation_reason") @db.VarChar(500)
+  createdAt               DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant                  Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  owner                   User                     @relation("QualityRiskOwner", fields: [tenantId, ownerUserId], references: [tenantId, id], onDelete: Restrict)
+  reviewer                User                     @relation("QualityRiskReviewer", fields: [tenantId, reviewerUserId], references: [tenantId, id], onDelete: Restrict)
+  createdBy               User                     @relation("QualityRiskCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
+  cancelledBy             User?                    @relation("QualityRiskCanceller", fields: [tenantId, cancelledByUserId], references: [tenantId, id], onDelete: Restrict)
+  deviation               Deviation?               @relation(fields: [tenantId, deviationId], references: [tenantId, id], onDelete: Restrict)
+  capa                    Capa?                    @relation(fields: [tenantId, capaId], references: [tenantId, id], onDelete: Restrict)
+  changeControl           ChangeControl?           @relation(fields: [tenantId, changeControlId], references: [tenantId, id], onDelete: Restrict)
+  audit                   GmpAudit?                @relation(fields: [tenantId, auditId], references: [tenantId, id], onDelete: Restrict)
+  items                   QualityRiskItem[]
+  review                  QualityRiskReview?
+  supplierQualifications  SupplierQualification[]
+  complaintInvestigations ComplaintInvestigation[]
 
   @@unique([tenantId, id], map: "quality_risks_tenant_id_id_key")
   @@unique([tenantId, code], map: "quality_risks_tenant_id_code_key")
@@ -1906,32 +1976,33 @@ model SupplierSequence {
 }
 
 model Supplier {
-  id                 String                  @id @default(uuid()) @db.Uuid
-  tenantId           String                  @map("tenant_id") @db.Uuid
-  code               String                  @db.VarChar(25)
-  legalName          String                  @map("legal_name") @db.VarChar(200)
-  tradeName          String?                 @map("trade_name") @db.VarChar(200)
-  registrationNumber String                  @map("registration_number") @db.VarChar(100)
-  category           SupplierCategory
-  criticality        SupplierCriticality
-  scopeOfSupply      String                  @map("scope_of_supply") @db.VarChar(3000)
-  manufacturingSite  String                  @map("manufacturing_site") @db.VarChar(500)
-  countryCode        String                  @map("country_code") @db.Char(2)
-  contactName        String                  @map("contact_name") @db.VarChar(200)
-  contactEmail       String                  @map("contact_email") @db.VarChar(320)
-  qualityOwnerUserId String                  @map("quality_owner_user_id") @db.Uuid
-  approverUserId     String                  @map("approver_user_id") @db.Uuid
-  createdByUserId    String                  @map("created_by_user_id") @db.Uuid
-  status             SupplierStatus          @default(PENDING_QUALIFICATION)
-  nextReviewAt       DateTime?               @map("next_review_at") @db.Timestamptz(3)
-  createdAt          DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt          DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
-  tenant             Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  qualityOwner       User                    @relation("SupplierQualityOwner", fields: [tenantId, qualityOwnerUserId], references: [tenantId, id], onDelete: Restrict)
-  approver           User                    @relation("SupplierApprover", fields: [tenantId, approverUserId], references: [tenantId, id], onDelete: Restrict)
-  createdBy          User                    @relation("SupplierCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
-  qualifications     SupplierQualification[]
-  scars              SupplierScar[]
+  id                      String                   @id @default(uuid()) @db.Uuid
+  tenantId                String                   @map("tenant_id") @db.Uuid
+  code                    String                   @db.VarChar(25)
+  legalName               String                   @map("legal_name") @db.VarChar(200)
+  tradeName               String?                  @map("trade_name") @db.VarChar(200)
+  registrationNumber      String                   @map("registration_number") @db.VarChar(100)
+  category                SupplierCategory
+  criticality             SupplierCriticality
+  scopeOfSupply           String                   @map("scope_of_supply") @db.VarChar(3000)
+  manufacturingSite       String                   @map("manufacturing_site") @db.VarChar(500)
+  countryCode             String                   @map("country_code") @db.Char(2)
+  contactName             String                   @map("contact_name") @db.VarChar(200)
+  contactEmail            String                   @map("contact_email") @db.VarChar(320)
+  qualityOwnerUserId      String                   @map("quality_owner_user_id") @db.Uuid
+  approverUserId          String                   @map("approver_user_id") @db.Uuid
+  createdByUserId         String                   @map("created_by_user_id") @db.Uuid
+  status                  SupplierStatus           @default(PENDING_QUALIFICATION)
+  nextReviewAt            DateTime?                @map("next_review_at") @db.Timestamptz(3)
+  createdAt               DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant                  Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  qualityOwner            User                     @relation("SupplierQualityOwner", fields: [tenantId, qualityOwnerUserId], references: [tenantId, id], onDelete: Restrict)
+  approver                User                     @relation("SupplierApprover", fields: [tenantId, approverUserId], references: [tenantId, id], onDelete: Restrict)
+  createdBy               User                     @relation("SupplierCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
+  qualifications          SupplierQualification[]
+  scars                   SupplierScar[]
+  complaintInvestigations ComplaintInvestigation[]
 
   @@unique([tenantId, id], map: "suppliers_tenant_id_id_key")
   @@unique([tenantId, code], map: "suppliers_tenant_id_code_key")
@@ -2244,4 +2315,131 @@ model EquipmentMaintenanceReview {
   @@unique([tenantId, id], map: "maintenance_reviews_tenant_id_id_key")
   @@unique([tenantId, maintenanceId], map: "maintenance_reviews_maintenance_key")
   @@map("equipment_maintenance_reviews")
+}
+
+model ComplaintSequence {
+  tenantId   String   @map("tenant_id") @db.Uuid
+  year       Int
+  lastNumber Int      @default(0) @map("last_number")
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@id([tenantId, year])
+  @@map("complaint_sequences")
+}
+
+model ProductComplaint {
+  id                       String                         @id @default(uuid()) @db.Uuid
+  tenantId                 String                         @map("tenant_id") @db.Uuid
+  code                     String                         @db.VarChar(25)
+  title                    String                         @db.VarChar(200)
+  description              String                         @db.VarChar(5000)
+  source                   ComplaintSource
+  category                 ComplaintCategory
+  productName              String                         @map("product_name") @db.VarChar(200)
+  productCode              String                         @map("product_code") @db.VarChar(100)
+  lotNumber                String                         @map("lot_number") @db.VarChar(100)
+  expiryDate               DateTime?                      @map("expiry_date") @db.Date
+  countryCode              String                         @map("country_code") @db.Char(2)
+  receivedAt               DateTime                       @map("received_at") @db.Timestamptz(3)
+  reporterName             String?                        @map("reporter_name") @db.VarChar(200)
+  reporterContact          String?                        @map("reporter_contact") @db.VarChar(320)
+  evidenceReference        String                         @map("evidence_reference") @db.VarChar(2000)
+  potentialSafetyEvent     Boolean                        @default(false) @map("potential_safety_event")
+  status                   ComplaintStatus                @default(REPORTED)
+  severity                 ComplaintSeverity?
+  regulatoryAssessment     ComplaintRegulatoryAssessment? @map("regulatory_assessment")
+  recallAssessmentRequired Boolean?                       @map("recall_assessment_required")
+  immediateActions         String?                        @map("immediate_actions") @db.VarChar(3000)
+  targetCloseAt            DateTime?                      @map("target_close_at") @db.Timestamptz(3)
+  investigatorUserId       String?                        @map("investigator_user_id") @db.Uuid
+  reviewerUserId           String?                        @map("reviewer_user_id") @db.Uuid
+  triagedByUserId          String?                        @map("triaged_by_user_id") @db.Uuid
+  triagedAt                DateTime?                      @map("triaged_at") @db.Timestamptz(3)
+  reportedByUserId         String                         @map("reported_by_user_id") @db.Uuid
+  cancelledByUserId        String?                        @map("cancelled_by_user_id") @db.Uuid
+  cancellationReason       String?                        @map("cancellation_reason") @db.VarChar(1000)
+  cancelledAt              DateTime?                      @map("cancelled_at") @db.Timestamptz(3)
+  createdAt                DateTime                       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime                       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant                   Tenant                         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  reportedBy               User                           @relation("ComplaintReporter", fields: [tenantId, reportedByUserId], references: [tenantId, id], onDelete: Restrict)
+  investigator             User?                          @relation("ComplaintInvestigator", fields: [tenantId, investigatorUserId], references: [tenantId, id], onDelete: Restrict)
+  reviewer                 User?                          @relation("ComplaintReviewer", fields: [tenantId, reviewerUserId], references: [tenantId, id], onDelete: Restrict)
+  triagedBy                User?                          @relation("ComplaintTriager", fields: [tenantId, triagedByUserId], references: [tenantId, id], onDelete: Restrict)
+  cancelledBy              User?                          @relation("ComplaintCanceller", fields: [tenantId, cancelledByUserId], references: [tenantId, id], onDelete: Restrict)
+  investigation            ComplaintInvestigation?
+  decision                 ComplaintDecision?
+
+  @@unique([tenantId, id], map: "product_complaints_tenant_id_id_key")
+  @@unique([tenantId, code], map: "product_complaints_tenant_code_key")
+  @@index([tenantId, status, targetCloseAt], map: "product_complaints_status_due_idx")
+  @@index([tenantId, productCode, lotNumber], map: "product_complaints_product_lot_idx")
+  @@index([tenantId, severity, createdAt], map: "product_complaints_severity_idx")
+  @@map("product_complaints")
+}
+
+model ComplaintInvestigation {
+  id                       String                        @id @default(uuid()) @db.Uuid
+  tenantId                 String                        @map("tenant_id") @db.Uuid
+  complaintId              String                        @map("complaint_id") @db.Uuid
+  investigationSummary     String                        @map("investigation_summary") @db.VarChar(5000)
+  rootCause                String                        @map("root_cause") @db.VarChar(3000)
+  batchImpact              String                        @map("batch_impact") @db.VarChar(3000)
+  distributedProductImpact String                        @map("distributed_product_impact") @db.VarChar(3000)
+  sampleEvaluation         String                        @map("sample_evaluation") @db.VarChar(3000)
+  evidenceReference        String                        @map("evidence_reference") @db.VarChar(3000)
+  recommendedDisposition   ComplaintDisposition          @map("recommended_disposition")
+  responseRecommendation   String                        @map("response_recommendation") @db.VarChar(3000)
+  deviationId              String?                       @map("deviation_id") @db.Uuid
+  capaId                   String?                       @map("capa_id") @db.Uuid
+  supplierId               String?                       @map("supplier_id") @db.Uuid
+  qualityRiskId            String?                       @map("quality_risk_id") @db.Uuid
+  changeControlId          String?                       @map("change_control_id") @db.Uuid
+  investigatedByUserId     String                        @map("investigated_by_user_id") @db.Uuid
+  investigationSessionId   String                        @map("investigation_session_id") @db.Uuid
+  meaning                  ComplaintSignatureMeaning     @default(INVESTIGATION_COMPLETION)
+  authenticationMethod     ComplaintAuthenticationMethod @default(PASSWORD_REAUTHENTICATION) @map("authentication_method")
+  investigatedAt           DateTime                      @map("investigated_at") @db.Timestamptz(3)
+  recordHash               String                        @map("record_hash") @db.Char(64)
+  createdAt                DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant                   Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  complaint                ProductComplaint              @relation(fields: [tenantId, complaintId], references: [tenantId, id], onDelete: Restrict)
+  investigatedBy           User                          @relation("ComplaintInvestigationSigner", fields: [tenantId, investigatedByUserId], references: [tenantId, id], onDelete: Restrict, map: "complaint_investigation_signer_fkey")
+  investigationSession     Session                       @relation("ComplaintInvestigationSession", fields: [tenantId, investigatedByUserId, investigationSessionId], references: [tenantId, userId, id], onDelete: Restrict, map: "complaint_investigation_session_fkey")
+  deviation                Deviation?                    @relation(fields: [tenantId, deviationId], references: [tenantId, id], onDelete: Restrict)
+  capa                     Capa?                         @relation(fields: [tenantId, capaId], references: [tenantId, id], onDelete: Restrict)
+  supplier                 Supplier?                     @relation(fields: [tenantId, supplierId], references: [tenantId, id], onDelete: Restrict)
+  qualityRisk              QualityRiskAssessment?        @relation(fields: [tenantId, qualityRiskId], references: [tenantId, id], onDelete: Restrict)
+  changeControl            ChangeControl?                @relation(fields: [tenantId, changeControlId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id], map: "complaint_investigations_tenant_id_id_key")
+  @@unique([tenantId, complaintId], map: "complaint_investigations_complaint_key")
+  @@map("complaint_investigations")
+}
+
+model ComplaintDecision {
+  id                     String                        @id @default(uuid()) @db.Uuid
+  tenantId               String                        @map("tenant_id") @db.Uuid
+  complaintId            String                        @map("complaint_id") @db.Uuid
+  disposition            ComplaintDisposition
+  rationale              String                        @db.VarChar(3000)
+  finalResponseReference String                        @map("final_response_reference") @db.VarChar(2000)
+  regulatoryAction       String                        @map("regulatory_action") @db.VarChar(3000)
+  recallActionRequired   Boolean                       @map("recall_action_required")
+  decidedByUserId        String                        @map("decided_by_user_id") @db.Uuid
+  decisionSessionId      String                        @map("decision_session_id") @db.Uuid
+  meaning                ComplaintSignatureMeaning     @default(COMPLAINT_DECISION)
+  authenticationMethod   ComplaintAuthenticationMethod @default(PASSWORD_REAUTHENTICATION) @map("authentication_method")
+  decidedAt              DateTime                      @map("decided_at") @db.Timestamptz(3)
+  recordHash             String                        @map("record_hash") @db.Char(64)
+  createdAt              DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant                 Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  complaint              ProductComplaint              @relation(fields: [tenantId, complaintId], references: [tenantId, id], onDelete: Restrict)
+  decidedBy              User                          @relation("ComplaintDecisionSigner", fields: [tenantId, decidedByUserId], references: [tenantId, id], onDelete: Restrict, map: "complaint_decision_signer_fkey")
+  decisionSession        Session                       @relation("ComplaintDecisionSession", fields: [tenantId, decidedByUserId, decisionSessionId], references: [tenantId, userId, id], onDelete: Restrict, map: "complaint_decision_session_fkey")
+
+  @@unique([tenantId, id], map: "complaint_decisions_tenant_id_id_key")
+  @@unique([tenantId, complaintId], map: "complaint_decisions_complaint_key")
+  @@map("complaint_decisions")
 }
