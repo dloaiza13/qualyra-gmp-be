@@ -29,6 +29,8 @@
     "keys:generate": "node ./scripts/generate-jwt-keys.mjs",
     "openapi:generate": "npm run build --silent && node ./scripts/generate-openapi.mjs",
     "ops:backup": "node ./scripts/database-backup.mjs",
+    "ops:capacity:drill": "node ./scripts/photo-evidence-capacity-drill.mjs",
+    "ops:evidence:s3-drill": "tsx ./scripts/s3-evidence-drill.ts",
     "ops:restore:drill": "node ./scripts/database-restore-drill.mjs",
     "start": "nest start",
     "start:dev": "nest start --watch",

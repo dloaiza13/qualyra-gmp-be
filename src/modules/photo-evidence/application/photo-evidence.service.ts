@@ -26,6 +26,7 @@ import type {
   PhotoEvidencePageResponseDto,
   PhotoEvidenceUsageResponseDto,
 } from './dto/photo-evidence-response.dto.js';
+import { PhotoEvidenceCapacityPolicy } from './photo-evidence-capacity.policy.js';
 
 const allowedImageTypes = new Set([
   'image/jpeg',
@@ -54,7 +55,6 @@ type PhotoRecord = Prisma.PhotoEvidenceGetPayload<{
 @Injectable()
 export class PhotoEvidenceService {
   private readonly maxBytes: number;
-  private readonly quotaBytesByPlan: Readonly<Record<TenantPlan, number>>;
 
   constructor(
     private readonly tenantUnitOfWork: TenantUnitOfWork,
@@ -62,25 +62,11 @@ export class PhotoEvidenceService {
     private readonly scanner: CapaEvidenceScanner,
     private readonly metrics: MetricsService,
     config: ConfigService<Environment, true>,
+    private readonly capacityPolicy: PhotoEvidenceCapacityPolicy,
   ) {
     this.maxBytes = config.getOrThrow('PHOTO_EVIDENCE_MAX_BYTES', {
       infer: true,
     });
-    this.quotaBytesByPlan = {
-      TRIAL: config.getOrThrow('PHOTO_EVIDENCE_TENANT_QUOTA_BYTES', {
-        infer: true,
-      }),
-      STARTER: config.getOrThrow('PHOTO_EVIDENCE_STARTER_QUOTA_BYTES', {
-        infer: true,
-      }),
-      PROFESSIONAL: config.getOrThrow(
-        'PHOTO_EVIDENCE_PROFESSIONAL_QUOTA_BYTES',
-        { infer: true },
-      ),
-      ENTERPRISE: config.getOrThrow('PHOTO_EVIDENCE_ENTERPRISE_QUOTA_BYTES', {
-        infer: true,
-      }),
-    };
   }
 
   async list(
@@ -158,7 +144,7 @@ export class PhotoEvidenceService {
           Number(usage.usedBytes),
           usage.photoCount,
           plan,
-          this.quotaBytesByPlan[plan],
+          this.capacityPolicy,
         );
       },
     );
@@ -267,7 +253,10 @@ export class PhotoEvidenceService {
             principal.tenantId,
           );
           const usedBytes = Number(usage.usedBytes);
-          if (usedBytes + file.buffer.length > this.quotaBytesByPlan[plan]) {
+          if (
+            usedBytes + file.buffer.length >
+            this.capacityPolicy.quotaFor(plan)
+          ) {
             throw new ApplicationError(
               ErrorCode.PhotoEvidenceQuotaExceeded,
               'The organization has reached its photographic evidence storage quota.',
@@ -478,8 +467,9 @@ function usageResponse(
   usedBytes: number,
   photoCount: number,
   plan: TenantPlan,
-  quotaBytes: number,
+  capacityPolicy: PhotoEvidenceCapacityPolicy,
 ): PhotoEvidenceUsageResponseDto {
+  const quotaBytes = capacityPolicy.quotaFor(plan);
   return {
     plan,
     usedBytes,
@@ -487,6 +477,7 @@ function usageResponse(
     remainingBytes: Math.max(0, quotaBytes - usedBytes),
     photoCount,
     usagePercent: Number(((usedBytes / quotaBytes) * 100).toFixed(2)),
+    capacityStatus: capacityPolicy.statusFor(usedBytes, quotaBytes),
   };
 }
 

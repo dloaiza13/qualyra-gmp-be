@@ -21,6 +21,8 @@ const outboxStatuses = [
 type DeliveryOutcome = 'processed' | 'retry_scheduled' | 'dead_letter';
 type PhotoEvidenceOutcome =
   'success' | 'rejected' | 'quota_exceeded' | 'storage_error';
+type PhotoEvidenceCapacityState =
+  'normal' | 'warning' | 'critical' | 'over_quota' | 'counter_mismatch';
 
 @Injectable()
 export class MetricsService {
@@ -97,6 +99,29 @@ export class MetricsService {
     help: 'Bytes accepted as controlled photographic evidence.',
     registers: [this.registry],
   });
+  private readonly photoEvidenceCapacityTenants = new Gauge({
+    name: 'qualyra_photo_evidence_capacity_tenants',
+    help: 'Active tenants by photographic evidence capacity state, without tenant identifiers.',
+    labelNames: ['state'] as const,
+    registers: [this.registry],
+  });
+  private readonly photoEvidenceReconciliationRuns = new Counter({
+    name: 'qualyra_photo_evidence_reconciliation_runs_total',
+    help: 'Photographic evidence counter reconciliation runs by outcome.',
+    labelNames: ['outcome'] as const,
+    registers: [this.registry],
+  });
+  private readonly photoEvidenceReconciliationDuration = new Histogram({
+    name: 'qualyra_photo_evidence_reconciliation_duration_seconds',
+    help: 'Duration of photographic evidence counter reconciliation runs.',
+    buckets: [0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60],
+    registers: [this.registry],
+  });
+  private readonly photoEvidenceReconciliationLastSuccess = new Gauge({
+    name: 'qualyra_photo_evidence_reconciliation_last_success_timestamp_seconds',
+    help: 'Unix timestamp of the most recent complete photographic evidence reconciliation.',
+    registers: [this.registry],
+  });
 
   constructor(
     private readonly prisma: PrismaService,
@@ -152,6 +177,35 @@ export class MetricsService {
     this.photoEvidenceUploads.inc({ outcome });
     if (outcome === 'success' && acceptedBytes > 0) {
       this.photoEvidenceBytes.inc(acceptedBytes);
+    }
+  }
+
+  updatePhotoEvidenceCapacity(input: {
+    mismatches: number;
+    capacity: Record<'NORMAL' | 'WARNING' | 'CRITICAL' | 'OVER_QUOTA', number>;
+  }): void {
+    const values: Record<PhotoEvidenceCapacityState, number> = {
+      normal: input.capacity.NORMAL,
+      warning: input.capacity.WARNING,
+      critical: input.capacity.CRITICAL,
+      over_quota: input.capacity.OVER_QUOTA,
+      counter_mismatch: input.mismatches,
+    };
+    for (const [state, count] of Object.entries(values)) {
+      this.photoEvidenceCapacityTenants.set({ state }, count);
+    }
+  }
+
+  recordPhotoEvidenceReconciliation(
+    outcome: 'success' | 'partial' | 'failure',
+    durationSeconds: number,
+  ): void {
+    this.photoEvidenceReconciliationRuns.inc({ outcome });
+    if (durationSeconds > 0) {
+      this.photoEvidenceReconciliationDuration.observe(durationSeconds);
+    }
+    if (outcome === 'success') {
+      this.photoEvidenceReconciliationLastSuccess.set(Date.now() / 1_000);
     }
   }
 

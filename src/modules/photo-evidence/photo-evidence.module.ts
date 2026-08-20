@@ -3,6 +3,8 @@ import { PrismaModule } from '../../infrastructure/database/prisma/prisma.module
 import { AuthenticationModule } from '../authentication/authentication.module.js';
 import { AuthorizationModule } from '../authorization/authorization.module.js';
 import { CapaEvidenceInfrastructureModule } from '../capas/capa-evidence-infrastructure.module.js';
+import { PhotoEvidenceCapacityPolicy } from './application/photo-evidence-capacity.policy.js';
+import { PhotoEvidenceCapacityReconciliationService } from './application/photo-evidence-capacity-reconciliation.service.js';
 import { PhotoEvidenceService } from './application/photo-evidence.service.js';
 import { PhotoEvidenceController } from './presentation/photo-evidence.controller.js';
 
@@ -14,6 +16,10 @@ import { PhotoEvidenceController } from './presentation/photo-evidence.controlle
     CapaEvidenceInfrastructureModule,
   ],
   controllers: [PhotoEvidenceController],
-  providers: [PhotoEvidenceService],
+  providers: [
+    PhotoEvidenceCapacityPolicy,
+    PhotoEvidenceCapacityReconciliationService,
+    PhotoEvidenceService,
+  ],
 })
 export class PhotoEvidenceModule {}

@@ -12422,6 +12422,15 @@
           },
           "usagePercent": {
             "type": "number"
+          },
+          "capacityStatus": {
+            "type": "string",
+            "enum": [
+              "NORMAL",
+              "WARNING",
+              "CRITICAL",
+              "OVER_QUOTA"
+            ]
           }
         },
         "required": [
@@ -12430,7 +12439,8 @@
           "quotaBytes",
           "remainingBytes",
           "photoCount",
-          "usagePercent"
+          "usagePercent",
+          "capacityStatus"
         ]
       },
       "DocumentUserSummaryDto": {

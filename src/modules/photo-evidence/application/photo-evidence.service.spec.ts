@@ -6,6 +6,7 @@ import type { CapaEvidenceScanner } from '../../capas/domain/ports/capa-evidence
 import type { CapaEvidenceStorage } from '../../capas/domain/ports/capa-evidence-storage.js';
 import type { MetricsService } from '../../observability/application/metrics.service.js';
 import type { TenantUnitOfWork } from '../../tenancy/application/ports/tenant-unit-of-work.js';
+import type { PhotoEvidenceCapacityPolicy } from './photo-evidence-capacity.policy.js';
 import { PhotoEvidenceService } from './photo-evidence.service.js';
 
 const tenantId = '11111111-1111-4111-8111-111111111111';
@@ -89,6 +90,7 @@ describe('PhotoEvidenceService', () => {
       usedBytes: 9,
       quotaBytes: 32,
       photoCount: 1,
+      capacityStatus: 'NORMAL',
     });
   });
 });
@@ -166,6 +168,24 @@ function createFixture(
     ),
   };
   const metrics = { recordPhotoEvidenceUpload: jest.fn() };
+  const capacityPolicy = {
+    quotaFor: jest.fn(() => {
+      const quotas = {
+        TRIAL: 8,
+        STARTER: 16,
+        PROFESSIONAL: 32,
+        ENTERPRISE: 64,
+      };
+      return quotas[plan];
+    }),
+    statusFor: jest.fn((used: number, quota: number) =>
+      used > quota
+        ? 'OVER_QUOTA'
+        : used / quota >= 0.95
+          ? 'CRITICAL'
+          : 'NORMAL',
+    ),
+  };
   const config = {
     getOrThrow: jest.fn((key: keyof Environment) => {
       const values: Partial<Record<keyof Environment, number>> = {
@@ -189,6 +209,7 @@ function createFixture(
       scanner as unknown as CapaEvidenceScanner,
       metrics as unknown as MetricsService,
       config as unknown as ConfigService<Environment, true>,
+      capacityPolicy as unknown as PhotoEvidenceCapacityPolicy,
     ),
   };
 }

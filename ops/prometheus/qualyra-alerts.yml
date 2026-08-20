@@ -83,3 +83,43 @@ groups:
         annotations:
           summary: Qualyra recovered expired notification worker leases
           runbook: Correlate the event with restarts, timeouts, or overlapping worker capacity.
+
+  - name: qualyra-photo-evidence-capacity
+    rules:
+      - alert: QualyraPhotoEvidenceCounterMismatch
+        expr: qualyra_photo_evidence_capacity_tenants{state="counter_mismatch"} > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: Photographic evidence metadata and its capacity counter disagree
+          runbook: Preserve logs and database evidence, investigate the trigger and recent migrations, and do not repair the counter without an approved incident record.
+
+      - alert: QualyraPhotoEvidenceCapacityCritical
+        expr: sum(qualyra_photo_evidence_capacity_tenants{state=~"critical|over_quota"}) > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: At least one organization is at critical photographic evidence capacity
+          runbook: Review the tenant-scoped capacity report under authorized access and apply the contracted storage or plan procedure.
+
+      - alert: QualyraPhotoEvidenceReconciliationStalled
+        expr: |
+          absent(qualyra_photo_evidence_reconciliation_last_success_timestamp_seconds)
+            or time() - qualyra_photo_evidence_reconciliation_last_success_timestamp_seconds > 7200
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Photographic evidence capacity has not reconciled successfully in two hours
+          runbook: Check the reconciliation worker logs, PostgreSQL readiness, and configured interval.
+
+      - alert: QualyraPhotoEvidenceStorageErrors
+        expr: increase(qualyra_photo_evidence_uploads_total{outcome="storage_error"}[10m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: Photographic evidence uploads cannot reach managed object storage
+          runbook: Check S3 health, credentials, network policy, bucket capacity, and recent deployment changes.

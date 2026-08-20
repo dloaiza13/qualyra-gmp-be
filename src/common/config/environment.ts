@@ -117,6 +117,25 @@ const environmentSchema = z
       .min(1_048_576)
       .max(10_995_116_277_760)
       .default(214_748_364_800),
+    PHOTO_EVIDENCE_CAPACITY_WARNING_PERCENT: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(98)
+      .default(80),
+    PHOTO_EVIDENCE_CAPACITY_CRITICAL_PERCENT: z.coerce
+      .number()
+      .int()
+      .min(2)
+      .max(100)
+      .default(95),
+    PHOTO_EVIDENCE_RECONCILIATION_ENABLED: booleanValue.default(true),
+    PHOTO_EVIDENCE_RECONCILIATION_INTERVAL_MINUTES: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(1440)
+      .default(60),
     CAPA_EVIDENCE_UPLOAD_TTL_HOURS: z.coerce
       .number()
       .int()
@@ -244,6 +263,36 @@ const environmentSchema = z
         path: ['PHOTO_EVIDENCE_MAX_BYTES'],
         message:
           'PHOTO_EVIDENCE_MAX_BYTES cannot exceed the managed evidence scanner limit.',
+      });
+    }
+
+    if (
+      environment.PHOTO_EVIDENCE_CAPACITY_WARNING_PERCENT >=
+      environment.PHOTO_EVIDENCE_CAPACITY_CRITICAL_PERCENT
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['PHOTO_EVIDENCE_CAPACITY_WARNING_PERCENT'],
+        message:
+          'PHOTO_EVIDENCE_CAPACITY_WARNING_PERCENT must be lower than the critical threshold.',
+      });
+    }
+
+    const planQuotas = [
+      environment.PHOTO_EVIDENCE_TENANT_QUOTA_BYTES,
+      environment.PHOTO_EVIDENCE_STARTER_QUOTA_BYTES,
+      environment.PHOTO_EVIDENCE_PROFESSIONAL_QUOTA_BYTES,
+      environment.PHOTO_EVIDENCE_ENTERPRISE_QUOTA_BYTES,
+    ];
+    if (
+      planQuotas.some(
+        (quota, index) => index > 0 && quota < planQuotas[index - 1],
+      )
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['PHOTO_EVIDENCE_ENTERPRISE_QUOTA_BYTES'],
+        message: 'Photographic evidence quotas must not decrease across plans.',
       });
     }
 

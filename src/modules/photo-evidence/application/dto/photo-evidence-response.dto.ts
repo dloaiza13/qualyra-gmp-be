@@ -3,6 +3,10 @@ import {
   PhotoEvidenceSubjectType,
   TenantPlan,
 } from '../../../../generated/prisma/client.js';
+import {
+  photoEvidenceCapacityStatuses,
+  type PhotoEvidenceCapacityStatus,
+} from '../photo-evidence-capacity.policy.js';
 
 export class PhotoEvidenceUploaderDto {
   @ApiProperty({ format: 'uuid' })
@@ -68,6 +72,9 @@ export class PhotoEvidenceUsageResponseDto {
 
   @ApiProperty()
   usagePercent!: number;
+
+  @ApiProperty({ enum: photoEvidenceCapacityStatuses })
+  capacityStatus!: PhotoEvidenceCapacityStatus;
 }
 
 export class PhotoEvidencePageResponseDto {

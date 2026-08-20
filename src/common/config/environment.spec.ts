@@ -81,4 +81,24 @@ describe('environment configuration', () => {
       ),
     ).toEqual(['https://app.qualyra.example']);
   });
+
+  it('rejects overlapping photo evidence capacity thresholds', () => {
+    expect(() =>
+      validateEnvironment({
+        ...baseEnvironment,
+        PHOTO_EVIDENCE_CAPACITY_WARNING_PERCENT: '95',
+        PHOTO_EVIDENCE_CAPACITY_CRITICAL_PERCENT: '80',
+      }),
+    ).toThrow(/PHOTO_EVIDENCE_CAPACITY_WARNING_PERCENT/);
+  });
+
+  it('rejects photo evidence quotas that decrease in higher plans', () => {
+    expect(() =>
+      validateEnvironment({
+        ...baseEnvironment,
+        PHOTO_EVIDENCE_TENANT_QUOTA_BYTES: '2000000',
+        PHOTO_EVIDENCE_STARTER_QUOTA_BYTES: '1000000',
+      }),
+    ).toThrow(/PHOTO_EVIDENCE_ENTERPRISE_QUOTA_BYTES/);
+  });
 });

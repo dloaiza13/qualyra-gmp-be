@@ -30,11 +30,11 @@ The device-supplied capture time is useful context, not trusted proof of when or
 
 Changing a tenant's plan changes its available quota immediately; it does not copy or move evidence.
 
-Quota checks run inside a tenant-specific PostgreSQL advisory lock, so concurrent uploads cannot both spend the same remaining capacity. A tenant-scoped usage counter makes the normal check O(1); its first access is initialized from immutable evidence metadata and every accepted insert increments it through a database trigger. If the database transaction rejects an image, the newly written storage object is removed. `GET /api/v1/photo-evidence/usage` returns plan, used, remaining, quota, count, and percentage values for the current tenant.
+Quota checks run inside a tenant-specific PostgreSQL advisory lock, so concurrent uploads cannot both spend the same remaining capacity. A tenant-scoped usage counter makes the normal check O(1); its first access is initialized from immutable evidence metadata and every accepted insert increments it through a database trigger. If the database transaction rejects an image, the newly written storage object is removed. `GET /api/v1/photo-evidence/usage` returns plan, used, remaining, quota, count, percentage, and a bounded capacity state for the current tenant. The defaults are warning at 80% and critical at 95%; configuration validation requires warning to remain below critical and plan quotas to be non-decreasing.
 
 Evidence lists use a stable `(created_at, id)` descending cursor and return at most the requested page plus a `nextCursor`. The UI requests 12 metadata records at a time and continues to lazy-load image bytes only when a card approaches the viewport.
 
-The API also emits aggregate upload outcome and accepted-byte metrics without tenant labels. This avoids leaking customer identity and prevents unbounded Prometheus label cardinality.
+The API also emits aggregate upload, capacity, and reconciliation metrics without tenant labels. This avoids leaking customer identity and prevents unbounded Prometheus label cardinality. The hourly reconciliation initializes a missing operational counter from immutable metadata, but only alerts and logs when an existing counter disagrees; it never silently rewrites a discrepancy.
 
 ## Production operations
 
@@ -44,3 +44,22 @@ The API also emits aggregate upload outcome and accepted-byte metrics without te
 - Validate camera capture on the supported iPadOS/Android browser and device matrix before a regulated release.
 - Include object storage in disaster-recovery exercises; a PostgreSQL backup alone does not contain image bytes.
 - Compare `tenant_photo_evidence_usage` against an aggregate of immutable metadata during scheduled integrity checks. A mismatch is an operational incident and must not be corrected without preserving its investigation evidence.
+
+## Repeatable operational drills
+
+Start only MinIO from the optional Docker profile and exercise the production S3 adapter against it:
+
+```bash
+docker compose --profile managed-evidence up -d --wait minio
+npm run ops:evidence:s3-drill
+```
+
+The drill creates a unique object, reads and verifies its SHA-256 through the adapter, then removes it. It does not require changing the application's active storage driver.
+
+The capacity drill creates a strictly prefixed temporary PostgreSQL database, applies every migration, loads 50 isolated tenants with 20 photographic metadata rows each, verifies the trigger-maintained counters and cross-tenant RLS under 10 pooled runtime connections, records latency, and drops only that temporary database in `finally`:
+
+```bash
+npm run ops:capacity:drill
+```
+
+Optional variables control tenant count, photos per tenant, and the local p95 acceptance threshold: `QUALYRA_CAPACITY_DRILL_TENANTS`, `QUALYRA_CAPACITY_DRILL_PHOTOS_PER_TENANT`, and `QUALYRA_CAPACITY_DRILL_MAX_P95_MS`. Run the same command in staging with production-like network and data volume before setting a commercial service objective; a workstation result is a regression baseline, not a production sizing guarantee.
