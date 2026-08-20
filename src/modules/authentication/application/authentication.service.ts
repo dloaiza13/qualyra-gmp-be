@@ -12,7 +12,11 @@ import {
   type PersistedToken,
 } from '../../../infrastructure/crypto/secure-token.service.js';
 import { PrismaService } from '../../../infrastructure/database/prisma/prisma.service.js';
-import type { Prisma, UserStatus } from '../../../generated/prisma/client.js';
+import type {
+  Prisma,
+  TenantPlan,
+  UserStatus,
+} from '../../../generated/prisma/client.js';
 import { TenantUnitOfWork } from '../../tenancy/application/ports/tenant-unit-of-work.js';
 import type { AuthenticatedPrincipal } from '../domain/authenticated-principal.js';
 import { NotificationOutboxService } from '../../notifications/application/notification-outbox.service.js';
@@ -227,6 +231,16 @@ export interface AuthenticationResult {
   csrfToken: string;
 }
 
+export interface CompanyProvisioningInput {
+  tenantName: string;
+  tenantSlug: string;
+  adminName: string;
+  email: string;
+  plan: TenantPlan;
+  reason: string;
+  operatorId: string;
+}
+
 interface UserSnapshot {
   id: string;
   tenantId: string;
@@ -298,73 +312,15 @@ export class AuthenticationService {
 
     try {
       await this.tenantUnitOfWork.execute(tenantId, async (transaction) => {
-        await transaction.tenant.create({
-          data: {
-            id: tenantId,
-            name: input.tenantName,
-            slug: input.tenantSlug,
-          },
-        });
-
-        const permissions = await transaction.permission.findMany({
-          select: { id: true, code: true },
-        });
-        const roles = new Map<string, string>();
-        for (const name of initialRoles) {
-          const role = await transaction.role.create({
-            data: {
-              tenantId,
-              name,
-              description: `${name} role created during organization registration.`,
-              isSystem: true,
-            },
-            select: { id: true },
-          });
-          roles.set(name, role.id);
-        }
-
-        const administratorRoleId = roles.get('Administrator');
-        if (!administratorRoleId) {
-          throw new Error('Administrator role was not created.');
-        }
-
-        await transaction.rolePermission.createMany({
-          data: permissions.map(({ id: permissionId }) => ({
-            tenantId,
-            roleId: administratorRoleId,
-            permissionId,
-          })),
-        });
-
-        for (const [roleName, roleId] of roles) {
-          if (roleName === 'Administrator') continue;
-          const allowedCodes = new Set(
-            initialRolePermissions[roleName as (typeof initialRoles)[number]],
-          );
-          await transaction.rolePermission.createMany({
-            data: permissions
-              .filter(({ code }) => allowedCodes.has(code))
-              .map(({ id: permissionId }) => ({
-                tenantId,
-                roleId,
-                permissionId,
-              })),
-          });
-        }
-
-        await transaction.user.create({
-          data: {
-            id: userId,
-            tenantId,
-            email: input.email,
-            displayName: input.adminName,
-            passwordHash,
-            status: 'ACTIVE',
-            passwordChangedAt: now,
-          },
-        });
-        await transaction.userRole.create({
-          data: { tenantId, userId, roleId: administratorRoleId },
+        await this.createTenantAccessBaseline(transaction, {
+          tenantId,
+          userId,
+          tenantName: input.tenantName,
+          tenantSlug: input.tenantSlug,
+          adminName: input.adminName,
+          email: input.email,
+          passwordHash,
+          passwordChangedAt: now,
         });
         await transaction.session.create({
           data: {
@@ -444,6 +400,92 @@ export class AuthenticationService {
       sessionId,
       refreshToken,
     );
+  }
+
+  async provisionCompany(
+    input: CompanyProvisioningInput,
+    metadata: RequestMetadata,
+  ): Promise<{ tenantId: string }> {
+    const tenantId = randomUUID();
+    const userId = randomUUID();
+    const now = new Date();
+    const initialSecret = this.tokens.create(tenantId);
+    const passwordHash = await this.passwordHasher.hash(initialSecret.raw);
+    const setupToken = this.tokens.create(tenantId);
+
+    try {
+      await this.tenantUnitOfWork.execute(tenantId, async (transaction) => {
+        await this.createTenantAccessBaseline(transaction, {
+          tenantId,
+          userId,
+          tenantName: input.tenantName,
+          tenantSlug: input.tenantSlug,
+          adminName: input.adminName,
+          email: input.email,
+          passwordHash,
+          passwordChangedAt: null,
+          plan: input.plan,
+        });
+        await transaction.passwordResetToken.create({
+          data: {
+            id: setupToken.id,
+            tenantId,
+            userId,
+            tokenHash: setupToken.hash,
+            expiresAt: addHours(now, this.verificationTokenTtlHours),
+          },
+        });
+        await this.outbox.enqueue(transaction, {
+          tenantId,
+          type: 'AUTH_PASSWORD_RESET',
+          deduplicationKey: `password-reset:${userId}:${setupToken.id}`,
+          payload: {
+            email: input.email,
+            displayName: input.adminName,
+            tenantSlug: input.tenantSlug,
+            token: setupToken.raw,
+          },
+        });
+        await this.createSecurityEvent(transaction, {
+          tenantId,
+          actorUserId: userId,
+          subjectUserId: userId,
+          eventType: 'TENANT_REGISTERED',
+          outcome: 'SUCCESS',
+          metadata,
+          eventMetadata: { registrationSource: 'PLATFORM_PROVISIONING' },
+        });
+        await transaction.platformAuditEvent.create({
+          data: {
+            tenantId,
+            operatorId: input.operatorId,
+            eventType: 'PLATFORM_TENANT_PROVISIONED',
+            outcome: 'SUCCESS',
+            reason: input.reason.trim(),
+            correlationId: metadata.correlationId,
+            ipAddress: metadata.ipAddress,
+            userAgent: sanitizeUserAgent(metadata.userAgent),
+            metadata: {
+              plan: input.plan,
+              administratorUserId: userId,
+              onboardingMethod: 'PASSWORD_SETUP_EMAIL',
+            },
+          },
+        });
+      });
+    } catch (error: unknown) {
+      if (isUniqueConstraintError(error)) {
+        throw new ApplicationError(
+          ErrorCode.SlugAlreadyExists,
+          'The organization could not be provisioned.',
+          HttpStatus.CONFLICT,
+        );
+      }
+      throw error;
+    }
+
+    await this.deliverNotificationsSafely(tenantId);
+    return { tenantId };
   }
 
   getRegistrationPolicy(): RegistrationPolicyResponseDto {
@@ -1165,6 +1207,92 @@ export class AuthenticationService {
       refreshToken: refreshToken.raw,
       csrfToken,
     };
+  }
+
+  private async createTenantAccessBaseline(
+    transaction: Prisma.TransactionClient,
+    input: {
+      tenantId: string;
+      userId: string;
+      tenantName: string;
+      tenantSlug: string;
+      adminName: string;
+      email: string;
+      passwordHash: string;
+      passwordChangedAt: Date | null;
+      plan?: TenantPlan;
+    },
+  ): Promise<void> {
+    await transaction.tenant.create({
+      data: {
+        id: input.tenantId,
+        name: input.tenantName,
+        slug: input.tenantSlug,
+        plan: input.plan,
+      },
+    });
+
+    const permissions = await transaction.permission.findMany({
+      select: { id: true, code: true },
+    });
+    const roles = new Map<string, string>();
+    for (const name of initialRoles) {
+      const role = await transaction.role.create({
+        data: {
+          tenantId: input.tenantId,
+          name,
+          description: `${name} role created during organization registration.`,
+          isSystem: true,
+        },
+        select: { id: true },
+      });
+      roles.set(name, role.id);
+    }
+
+    const administratorRoleId = roles.get('Administrator');
+    if (!administratorRoleId) {
+      throw new Error('Administrator role was not created.');
+    }
+    await transaction.rolePermission.createMany({
+      data: permissions.map(({ id: permissionId }) => ({
+        tenantId: input.tenantId,
+        roleId: administratorRoleId,
+        permissionId,
+      })),
+    });
+    for (const [roleName, roleId] of roles) {
+      if (roleName === 'Administrator') continue;
+      const allowedCodes = new Set(
+        initialRolePermissions[roleName as (typeof initialRoles)[number]],
+      );
+      await transaction.rolePermission.createMany({
+        data: permissions
+          .filter(({ code }) => allowedCodes.has(code))
+          .map(({ id: permissionId }) => ({
+            tenantId: input.tenantId,
+            roleId,
+            permissionId,
+          })),
+      });
+    }
+    await transaction.user.create({
+      data: {
+        id: input.userId,
+        tenantId: input.tenantId,
+        email: input.email,
+        displayName: input.adminName,
+        passwordHash: input.passwordHash,
+        status: 'ACTIVE',
+        passwordChangedAt: input.passwordChangedAt,
+      },
+    });
+    await transaction.userRole.create({
+      data: {
+        tenantId: input.tenantId,
+        userId: input.userId,
+        roleId: administratorRoleId,
+      },
+    });
   }
 
   private async recordFailedLogin(

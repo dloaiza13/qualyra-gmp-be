@@ -16,6 +16,6 @@ import { NotificationOutboxModule } from '../notifications/notification-outbox.m
     CsrfGuard,
     JwtAuthGuard,
   ],
-  exports: [AuthenticationCookieService, JwtAuthGuard],
+  exports: [AuthenticationService, AuthenticationCookieService, JwtAuthGuard],
 })
 export class AuthenticationModule {}

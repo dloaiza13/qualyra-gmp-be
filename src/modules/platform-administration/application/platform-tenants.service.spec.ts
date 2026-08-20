@@ -78,10 +78,12 @@ describe('PlatformTenantsService', () => {
       quotaFor: jest.fn(() => 10_000),
       statusFor: jest.fn(() => 'NORMAL'),
     };
+    const authentication = { provisionCompany: jest.fn() };
     const service = new PlatformTenantsService(
       prisma as unknown as PrismaService,
       tenantUnitOfWork as unknown as TenantUnitOfWork,
       capacityPolicy as unknown as PhotoEvidenceCapacityPolicy,
+      authentication as never,
       {
         getOrThrow: jest.fn(() => 'operator-test'),
       } as unknown as ConfigService<Environment, true>,

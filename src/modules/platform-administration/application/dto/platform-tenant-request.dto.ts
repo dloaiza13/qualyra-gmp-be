@@ -12,11 +12,26 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 import {
   TenantPlan,
   TenantStatus,
 } from '../../../../generated/prisma/client.js';
+import { RegisterCompanyDto } from '../../../authentication/application/dto/auth-request.dto.js';
+
+export class CreatePlatformTenantDto extends OmitType(RegisterCompanyDto, [
+  'password',
+] as const) {
+  @ApiProperty({ enum: TenantPlan })
+  @IsEnum(TenantPlan)
+  plan!: TenantPlan;
+
+  @ApiProperty({ minLength: 10, maxLength: 500 })
+  @IsString()
+  @MinLength(10)
+  @MaxLength(500)
+  reason!: string;
+}
 
 export class PlatformTenantQueryDto {
   @ApiPropertyOptional({ minimum: 1, maximum: 50, default: 25 })

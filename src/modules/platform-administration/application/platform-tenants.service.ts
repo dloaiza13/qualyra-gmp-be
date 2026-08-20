@@ -11,10 +11,12 @@ import { ApplicationError } from '../../../common/errors/application-error.js';
 import { ErrorCode } from '../../../common/errors/error-codes.js';
 import { PrismaService } from '../../../infrastructure/database/prisma/prisma.service.js';
 import type { RequestMetadata } from '../../authentication/application/request-metadata.js';
+import { AuthenticationService } from '../../authentication/application/authentication.service.js';
 import { PhotoEvidenceCapacityPolicy } from '../../photo-evidence/application/photo-evidence-capacity.policy.js';
 import { TenantUnitOfWork } from '../../tenancy/application/ports/tenant-unit-of-work.js';
 import type {
   PlatformAuditEventQueryDto,
+  CreatePlatformTenantDto,
   PlatformTenantQueryDto,
   UpdatePlatformTenantDto,
 } from './dto/platform-tenant-request.dto.js';
@@ -42,11 +44,27 @@ export class PlatformTenantsService {
     private readonly prisma: PrismaService,
     private readonly tenantUnitOfWork: TenantUnitOfWork,
     private readonly capacityPolicy: PhotoEvidenceCapacityPolicy,
+    private readonly authentication: AuthenticationService,
     config: ConfigService<Environment, true>,
   ) {
     this.operatorId = config.getOrThrow('PLATFORM_OPERATOR_ID', {
       infer: true,
     });
+  }
+
+  async create(
+    input: CreatePlatformTenantDto,
+    request: RequestMetadata,
+  ): Promise<PlatformTenantResponseDto> {
+    const { tenantId } = await this.authentication.provisionCompany(
+      {
+        ...input,
+        reason: input.reason.trim(),
+        operatorId: this.operatorId,
+      },
+      request,
+    );
+    return this.get(tenantId);
   }
 
   async list(

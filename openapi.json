@@ -6111,6 +6111,40 @@
       }
     },
     "/api/v1/platform/tenants": {
+      "post": {
+        "operationId": "PlatformTenantsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePlatformTenantDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformTenantResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "platformBearer": []
+          }
+        ],
+        "tags": [
+          "Platform administration"
+        ]
+      },
       "get": {
         "operationId": "PlatformTenantsController_list",
         "parameters": [
@@ -14898,6 +14932,49 @@
           "manualRetries",
           "availableAt",
           "createdAt"
+        ]
+      },
+      "CreatePlatformTenantDto": {
+        "type": "object",
+        "properties": {
+          "tenantName": {
+            "type": "string",
+            "example": "ACME Pharma"
+          },
+          "tenantSlug": {
+            "type": "string",
+            "example": "acme-pharma"
+          },
+          "adminName": {
+            "type": "string",
+            "example": "Jane Doe"
+          },
+          "email": {
+            "type": "string",
+            "example": "jane@acme.example"
+          },
+          "plan": {
+            "type": "string",
+            "enum": [
+              "TRIAL",
+              "STARTER",
+              "PROFESSIONAL",
+              "ENTERPRISE"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "tenantName",
+          "tenantSlug",
+          "adminName",
+          "email",
+          "plan",
+          "reason"
         ]
       },
       "PlatformTenantUsersDto": {

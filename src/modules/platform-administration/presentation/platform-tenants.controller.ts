@@ -5,17 +5,24 @@ import {
   Param,
   ParseUUIDPipe,
   Patch,
+  Post,
   Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiOkResponse, ApiSecurity, ApiTags } from '@nestjs/swagger';
+import {
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiSecurity,
+  ApiTags,
+} from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import type { RequestWithContext } from '../../../common/request-context/request-with-context.js';
 import type { RequestMetadata } from '../../authentication/application/request-metadata.js';
 import {
   PlatformAuditEventQueryDto,
+  CreatePlatformTenantDto,
   PlatformTenantQueryDto,
   UpdatePlatformTenantDto,
 } from '../application/dto/platform-tenant-request.dto.js';
@@ -34,6 +41,15 @@ import { PlatformAdminGuard } from './platform-admin.guard.js';
 @Controller('platform')
 export class PlatformTenantsController {
   constructor(private readonly tenants: PlatformTenantsService) {}
+
+  @Post('tenants')
+  @ApiCreatedResponse({ type: PlatformTenantResponseDto })
+  create(
+    @Body() input: CreatePlatformTenantDto,
+    @Req() request: Request & RequestWithContext,
+  ): Promise<PlatformTenantResponseDto> {
+    return this.tenants.create(input, requestMetadata(request));
+  }
 
   @Get('tenants')
   @ApiOkResponse({ type: PlatformTenantPageResponseDto })

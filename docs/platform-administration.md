@@ -16,6 +16,7 @@ Production validation rejects the committed local token when the API is enabled.
 
 ## API contract
 
+- `POST /api/v1/platform/tenants` provisions an organization, its initial roles, and its first administrator atomically. The operator never chooses or receives the administrator password; the administrator receives a one-time password setup link by email.
 - `GET /api/v1/platform/tenants` lists a bounded page with plan, status, aggregate user counts, and photographic evidence capacity. It supports `search`, `plan`, `status`, `cursor`, and `limit`.
 - `GET /api/v1/platform/tenants/:tenantId` returns one commercial tenant summary.
 - `PATCH /api/v1/platform/tenants/:tenantId` changes plan and/or service status and requires a meaningful reason plus the last observed `expectedUpdatedAt` value.
@@ -58,4 +59,10 @@ Invoke-RestMethod `
   -Uri "http://localhost:3000/api/v1/platform/tenants/$($tenant.id)"
 ```
 
-For the initial launch, keep public organization registration disabled and provision commercial customers through an approved onboarding runbook. Billing-provider automation, per-seat enforcement, operator SSO/MFA, and a separate internal operator frontend remain later controls.
+For the initial launch, keep public organization registration disabled and provision commercial customers through an approved onboarding runbook. Billing-provider automation, per-seat enforcement, workforce SSO/MFA, and a separately deployed internal operator frontend remain later controls.
+
+## Private operator console
+
+The frontend exposes the unlinked `/platform` route for authorized operators. It requests the platform bearer token on every new browser session, keeps it only in React memory, and never writes it to local or session storage. The console can provision tenants, search the inventory, change plans or service status, inspect capacity, and review immutable platform audit events.
+
+The route name is not a security boundary. Keep `PLATFORM_ADMIN_ENABLED=false` unless the API is behind the approved private network or development tunnel, and distribute the token through a separate secret channel. Closing the private access screen clears the in-memory token.
