@@ -32,6 +32,7 @@
     "ops:capacity:drill": "node ./scripts/photo-evidence-capacity-drill.mjs",
     "ops:evidence:s3-drill": "tsx ./scripts/s3-evidence-drill.ts",
     "ops:restore:drill": "node ./scripts/database-restore-drill.mjs",
+    "qa:reset": "node ./scripts/prepare-functional-qa.mjs",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
