@@ -23,16 +23,20 @@ import type { RequestMetadata } from '../../authentication/application/request-m
 import {
   PlatformAuditEventQueryDto,
   CreatePlatformTenantDto,
+  ProcessBillingProviderEventDto,
   PlatformTenantQueryDto,
+  UpdatePlatformSubscriptionDto,
   UpdatePlatformTenantDto,
 } from '../application/dto/platform-tenant-request.dto.js';
 import {
   PlatformAuditEventPageResponseDto,
+  BillingProviderEventReceiptDto,
   PlatformTenantPageResponseDto,
   PlatformTenantResponseDto,
 } from '../application/dto/platform-tenant-response.dto.js';
 import { PlatformTenantsService } from '../application/platform-tenants.service.js';
 import { PlatformAdminGuard } from './platform-admin.guard.js';
+import { SubscriptionResponseDto } from '../../subscriptions/application/dto/subscription-response.dto.js';
 
 @ApiTags('Platform administration')
 @ApiSecurity('platformBearer')
@@ -75,6 +79,34 @@ export class PlatformTenantsController {
     @Req() request: Request & RequestWithContext,
   ): Promise<PlatformTenantResponseDto> {
     return this.tenants.update(tenantId, input, requestMetadata(request));
+  }
+
+  @Patch('tenants/:tenantId/subscription')
+  @ApiOkResponse({ type: SubscriptionResponseDto })
+  updateSubscription(
+    @Param('tenantId', new ParseUUIDPipe()) tenantId: string,
+    @Body() input: UpdatePlatformSubscriptionDto,
+    @Req() request: Request & RequestWithContext,
+  ): Promise<SubscriptionResponseDto> {
+    return this.tenants.updateSubscription(
+      tenantId,
+      input,
+      requestMetadata(request),
+    );
+  }
+
+  @Post('tenants/:tenantId/billing-events')
+  @ApiCreatedResponse({ type: BillingProviderEventReceiptDto })
+  processBillingProviderEvent(
+    @Param('tenantId', new ParseUUIDPipe()) tenantId: string,
+    @Body() input: ProcessBillingProviderEventDto,
+    @Req() request: Request & RequestWithContext,
+  ): Promise<BillingProviderEventReceiptDto> {
+    return this.tenants.processBillingProviderEvent(
+      tenantId,
+      input,
+      requestMetadata(request),
+    );
   }
 
   @Get('audit-events')

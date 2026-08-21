@@ -117,6 +117,13 @@ export class InvitationsService {
               slug: true,
               plan: true,
               trialEndsAt: true,
+              subscription: {
+                select: {
+                  status: true,
+                  currentPeriodEndsAt: true,
+                  graceEndsAt: true,
+                },
+              },
             },
           }),
           transaction.user.count({
@@ -401,7 +408,17 @@ export class InvitationsService {
             await Promise.all([
               transaction.tenant.findUniqueOrThrow({
                 where: { id: tenant.id },
-                select: { plan: true, trialEndsAt: true },
+                select: {
+                  plan: true,
+                  trialEndsAt: true,
+                  subscription: {
+                    select: {
+                      status: true,
+                      currentPeriodEndsAt: true,
+                      graceEndsAt: true,
+                    },
+                  },
+                },
               }),
               transaction.user.count({
                 where: {

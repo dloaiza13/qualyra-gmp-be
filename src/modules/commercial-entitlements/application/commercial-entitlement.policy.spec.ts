@@ -63,6 +63,32 @@ describe('CommercialEntitlementPolicy', () => {
       }),
     ).not.toThrow();
   });
+
+  it('keeps an expired paid subscription readable and blocks mutations', () => {
+    const inactive = {
+      plan: 'PROFESSIONAL' as const,
+      trialEndsAt: null,
+      subscription: {
+        status: 'GRACE_PERIOD' as const,
+        currentPeriodEndsAt: new Date('2026-08-01T00:00:00.000Z'),
+        graceEndsAt: new Date('2026-08-19T00:00:00.000Z'),
+      },
+    };
+    expect(policy.describe(inactive, 10, now)).toMatchObject({
+      writeAccess: false,
+    });
+    expect([
+      ...policy.effectivePermissions(
+        ['documents.read', 'documents.create'],
+        inactive,
+        now,
+      ),
+    ]).toEqual(['documents.read']);
+    expectErrorCode(
+      () => policy.assertCanAllocateSeat(inactive, 10, { now }),
+      ErrorCode.SubscriptionInactive,
+    );
+  });
 });
 
 function expectErrorCode(action: () => void, code: string): void {

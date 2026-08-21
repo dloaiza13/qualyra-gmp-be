@@ -21,6 +21,27 @@ enum TenantPlan {
   ENTERPRISE
 }
 
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  GRACE_PERIOD
+  CANCEL_SCHEDULED
+  CANCELED
+  EXPIRED
+}
+
+enum BillingInterval {
+  NONE
+  MONTHLY
+  ANNUAL
+  CUSTOM
+}
+
+enum BillingProviderEventStatus {
+  PROCESSED
+  IGNORED
+}
+
 enum UserStatus {
   INVITED
   ACTIVE
@@ -713,6 +734,8 @@ model Tenant {
   photoEvidence            PhotoEvidence[]
   photoEvidenceUsage       TenantPhotoEvidenceUsage?
   platformAuditEvents      PlatformAuditEvent[]
+  subscription             TenantSubscription?
+  billingProviderEvents    BillingProviderEvent[]
 
   @@map("tenants")
 }
@@ -2893,4 +2916,47 @@ model PlatformAuditEvent {
   @@index([createdAt(sort: Desc), id(sort: Desc)], map: "platform_audit_events_cursor_idx")
   @@index([tenantId, createdAt(sort: Desc)], map: "platform_audit_events_tenant_created_idx")
   @@map("platform_audit_events")
+}
+
+model TenantSubscription {
+  tenantId               String             @id @map("tenant_id") @db.Uuid
+  status                 SubscriptionStatus
+  billingInterval        BillingInterval    @default(NONE) @map("billing_interval")
+  provider               String             @default("MANUAL") @db.VarChar(50)
+  providerCustomerId     String?            @map("provider_customer_id") @db.VarChar(200)
+  providerSubscriptionId String?            @map("provider_subscription_id") @db.VarChar(200)
+  currentPeriodStartsAt  DateTime?          @map("current_period_starts_at") @db.Timestamptz(3)
+  currentPeriodEndsAt    DateTime?          @map("current_period_ends_at") @db.Timestamptz(3)
+  graceEndsAt            DateTime?          @map("grace_ends_at") @db.Timestamptz(3)
+  cancelAtPeriodEnd      Boolean            @default(false) @map("cancel_at_period_end")
+  canceledAt             DateTime?          @map("canceled_at") @db.Timestamptz(3)
+  lastProviderEventAt    DateTime?          @map("last_provider_event_at") @db.Timestamptz(3)
+  lastProviderEventId    String?            @map("last_provider_event_id") @db.VarChar(200)
+  createdAt              DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant                 Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([status, currentPeriodEndsAt], map: "tenant_subscriptions_status_period_idx")
+  @@index([provider, providerSubscriptionId], map: "tenant_subscriptions_provider_reference_idx")
+  @@map("tenant_subscriptions")
+}
+
+model BillingProviderEvent {
+  id              String                     @id @default(uuid()) @db.Uuid
+  tenantId        String?                    @map("tenant_id") @db.Uuid
+  provider        String                     @db.VarChar(50)
+  providerEventId String                     @map("provider_event_id") @db.VarChar(200)
+  eventType       String                     @map("event_type") @db.VarChar(100)
+  status          BillingProviderEventStatus
+  payloadHash     String                     @map("payload_hash") @db.Char(64)
+  occurredAt      DateTime                   @map("occurred_at") @db.Timestamptz(3)
+  correlationId   String                     @map("correlation_id") @db.Uuid
+  metadata        Json?
+  processedAt     DateTime                   @default(now()) @map("processed_at") @db.Timestamptz(3)
+  tenant          Tenant?                    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([provider, providerEventId], map: "billing_provider_events_provider_event_key")
+  @@index([tenantId, processedAt(sort: Desc)], map: "billing_provider_events_tenant_processed_idx")
+  @@index([processedAt(sort: Desc), id(sort: Desc)], map: "billing_provider_events_cursor_idx")
+  @@map("billing_provider_events")
 }

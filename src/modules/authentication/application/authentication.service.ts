@@ -817,6 +817,13 @@ export class AuthenticationService {
                 slug: true,
                 plan: true,
                 trialEndsAt: true,
+                subscription: {
+                  select: {
+                    status: true,
+                    currentPeriodEndsAt: true,
+                    graceEndsAt: true,
+                  },
+                },
               },
             }),
             transaction.user.findFirstOrThrow({
@@ -868,6 +875,7 @@ export class AuthenticationService {
     const tenantCommercialState = {
       plan: result.tenant.plan,
       trialEndsAt: result.tenant.trialEndsAt,
+      subscription: result.tenant.subscription,
     };
     return {
       user: mapUser(result.user),
@@ -1273,16 +1281,26 @@ export class AuthenticationService {
       commercialStartedAt: Date;
     },
   ): Promise<void> {
+    const plan = input.plan ?? 'TRIAL';
+    const trialEndsAt =
+      plan === 'TRIAL'
+        ? this.commercialEntitlements.trialEndsAt(input.commercialStartedAt)
+        : null;
     await transaction.tenant.create({
       data: {
         id: input.tenantId,
         name: input.tenantName,
         slug: input.tenantSlug,
-        plan: input.plan,
-        trialEndsAt:
-          (input.plan ?? 'TRIAL') === 'TRIAL'
-            ? this.commercialEntitlements.trialEndsAt(input.commercialStartedAt)
-            : null,
+        plan,
+        trialEndsAt,
+        subscription: {
+          create: {
+            status: plan === 'TRIAL' ? 'TRIALING' : 'ACTIVE',
+            billingInterval: plan === 'TRIAL' ? 'NONE' : 'MONTHLY',
+            currentPeriodStartsAt: input.commercialStartedAt,
+            currentPeriodEndsAt: trialEndsAt,
+          },
+        },
       },
     });
 

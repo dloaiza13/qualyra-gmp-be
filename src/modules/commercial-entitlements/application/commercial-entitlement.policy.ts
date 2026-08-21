@@ -2,6 +2,10 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import type { TenantPlan } from '../../../generated/prisma/client.js';
 import { ApplicationError } from '../../../common/errors/application-error.js';
 import { ErrorCode } from '../../../common/errors/error-codes.js';
+import {
+  subscriptionAllowsWrites,
+  type SubscriptionSnapshot,
+} from '../../subscriptions/application/subscription-lifecycle.js';
 
 export const commercialModules = [
   'DOCUMENTS',
@@ -36,6 +40,10 @@ export interface CommercialEntitlements {
 export interface TenantCommercialState {
   plan: TenantPlan;
   trialEndsAt: Date | null;
+  subscription?: Pick<
+    SubscriptionSnapshot,
+    'status' | 'currentPeriodEndsAt' | 'graceEndsAt'
+  > | null;
 }
 
 const dayMilliseconds = 24 * 60 * 60 * 1000;
@@ -92,6 +100,8 @@ export class CommercialEntitlementPolicy {
     now = new Date(),
   ): CommercialEntitlements {
     const trialExpired = this.isTrialExpired(tenant, now);
+    const writeAccess =
+      !trialExpired && this.subscriptionAllowsWrites(tenant, now);
     const definition = planDefinitions[tenant.plan];
     const remainingUserSeats =
       definition.userLimit === null
@@ -116,11 +126,11 @@ export class CommercialEntitlementPolicy {
               ),
             )
           : null,
-      writeAccess: !trialExpired,
+      writeAccess,
       modules: commercialModules.map((code) => ({
         code,
         access:
-          !trialExpired && definition.modules.has(code) ? 'FULL' : 'READ_ONLY',
+          writeAccess && definition.modules.has(code) ? 'FULL' : 'READ_ONLY',
       })),
     };
   }
@@ -132,10 +142,12 @@ export class CommercialEntitlementPolicy {
   ): Set<string> {
     const definition = planDefinitions[tenant.plan];
     const trialExpired = this.isTrialExpired(tenant, now);
+    const writeAccess =
+      !trialExpired && this.subscriptionAllowsWrites(tenant, now);
     return new Set(
       [...permissions].filter((permission) => {
         if (isReadPermission(permission)) return true;
-        if (trialExpired) return false;
+        if (!writeAccess) return false;
         const module = moduleForPermission(permission);
         return !module || definition.modules.has(module);
       }),
@@ -147,7 +159,7 @@ export class CommercialEntitlementPolicy {
     rawPermissions: ReadonlySet<string>,
     tenant: TenantCommercialState,
     now = new Date(),
-  ): 'ROLE' | 'TRIAL' | 'MODULE' | null {
+  ): 'ROLE' | 'TRIAL' | 'SUBSCRIPTION' | 'MODULE' | null {
     if (
       requiredPermissions.some((permission) => !rawPermissions.has(permission))
     ) {
@@ -158,6 +170,12 @@ export class CommercialEntitlementPolicy {
       requiredPermissions.some((permission) => !isReadPermission(permission))
     ) {
       return 'TRIAL';
+    }
+    if (
+      !this.subscriptionAllowsWrites(tenant, now) &&
+      requiredPermissions.some((permission) => !isReadPermission(permission))
+    ) {
+      return 'SUBSCRIPTION';
     }
     const included = planDefinitions[tenant.plan].modules;
     if (
@@ -179,6 +197,9 @@ export class CommercialEntitlementPolicy {
     if (this.isTrialExpired(tenant, options.now ?? new Date())) {
       throw trialExpired();
     }
+    if (!this.subscriptionAllowsWrites(tenant, options.now ?? new Date())) {
+      throw subscriptionInactive();
+    }
     if (options.reservedSeat) return;
     const limit = this.userLimitFor(tenant.plan);
     const exceeds = limit !== null && committedUsers >= limit;
@@ -198,14 +219,24 @@ export class CommercialEntitlementPolicy {
       (!tenant.trialEndsAt || tenant.trialEndsAt.getTime() <= now.getTime())
     );
   }
+
+  private subscriptionAllowsWrites(
+    tenant: TenantCommercialState,
+    now: Date,
+  ): boolean {
+    return (
+      !tenant.subscription || subscriptionAllowsWrites(tenant.subscription, now)
+    );
+  }
 }
 
 export function commercialRestrictionError(
-  restriction: 'ROLE' | 'TRIAL' | 'MODULE',
+  restriction: 'ROLE' | 'TRIAL' | 'SUBSCRIPTION' | 'MODULE',
   tenant: TenantCommercialState,
   requiredPermissions: readonly string[],
 ): ApplicationError {
   if (restriction === 'TRIAL') return trialExpired();
+  if (restriction === 'SUBSCRIPTION') return subscriptionInactive();
   if (restriction === 'MODULE') {
     return new ApplicationError(
       ErrorCode.PlanFeatureNotAvailable,
@@ -248,6 +279,14 @@ function trialExpired(): ApplicationError {
   return new ApplicationError(
     ErrorCode.TrialExpired,
     'The organization trial has expired. Records remain available in read-only mode.',
+    HttpStatus.FORBIDDEN,
+  );
+}
+
+function subscriptionInactive(): ApplicationError {
+  return new ApplicationError(
+    ErrorCode.SubscriptionInactive,
+    'The organization subscription is inactive. Records remain available in read-only mode.',
     HttpStatus.FORBIDDEN,
   );
 }

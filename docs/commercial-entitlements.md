@@ -18,6 +18,7 @@ A committed user is either a user whose status is not `DISABLED` or a non-expire
 - A plan change never deletes records, evidence, users, or files.
 - Modules excluded from a plan remain readable so historical GMP records can still be inspected and exported where an export permission exists. Their mutations are rejected with `PLAN_FEATURE_NOT_AVAILABLE`.
 - An expired trial remains accessible in read-only mode. Mutations are rejected with `TRIAL_EXPIRED`.
+- A canceled, expired, or elapsed grace subscription remains accessible in read-only mode. Mutations are rejected with `SUBSCRIPTION_INACTIVE`.
 - When all seats are committed, a new invitation or a disabled-user reactivation is rejected with `PLAN_USER_LIMIT_REACHED`.
 - An already pending invitation can still be accepted because it already reserved a seat. A trial expiration still blocks acceptance.
 - Personal security actions such as viewing and revoking sessions do not depend on commercial module permissions.
@@ -39,4 +40,4 @@ Switching a paid tenant to Trial starts one new 30-day period and is an audited 
 
 Apply `20260820060000_commercial_plan_entitlements` before deploying the new application version. It adds `tenants.trial_ends_at` and backfills existing Trial tenants to 30 days after their original creation time. Review older Trial tenants before production deployment because they may become read-only immediately when their historical 30-day period has elapsed.
 
-This phase does not integrate a payment provider. Platform operators remain responsible for changing plans through the private controlled channel after an approved commercial event.
+The provider-neutral subscription lifecycle is documented separately in [subscription-lifecycle.md](subscription-lifecycle.md). A real provider still requires a signature-verifying adapter before any public webhook is exposed.

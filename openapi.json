@@ -6309,6 +6309,96 @@
         ]
       }
     },
+    "/api/v1/platform/tenants/{tenantId}/subscription": {
+      "patch": {
+        "operationId": "PlatformTenantsController_updateSubscription",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePlatformSubscriptionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubscriptionResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "platformBearer": []
+          }
+        ],
+        "tags": [
+          "Platform administration"
+        ]
+      }
+    },
+    "/api/v1/platform/tenants/{tenantId}/billing-events": {
+      "post": {
+        "operationId": "PlatformTenantsController_processBillingProviderEvent",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProcessBillingProviderEventDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingProviderEventReceiptDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "platformBearer": []
+          }
+        ],
+        "tags": [
+          "Platform administration"
+        ]
+      }
+    },
     "/api/v1/platform/audit-events": {
       "get": {
         "operationId": "PlatformTenantsController_listAuditEvents",
@@ -15130,6 +15220,76 @@
           "counterAvailable"
         ]
       },
+      "SubscriptionResponseDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "TRIALING",
+              "ACTIVE",
+              "GRACE_PERIOD",
+              "CANCEL_SCHEDULED",
+              "CANCELED",
+              "EXPIRED"
+            ]
+          },
+          "billingInterval": {
+            "type": "string",
+            "enum": [
+              "NONE",
+              "MONTHLY",
+              "ANNUAL",
+              "CUSTOM"
+            ]
+          },
+          "provider": {
+            "type": "string"
+          },
+          "currentPeriodStartsAt": {
+            "type": "object",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "currentPeriodEndsAt": {
+            "type": "object",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "graceEndsAt": {
+            "type": "object",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "cancelAtPeriodEnd": {
+            "type": "boolean"
+          },
+          "canceledAt": {
+            "type": "object",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "writeAccess": {
+            "type": "boolean"
+          },
+          "attentionRequired": {
+            "type": "boolean"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "status",
+          "billingInterval",
+          "provider",
+          "cancelAtPeriodEnd",
+          "writeAccess",
+          "attentionRequired",
+          "updatedAt"
+        ]
+      },
       "PlatformTenantResponseDto": {
         "type": "object",
         "properties": {
@@ -15169,6 +15329,15 @@
           "commercialEntitlements": {
             "$ref": "#/components/schemas/CommercialEntitlementsResponseDto"
           },
+          "subscription": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SubscriptionResponseDto"
+              }
+            ]
+          },
           "trialEndsAt": {
             "type": "object",
             "nullable": true,
@@ -15192,6 +15361,7 @@
           "users",
           "photographicEvidence",
           "commercialEntitlements",
+          "subscription",
           "createdAt",
           "updatedAt"
         ]
@@ -15256,6 +15426,165 @@
         "required": [
           "reason",
           "expectedUpdatedAt"
+        ]
+      },
+      "UpdatePlatformSubscriptionDto": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "RENEW",
+              "START_GRACE_PERIOD",
+              "SCHEDULE_CANCELLATION",
+              "CANCEL_NOW",
+              "REACTIVATE"
+            ]
+          },
+          "billingInterval": {
+            "type": "string",
+            "enum": [
+              "NONE",
+              "MONTHLY",
+              "ANNUAL",
+              "CUSTOM"
+            ]
+          },
+          "currentPeriodEndsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "graceEndsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 500
+          },
+          "expectedUpdatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "action",
+          "reason",
+          "expectedUpdatedAt"
+        ]
+      },
+      "ProcessBillingProviderEventDto": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 50,
+            "example": "STRIPE"
+          },
+          "providerEventId": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 200
+          },
+          "eventType": {
+            "type": "string",
+            "enum": [
+              "SUBSCRIPTION_ACTIVATED",
+              "SUBSCRIPTION_RENEWED",
+              "PAYMENT_FAILED",
+              "CANCELLATION_SCHEDULED",
+              "SUBSCRIPTION_CANCELED",
+              "SUBSCRIPTION_REACTIVATED",
+              "TRIAL_EXPIRED"
+            ]
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "plan": {
+            "type": "string",
+            "enum": [
+              "TRIAL",
+              "STARTER",
+              "PROFESSIONAL",
+              "ENTERPRISE"
+            ]
+          },
+          "billingInterval": {
+            "type": "string",
+            "enum": [
+              "NONE",
+              "MONTHLY",
+              "ANNUAL",
+              "CUSTOM"
+            ]
+          },
+          "currentPeriodStartsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "currentPeriodEndsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "graceEndsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "providerCustomerId": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "providerSubscriptionId": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "metadata": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "provider",
+          "providerEventId",
+          "eventType",
+          "occurredAt"
+        ]
+      },
+      "BillingProviderEventReceiptDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PROCESSED",
+              "IGNORED"
+            ]
+          },
+          "duplicate": {
+            "type": "boolean"
+          },
+          "subscription": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SubscriptionResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "duplicate",
+          "subscription"
         ]
       },
       "PlatformAuditTenantDto": {
@@ -15460,6 +15789,15 @@
           "commercialEntitlements": {
             "$ref": "#/components/schemas/CommercialEntitlementsResponseDto"
           },
+          "subscription": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SubscriptionResponseDto"
+              }
+            ]
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -15476,6 +15814,7 @@
           "membership",
           "commercialManagement",
           "commercialEntitlements",
+          "subscription",
           "createdAt"
         ]
       }

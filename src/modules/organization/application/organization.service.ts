@@ -6,6 +6,7 @@ import { ApplicationError } from '../../../common/errors/application-error.js';
 import { ErrorCode } from '../../../common/errors/error-codes.js';
 import type { OrganizationCommercialSummaryDto } from './dto/organization-response.dto.js';
 import { CommercialEntitlementPolicy } from '../../commercial-entitlements/application/commercial-entitlement.policy.js';
+import { mapSubscriptionSummary } from '../../subscriptions/application/subscription-lifecycle.js';
 
 @Injectable()
 export class OrganizationService {
@@ -39,6 +40,7 @@ export class OrganizationService {
               status: true,
               plan: true,
               trialEndsAt: true,
+              subscription: true,
               createdAt: true,
             },
           }),
@@ -109,6 +111,9 @@ export class OrganizationService {
             committedUsers + pendingInvitations,
             now,
           ),
+          subscription: tenant.subscription
+            ? mapSubscriptionSummary(tenant.subscription, now)
+            : null,
         };
       },
     );

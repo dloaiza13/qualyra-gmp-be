@@ -76,7 +76,17 @@ export class PermissionsGuard implements CanActivate {
           }),
           transaction.tenant.findFirst({
             where: { id: principal.tenantId },
-            select: { plan: true, trialEndsAt: true },
+            select: {
+              plan: true,
+              trialEndsAt: true,
+              subscription: {
+                select: {
+                  status: true,
+                  currentPeriodEndsAt: true,
+                  graceEndsAt: true,
+                },
+              },
+            },
           }),
         ]);
         if (!user || !session || !tenant) return undefined;

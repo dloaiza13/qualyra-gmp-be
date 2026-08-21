@@ -20,6 +20,8 @@ Production validation rejects the committed local token when the API is enabled.
 - `GET /api/v1/platform/tenants` lists a bounded page with plan, status, aggregate user counts, and photographic evidence capacity. It supports `search`, `plan`, `status`, `cursor`, and `limit`.
 - `GET /api/v1/platform/tenants/:tenantId` returns one commercial tenant summary.
 - `PATCH /api/v1/platform/tenants/:tenantId` changes plan and/or service status and requires a meaningful reason plus the last observed `expectedUpdatedAt` value.
+- `PATCH /api/v1/platform/tenants/:tenantId/subscription` records renewal, grace, scheduled cancellation, immediate cancellation, or reactivation with subscription-level optimistic concurrency.
+- `POST /api/v1/platform/tenants/:tenantId/billing-events` ingests an already verified and normalized provider event idempotently. It is an internal adapter boundary, not a public raw webhook.
 - `GET /api/v1/platform/audit-events` returns immutable operator-change evidence and supports tenant and cursor filters.
 - `GET /api/v1/organization/commercial-summary` is the authenticated tenant-facing endpoint. It never returns another organization's data.
 
@@ -60,10 +62,10 @@ Invoke-RestMethod `
   -Uri "http://localhost:3000/api/v1/platform/tenants/$($tenant.id)"
 ```
 
-For the initial launch, keep public organization registration disabled and provision commercial customers through an approved onboarding runbook. Billing-provider automation, configurable add-ons, workforce SSO/MFA, and a separately deployed internal operator frontend remain later controls. Plan, seat, module, and Trial-expiration enforcement are documented in [commercial plan entitlements](commercial-entitlements.md).
+For the initial launch, keep public organization registration disabled and provision commercial customers through an approved onboarding runbook. Provider-specific signature verification, configurable add-ons, and workforce SSO/MFA remain later controls. Plan limits are documented in [commercial plan entitlements](commercial-entitlements.md), and renewals/cancellations in the [subscription lifecycle](subscription-lifecycle.md).
 
 ## Private operator console
 
-The frontend exposes the unlinked `/platform` route for authorized operators. It requests the platform bearer token on every new browser session, keeps it only in React memory, and never writes it to local or session storage. The console can provision tenants, search the inventory, change plans or service status, inspect capacity, and review immutable platform audit events.
+The frontend exposes the unlinked `/platform` route for authorized operators. It requests the platform bearer token on every new browser session, keeps it only in React memory, and never writes it to local or session storage. The console can provision tenants, search the inventory, change plans or service status, operate subscription renewals and cancellations, inspect capacity, and review immutable platform audit events.
 
 The route name is not a security boundary. Keep `PLATFORM_ADMIN_ENABLED=false` unless the API is behind the approved private network or development tunnel, and distribute the token through a separate secret channel. Closing the private access screen clears the in-memory token.

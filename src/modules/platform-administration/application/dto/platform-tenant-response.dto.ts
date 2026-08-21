@@ -8,6 +8,7 @@ import {
   type PhotoEvidenceCapacityStatus,
 } from '../../../photo-evidence/application/photo-evidence-capacity.policy.js';
 import { CommercialEntitlementsResponseDto } from '../../../commercial-entitlements/application/dto/commercial-entitlement-response.dto.js';
+import { SubscriptionResponseDto } from '../../../subscriptions/application/dto/subscription-response.dto.js';
 
 export class PlatformTenantUsersDto {
   @ApiProperty()
@@ -76,6 +77,9 @@ export class PlatformTenantResponseDto {
   @ApiProperty({ type: CommercialEntitlementsResponseDto })
   commercialEntitlements!: CommercialEntitlementsResponseDto;
 
+  @ApiProperty({ type: SubscriptionResponseDto, nullable: true })
+  subscription!: SubscriptionResponseDto | null;
+
   @ApiPropertyOptional({ nullable: true, format: 'date-time' })
   trialEndsAt!: string | null;
 
@@ -84,6 +88,20 @@ export class PlatformTenantResponseDto {
 
   @ApiProperty({ format: 'date-time' })
   updatedAt!: string;
+}
+
+export class BillingProviderEventReceiptDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ enum: ['PROCESSED', 'IGNORED'] })
+  status!: 'PROCESSED' | 'IGNORED';
+
+  @ApiProperty()
+  duplicate!: boolean;
+
+  @ApiProperty({ type: SubscriptionResponseDto, nullable: true })
+  subscription!: SubscriptionResponseDto | null;
 }
 
 export class PlatformTenantPageResponseDto {

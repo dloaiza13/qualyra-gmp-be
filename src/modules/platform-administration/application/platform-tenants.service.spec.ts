@@ -29,6 +29,23 @@ describe('PlatformTenantsService', () => {
       plan: 'PROFESSIONAL',
       updatedAt: new Date('2026-08-20T01:00:00.000Z'),
     } as const;
+    const subscription = {
+      tenantId,
+      status: 'TRIALING',
+      billingInterval: 'NONE',
+      provider: 'MANUAL',
+      providerCustomerId: null,
+      providerSubscriptionId: null,
+      currentPeriodStartsAt: createdAt,
+      currentPeriodEndsAt: current.trialEndsAt,
+      graceEndsAt: null,
+      cancelAtPeriodEnd: false,
+      canceledAt: null,
+      lastProviderEventAt: null,
+      lastProviderEventId: null,
+      createdAt,
+      updatedAt,
+    } as const;
     const createAuditEvent = jest.fn<
       (args: {
         data: {
@@ -47,6 +64,17 @@ describe('PlatformTenantsService', () => {
       tenant: {
         findUnique: jest.fn(() => Promise.resolve(current)),
         update: jest.fn(() => Promise.resolve(saved)),
+      },
+      tenantSubscription: {
+        findUnique: jest.fn(() => Promise.resolve(subscription)),
+        update: jest.fn(() =>
+          Promise.resolve({
+            ...subscription,
+            status: 'ACTIVE',
+            billingInterval: 'MONTHLY',
+            updatedAt: new Date('2026-08-20T01:00:00.000Z'),
+          }),
+        ),
       },
       tenantPhotoEvidenceUsage: {
         findUnique: jest.fn(() =>
@@ -186,6 +214,97 @@ describe('PlatformTenantsService', () => {
     ).rejects.toMatchObject({
       code: 'PLATFORM_TENANT_CONFLICT',
       details: [{ committedUsers: 11, nextUserLimit: 10 }],
+    });
+  });
+
+  it('extends the tenant trial when a normalized provider renewal is applied', async () => {
+    const updatedAt = new Date('2026-08-20T00:00:00.000Z');
+    const currentPeriodEndsAt = new Date('2026-09-01T00:00:00.000Z');
+    const nextPeriodEndsAt = '2026-10-01T00:00:00.000Z';
+    const subscription = {
+      tenantId,
+      status: 'TRIALING',
+      billingInterval: 'NONE',
+      provider: 'MANUAL',
+      providerCustomerId: null,
+      providerSubscriptionId: null,
+      currentPeriodStartsAt: new Date('2026-08-01T00:00:00.000Z'),
+      currentPeriodEndsAt,
+      graceEndsAt: null,
+      cancelAtPeriodEnd: false,
+      canceledAt: null,
+      lastProviderEventAt: null,
+      lastProviderEventId: null,
+      createdAt: new Date('2026-08-01T00:00:00.000Z'),
+      updatedAt,
+    } as const;
+    const updateTenant = jest.fn(() => Promise.resolve());
+    const transaction = {
+      $queryRaw: jest.fn(() => Promise.resolve([{ id: tenantId }])),
+      tenant: {
+        findUnique: jest.fn(() =>
+          Promise.resolve({ id: tenantId, plan: 'TRIAL' }),
+        ),
+        update: updateTenant,
+      },
+      tenantSubscription: {
+        findUnique: jest.fn(() => Promise.resolve(subscription)),
+        update: jest.fn((input: { data: Record<string, unknown> }) =>
+          Promise.resolve({
+            ...subscription,
+            ...input.data,
+            currentPeriodEndsAt: new Date(nextPeriodEndsAt),
+            updatedAt: new Date('2026-08-20T01:00:00.000Z'),
+          }),
+        ),
+      },
+      billingProviderEvent: {
+        findUnique: jest.fn(() => Promise.resolve(null)),
+        create: jest.fn(() =>
+          Promise.resolve({
+            id: '33333333-3333-4333-8333-333333333333',
+            status: 'PROCESSED',
+          }),
+        ),
+      },
+      platformAuditEvent: { create: jest.fn(() => Promise.resolve()) },
+    };
+    const service = new PlatformTenantsService(
+      {} as PrismaService,
+      {
+        execute: jest.fn(
+          (_tenantId: string, work: (value: unknown) => Promise<unknown>) =>
+            work(transaction),
+        ),
+      } as unknown as TenantUnitOfWork,
+      {} as PhotoEvidenceCapacityPolicy,
+      { provisionCompany: jest.fn() } as never,
+      new CommercialEntitlementPolicy(),
+      {
+        getOrThrow: jest.fn(() => 'operator-test'),
+      } as unknown as ConfigService<Environment, true>,
+    );
+
+    await expect(
+      service.processBillingProviderEvent(
+        tenantId,
+        {
+          provider: 'test',
+          providerEventId: 'renewal-1',
+          eventType: 'SUBSCRIPTION_RENEWED',
+          occurredAt: '2026-08-20T12:00:00.000Z',
+          plan: 'TRIAL',
+          currentPeriodEndsAt: nextPeriodEndsAt,
+        },
+        { correlationId: '22222222-2222-4222-8222-222222222222' },
+      ),
+    ).resolves.toMatchObject({ status: 'PROCESSED', duplicate: false });
+    expect(updateTenant).toHaveBeenCalledWith({
+      where: { id: tenantId },
+      data: {
+        plan: 'TRIAL',
+        trialEndsAt: new Date(nextPeriodEndsAt),
+      },
     });
   });
 });

@@ -1,7 +1,9 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { createHash } from 'node:crypto';
 import type {
   Prisma,
+  TenantSubscription,
   TenantPlan,
   TenantStatus,
   UserStatus,
@@ -18,14 +20,21 @@ import { TenantUnitOfWork } from '../../tenancy/application/ports/tenant-unit-of
 import type {
   PlatformAuditEventQueryDto,
   CreatePlatformTenantDto,
+  ProcessBillingProviderEventDto,
   PlatformTenantQueryDto,
+  UpdatePlatformSubscriptionDto,
   UpdatePlatformTenantDto,
 } from './dto/platform-tenant-request.dto.js';
 import type {
+  BillingProviderEventReceiptDto,
   PlatformAuditEventPageResponseDto,
   PlatformTenantPageResponseDto,
   PlatformTenantResponseDto,
 } from './dto/platform-tenant-response.dto.js';
+import {
+  mapSubscriptionSummary,
+  type SubscriptionSummary,
+} from '../../subscriptions/application/subscription-lifecycle.js';
 
 type TenantSnapshot = {
   id: string;
@@ -246,6 +255,46 @@ export class PlatformTenantsService {
           trialEndsAt: nextTrialEndsAt,
         },
       });
+      if (nextPlan !== current.plan) {
+        const subscription = await transaction.tenantSubscription.findUnique({
+          where: { tenantId },
+        });
+        if (subscription) {
+          await transaction.tenantSubscription.update({
+            where: { tenantId },
+            data:
+              nextPlan === 'TRIAL'
+                ? {
+                    status: 'TRIALING',
+                    billingInterval: 'NONE',
+                    currentPeriodStartsAt: now,
+                    currentPeriodEndsAt: nextTrialEndsAt,
+                    graceEndsAt: null,
+                    cancelAtPeriodEnd: false,
+                    canceledAt: null,
+                  }
+                : {
+                    status: ['CANCELED', 'EXPIRED'].includes(
+                      subscription.status,
+                    )
+                      ? 'ACTIVE'
+                      : undefined,
+                    billingInterval:
+                      subscription.billingInterval === 'NONE'
+                        ? 'MONTHLY'
+                        : undefined,
+                    currentPeriodStartsAt:
+                      current.plan === 'TRIAL' ? now : undefined,
+                    currentPeriodEndsAt:
+                      current.plan === 'TRIAL' ? null : undefined,
+                    graceEndsAt: current.plan === 'TRIAL' ? null : undefined,
+                    cancelAtPeriodEnd:
+                      current.plan === 'TRIAL' ? false : undefined,
+                    canceledAt: current.plan === 'TRIAL' ? null : undefined,
+                  },
+          });
+        }
+      }
       await transaction.platformAuditEvent.create({
         data: {
           tenantId,
@@ -277,6 +326,228 @@ export class PlatformTenantsService {
       });
     });
     return this.get(tenantId);
+  }
+
+  async updateSubscription(
+    tenantId: string,
+    input: UpdatePlatformSubscriptionDto,
+    request: RequestMetadata,
+  ): Promise<SubscriptionSummary> {
+    const reason = input.reason.trim();
+    const result = await this.tenantUnitOfWork.execute(
+      tenantId,
+      async (transaction) => {
+        await lockCommercialState(transaction, tenantId);
+        const [tenant, current] = await Promise.all([
+          transaction.tenant.findUnique({
+            where: { id: tenantId },
+            select: { id: true, plan: true },
+          }),
+          transaction.tenantSubscription.findUnique({ where: { tenantId } }),
+        ]);
+        if (!tenant) throw tenantNotFound();
+        if (!current)
+          throw invalidSubscription('The subscription was not found.');
+        if (
+          new Date(input.expectedUpdatedAt).getTime() !==
+          current.updatedAt.getTime()
+        ) {
+          throw new ApplicationError(
+            ErrorCode.PlatformTenantConflict,
+            'The subscription changed after it was loaded.',
+            HttpStatus.CONFLICT,
+          );
+        }
+
+        const now = new Date();
+        const data = manualSubscriptionTransition(
+          tenant.plan,
+          current,
+          input,
+          now,
+        );
+        const updated = await transaction.tenantSubscription.update({
+          where: { tenantId },
+          data,
+        });
+        if (
+          tenant.plan === 'TRIAL' &&
+          data.currentPeriodEndsAt instanceof Date
+        ) {
+          await transaction.tenant.update({
+            where: { id: tenantId },
+            data: { trialEndsAt: data.currentPeriodEndsAt },
+          });
+        }
+        await transaction.platformAuditEvent.create({
+          data: {
+            tenantId,
+            operatorId: this.operatorId,
+            eventType: `PLATFORM_SUBSCRIPTION_${input.action}`,
+            outcome: 'SUCCESS',
+            reason,
+            correlationId: request.correlationId,
+            ipAddress: request.ipAddress,
+            userAgent: request.userAgent?.slice(0, 1024),
+            metadata: {
+              previous: subscriptionAuditState(current),
+              next: subscriptionAuditState(updated),
+            },
+          },
+        });
+        return updated;
+      },
+    );
+    return mapSubscriptionSummary(result);
+  }
+
+  async processBillingProviderEvent(
+    tenantId: string,
+    input: ProcessBillingProviderEventDto,
+    request: RequestMetadata,
+  ): Promise<BillingProviderEventReceiptDto> {
+    const provider = input.provider.trim().toUpperCase();
+    const providerEventId = input.providerEventId.trim();
+    const occurredAt = new Date(input.occurredAt);
+    const payloadHash = createHash('sha256')
+      .update(stableStringify({ ...input, provider, providerEventId }))
+      .digest('hex');
+
+    return this.tenantUnitOfWork.execute(tenantId, async (transaction) => {
+      await transaction.$queryRaw`
+        SELECT 1::int AS locked
+        FROM pg_advisory_xact_lock(
+          hashtextextended(${`billing:${provider}:${providerEventId}`}, 0)
+        )
+      `;
+      const duplicate = await transaction.billingProviderEvent.findUnique({
+        where: { provider_providerEventId: { provider, providerEventId } },
+      });
+      if (duplicate) {
+        if (duplicate.payloadHash.trim() !== payloadHash) {
+          throw new ApplicationError(
+            ErrorCode.BillingEventConflict,
+            'The provider event identifier was already used with a different payload.',
+            HttpStatus.CONFLICT,
+          );
+        }
+        const subscription = await transaction.tenantSubscription.findUnique({
+          where: { tenantId },
+        });
+        return {
+          id: duplicate.id,
+          status: duplicate.status,
+          duplicate: true,
+          subscription: subscription
+            ? mapSubscriptionSummary(subscription)
+            : null,
+        };
+      }
+
+      await lockCommercialState(transaction, tenantId);
+      const [tenant, current] = await Promise.all([
+        transaction.tenant.findUnique({
+          where: { id: tenantId },
+          select: { id: true, plan: true },
+        }),
+        transaction.tenantSubscription.findUnique({ where: { tenantId } }),
+      ]);
+      if (!tenant) throw tenantNotFound();
+      if (!current)
+        throw invalidSubscription('The subscription was not found.');
+
+      const stale = Boolean(
+        current.lastProviderEventAt &&
+        occurredAt.getTime() < current.lastProviderEventAt.getTime(),
+      );
+      let subscription = current;
+      if (!stale) {
+        const transition = providerSubscriptionTransition(
+          tenant.plan,
+          current,
+          input,
+          occurredAt,
+        );
+        subscription = await transaction.tenantSubscription.update({
+          where: { tenantId },
+          data: {
+            ...transition,
+            provider,
+            providerCustomerId: input.providerCustomerId?.trim() ?? undefined,
+            providerSubscriptionId:
+              input.providerSubscriptionId?.trim() ?? undefined,
+            lastProviderEventAt: occurredAt,
+            lastProviderEventId: providerEventId,
+          },
+        });
+        const providerPlan = input.plan ?? tenant.plan;
+        const providerTrialEndsAt =
+          providerPlan === 'TRIAL' &&
+          transition.currentPeriodEndsAt instanceof Date
+            ? transition.currentPeriodEndsAt
+            : undefined;
+        if ((input.plan && input.plan !== tenant.plan) || providerTrialEndsAt) {
+          await transaction.tenant.update({
+            where: { id: tenantId },
+            data: {
+              plan: input.plan,
+              trialEndsAt: providerTrialEndsAt,
+            },
+          });
+        }
+      }
+
+      const event = await transaction.billingProviderEvent.create({
+        data: {
+          tenantId,
+          provider,
+          providerEventId,
+          eventType: input.eventType,
+          status: stale ? 'IGNORED' : 'PROCESSED',
+          payloadHash,
+          occurredAt,
+          correlationId: request.correlationId,
+          metadata: {
+            providerCustomerId: input.providerCustomerId ?? null,
+            providerSubscriptionId: input.providerSubscriptionId ?? null,
+            plan: input.plan ?? null,
+            billingInterval: input.billingInterval ?? null,
+            currentPeriodStartsAt: input.currentPeriodStartsAt ?? null,
+            currentPeriodEndsAt: input.currentPeriodEndsAt ?? null,
+            graceEndsAt: input.graceEndsAt ?? null,
+            adapterMetadata: input.metadata ?? null,
+          },
+        },
+      });
+      await transaction.platformAuditEvent.create({
+        data: {
+          tenantId,
+          operatorId: this.operatorId,
+          eventType: stale
+            ? 'BILLING_PROVIDER_EVENT_IGNORED'
+            : 'BILLING_PROVIDER_EVENT_PROCESSED',
+          outcome: 'SUCCESS',
+          reason: stale
+            ? 'Provider event was older than the last applied event.'
+            : 'Normalized provider event applied to the subscription.',
+          correlationId: request.correlationId,
+          ipAddress: request.ipAddress,
+          userAgent: request.userAgent?.slice(0, 1024),
+          metadata: {
+            provider,
+            providerEventId,
+            eventType: input.eventType,
+            status: event.status,
+          },
+        },
+      });
+      return {
+        id: event.id,
+        status: event.status,
+        duplicate: false,
+        subscription: mapSubscriptionSummary(subscription),
+      };
+    });
   }
 
   async listAuditEvents(
@@ -342,7 +613,10 @@ export class PlatformTenantsService {
           readUserCommitments(transaction, tenant.id, new Date()),
           readStorageUsage(transaction, tenant.id),
         ]);
-        return { userGroups, commitments, usage };
+        const subscription = await transaction.tenantSubscription.findUnique({
+          where: { tenantId: tenant.id },
+        });
+        return { userGroups, commitments, usage, subscription };
       },
     );
     const users: Record<UserStatus, number> = {
@@ -382,9 +656,12 @@ export class PlatformTenantsService {
         counterAvailable: operational.usage.counterAvailable,
       },
       commercialEntitlements: this.commercialEntitlements.describe(
-        tenant,
+        { ...tenant, subscription: operational.subscription },
         operational.commitments.committedUsers,
       ),
+      subscription: operational.subscription
+        ? mapSubscriptionSummary(operational.subscription)
+        : null,
     };
   }
 }
@@ -450,6 +727,205 @@ async function readStorageUsage(
   };
 }
 
+function manualSubscriptionTransition(
+  plan: TenantPlan,
+  current: TenantSubscription,
+  input: UpdatePlatformSubscriptionDto,
+  now: Date,
+): Prisma.TenantSubscriptionUncheckedUpdateInput {
+  if (input.action === 'CANCEL_NOW') {
+    return {
+      status: 'CANCELED',
+      cancelAtPeriodEnd: false,
+      canceledAt: now,
+      graceEndsAt: null,
+    };
+  }
+  if (input.action === 'START_GRACE_PERIOD') {
+    return {
+      status: 'GRACE_PERIOD',
+      graceEndsAt: futureDate(input.graceEndsAt, 'graceEndsAt', now),
+      cancelAtPeriodEnd: false,
+      canceledAt: null,
+    };
+  }
+  if (input.action === 'SCHEDULE_CANCELLATION') {
+    const periodEnd = futureDate(
+      input.currentPeriodEndsAt ?? current.currentPeriodEndsAt?.toISOString(),
+      'currentPeriodEndsAt',
+      now,
+    );
+    return {
+      status: 'CANCEL_SCHEDULED',
+      currentPeriodEndsAt: periodEnd,
+      cancelAtPeriodEnd: true,
+      graceEndsAt: null,
+      canceledAt: null,
+    };
+  }
+
+  const periodEnd = futureDate(
+    input.currentPeriodEndsAt,
+    'currentPeriodEndsAt',
+    now,
+  );
+  const interval = plan === 'TRIAL' ? 'NONE' : input.billingInterval;
+  if (plan !== 'TRIAL' && (!interval || interval === 'NONE')) {
+    throw invalidSubscription(
+      'A paid renewal requires a monthly, annual, or custom billing interval.',
+    );
+  }
+  return {
+    status: plan === 'TRIAL' ? 'TRIALING' : 'ACTIVE',
+    billingInterval: interval,
+    currentPeriodStartsAt: now,
+    currentPeriodEndsAt: periodEnd,
+    graceEndsAt: null,
+    cancelAtPeriodEnd: false,
+    canceledAt: null,
+  };
+}
+
+function providerSubscriptionTransition(
+  tenantPlan: TenantPlan,
+  current: TenantSubscription,
+  input: ProcessBillingProviderEventDto,
+  occurredAt: Date,
+): Prisma.TenantSubscriptionUncheckedUpdateInput {
+  const plan = input.plan ?? tenantPlan;
+  if (input.eventType === 'SUBSCRIPTION_CANCELED') {
+    return {
+      status: 'CANCELED',
+      cancelAtPeriodEnd: false,
+      graceEndsAt: null,
+      canceledAt: occurredAt,
+    };
+  }
+  if (input.eventType === 'TRIAL_EXPIRED') {
+    if (plan !== 'TRIAL') {
+      throw invalidSubscription(
+        'A trial expiration event can only be applied to a trial plan.',
+      );
+    }
+    return {
+      status: 'EXPIRED',
+      billingInterval: 'NONE',
+      currentPeriodEndsAt: occurredAt,
+      graceEndsAt: null,
+      cancelAtPeriodEnd: false,
+    };
+  }
+  if (input.eventType === 'PAYMENT_FAILED') {
+    return {
+      status: 'GRACE_PERIOD',
+      graceEndsAt: futureDate(input.graceEndsAt, 'graceEndsAt', occurredAt),
+      cancelAtPeriodEnd: false,
+      canceledAt: null,
+    };
+  }
+  if (input.eventType === 'CANCELLATION_SCHEDULED') {
+    return {
+      status: 'CANCEL_SCHEDULED',
+      currentPeriodEndsAt: futureDate(
+        input.currentPeriodEndsAt ?? current.currentPeriodEndsAt?.toISOString(),
+        'currentPeriodEndsAt',
+        occurredAt,
+      ),
+      graceEndsAt: null,
+      cancelAtPeriodEnd: true,
+      canceledAt: null,
+    };
+  }
+
+  const periodEnd = futureDate(
+    input.currentPeriodEndsAt,
+    'currentPeriodEndsAt',
+    occurredAt,
+  );
+  const interval = plan === 'TRIAL' ? 'NONE' : input.billingInterval;
+  if (plan !== 'TRIAL' && (!interval || interval === 'NONE')) {
+    throw invalidSubscription(
+      'A paid provider event requires a billing interval.',
+    );
+  }
+  return {
+    status: plan === 'TRIAL' ? 'TRIALING' : 'ACTIVE',
+    billingInterval: interval,
+    currentPeriodStartsAt: input.currentPeriodStartsAt
+      ? new Date(input.currentPeriodStartsAt)
+      : occurredAt,
+    currentPeriodEndsAt: periodEnd,
+    graceEndsAt: null,
+    cancelAtPeriodEnd: false,
+    canceledAt: null,
+  };
+}
+
+function futureDate(
+  value: string | undefined,
+  field: string,
+  reference: Date,
+): Date {
+  if (!value) throw invalidSubscription(`${field} is required.`);
+  const parsed = new Date(value);
+  if (parsed.getTime() <= reference.getTime()) {
+    throw invalidSubscription(`${field} must be in the future.`);
+  }
+  return parsed;
+}
+
+async function lockCommercialState(
+  transaction: Prisma.TransactionClient,
+  tenantId: string,
+): Promise<void> {
+  await transaction.$queryRaw`
+    SELECT 1::int AS locked
+    FROM pg_advisory_xact_lock(
+      hashtextextended(${`${tenantId}:commercial-seat-allocation`}, 0)
+    )
+  `;
+  const tenant = await transaction.$queryRaw<{ id: string }[]>`
+    SELECT id FROM tenants WHERE id = ${tenantId}::uuid FOR UPDATE
+  `;
+  if (tenant.length !== 1) throw tenantNotFound();
+  await transaction.$queryRaw`
+    SELECT tenant_id
+    FROM tenant_subscriptions
+    WHERE tenant_id = ${tenantId}::uuid
+    FOR UPDATE
+  `;
+}
+
+function subscriptionAuditState(subscription: TenantSubscription): object {
+  return {
+    status: subscription.status,
+    billingInterval: subscription.billingInterval,
+    provider: subscription.provider,
+    currentPeriodStartsAt:
+      subscription.currentPeriodStartsAt?.toISOString() ?? null,
+    currentPeriodEndsAt:
+      subscription.currentPeriodEndsAt?.toISOString() ?? null,
+    graceEndsAt: subscription.graceEndsAt?.toISOString() ?? null,
+    cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+    canceledAt: subscription.canceledAt?.toISOString() ?? null,
+  };
+}
+
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== 'object') {
+    return JSON.stringify(value) ?? 'null';
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map(stableStringify).join(',')}]`;
+  }
+  const record = value as Record<string, unknown>;
+  return `{${Object.keys(record)
+    .filter((key) => record[key] !== undefined)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`)
+    .join(',')}}`;
+}
+
 function batchesOf<T>(values: T[], size: number): T[][] {
   const batches: T[][] = [];
   for (let index = 0; index < values.length; index += size) {
@@ -469,6 +945,14 @@ function tenantNotFound(): ApplicationError {
 function invalidTenant(message: string): ApplicationError {
   return new ApplicationError(
     ErrorCode.PlatformTenantInvalid,
+    message,
+    HttpStatus.BAD_REQUEST,
+  );
+}
+
+function invalidSubscription(message: string): ApplicationError {
+  return new ApplicationError(
+    ErrorCode.SubscriptionInvalid,
     message,
     HttpStatus.BAD_REQUEST,
   );

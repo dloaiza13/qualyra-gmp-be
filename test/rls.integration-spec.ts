@@ -87,6 +87,7 @@ const tenantScopedTables = [
   'supplier_scars',
   'supplier_sequences',
   'suppliers',
+  'tenant_subscriptions',
   'training_assignments',
   'user_roles',
   'users',
@@ -668,6 +669,37 @@ describeDatabase('PostgreSQL tenant isolation', () => {
     expect(result.rows[0]?.definition).toContain('DOCUMENT_OBSOLESCENCE');
     expect(result.rows[1]?.definition).toContain('DOCUMENT_RELEASE');
   });
+
+  it('isolates subscriptions and keeps provider events append-only', async () => {
+    const client = await applicationPool.connect();
+    const eventId = randomUUID();
+    try {
+      await client.query('BEGIN');
+      await setTenantContext(client, fixture.tenantAId);
+      const subscriptions = await client.query<{ tenant_id: string }>(
+        'SELECT tenant_id FROM tenant_subscriptions ORDER BY tenant_id',
+      );
+      expect(subscriptions.rows).toEqual([{ tenant_id: fixture.tenantAId }]);
+
+      await client.query(
+        `INSERT INTO billing_provider_events (
+           id, tenant_id, provider, provider_event_id, event_type, status,
+           payload_hash, occurred_at, correlation_id
+         ) VALUES ($1, $2, 'TEST', $3, 'SUBSCRIPTION_RENEWED', 'PROCESSED',
+           repeat('a', 64), CURRENT_TIMESTAMP, $4)`,
+        [eventId, fixture.tenantAId, `event-${eventId}`, randomUUID()],
+      );
+      await expect(
+        client.query(
+          'UPDATE billing_provider_events SET event_type = $1 WHERE id = $2',
+          ['MUTATED', eventId],
+        ),
+      ).rejects.toBeInstanceOf(DatabaseError);
+    } finally {
+      await client.query('ROLLBACK');
+      client.release();
+    }
+  });
 });
 
 async function setTenantContext(
@@ -719,6 +751,12 @@ async function createTenantFixture(
     );
     await setTenantContext(client, values.tenantId);
     await client.query(
+      `INSERT INTO tenant_subscriptions (
+         tenant_id, status, billing_interval, current_period_starts_at
+       ) VALUES ($1, 'ACTIVE', 'MONTHLY', CURRENT_TIMESTAMP)`,
+      [values.tenantId],
+    );
+    await client.query(
       `INSERT INTO users (
          id, tenant_id, email, display_name, password_hash, updated_at
        ) VALUES ($1, $2, $3, 'RLS Test User', 'not-a-password', CURRENT_TIMESTAMP)`,
@@ -752,6 +790,10 @@ async function deleteTenantFixture(
     ]);
     await client.query('DELETE FROM users WHERE tenant_id = $1', [tenantId]);
     await client.query('DELETE FROM roles WHERE tenant_id = $1', [tenantId]);
+    await client.query(
+      'DELETE FROM tenant_subscriptions WHERE tenant_id = $1',
+      [tenantId],
+    );
     await client.query('DELETE FROM tenants WHERE id = $1', [tenantId]);
     await client.query('COMMIT');
   } catch (error: unknown) {
