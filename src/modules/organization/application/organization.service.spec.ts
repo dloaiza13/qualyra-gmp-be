@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import type { PhotoEvidenceCapacityPolicy } from '../../photo-evidence/application/photo-evidence-capacity.policy.js';
 import type { TenantUnitOfWork } from '../../tenancy/application/ports/tenant-unit-of-work.js';
 import { OrganizationService } from './organization.service.js';
+import { CommercialEntitlementPolicy } from '../../commercial-entitlements/application/commercial-entitlement.policy.js';
 
 describe('OrganizationService', () => {
   it('returns only the authenticated tenant commercial summary', async () => {
@@ -15,6 +16,7 @@ describe('OrganizationService', () => {
             slug: 'acme',
             status: 'ACTIVE',
             plan: 'STARTER',
+            trialEndsAt: null,
             createdAt: new Date('2026-08-01T00:00:00.000Z'),
           }),
         ),
@@ -23,6 +25,7 @@ describe('OrganizationService', () => {
         count: jest
           .fn<() => Promise<number>>()
           .mockResolvedValueOnce(3)
+          .mockResolvedValueOnce(4)
           .mockResolvedValueOnce(4),
       },
       invitation: { count: jest.fn(() => Promise.resolve(1)) },
@@ -45,6 +48,7 @@ describe('OrganizationService', () => {
         quotaFor: jest.fn(() => 10_240),
         statusFor: jest.fn(() => 'NORMAL'),
       } as unknown as PhotoEvidenceCapacityPolicy,
+      new CommercialEntitlementPolicy(),
     );
 
     await expect(
@@ -66,6 +70,12 @@ describe('OrganizationService', () => {
       },
       membership: 'INVITATION_ONLY',
       commercialManagement: 'PROVIDER_MANAGED',
+      commercialEntitlements: {
+        userLimit: 10,
+        committedUsers: 5,
+        remainingUserSeats: 5,
+        writeAccess: true,
+      },
     });
     expect(tenantUnitOfWork.execute).toHaveBeenCalledWith(
       tenantId,

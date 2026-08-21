@@ -91,6 +91,7 @@ The backend is a modular NestJS monolith with pragmatic ports and adapters, tena
 - [Periodic product quality reviews (PQR/APR)](docs/product-quality-reviews.md)
 - [Controlled photographic evidence and tablet capture](docs/photographic-evidence.md)
 - [SaaS multi-tenant scalability](docs/saas-scalability.md)
+- [Commercial plan entitlements](docs/commercial-entitlements.md)
 - [Operations and recovery](docs/operations.md)
 - [Durable notification delivery](docs/notifications.md)
 - [Operational observability](docs/observability.md)
@@ -116,6 +117,8 @@ The backend is a modular NestJS monolith with pragmatic ports and adapters, tena
 - [ADR-024: immutable product complaint investigation](docs/adr/ADR-024-immutable-product-complaint-investigation.md)
 - [ADR-025: independent product recall control](docs/adr/ADR-025-independent-product-recall-control.md)
 - [ADR-026: signed periodic product review](docs/adr/ADR-026-signed-periodic-product-review.md)
+- [ADR-027: separated platform tenant administration](docs/adr/ADR-027-separated-platform-tenant-administration.md)
+- [ADR-028: compliance-safe commercial plan entitlements](docs/adr/ADR-028-commercial-plan-entitlements.md)
 - [Threat model](docs/threat-model.md)
 - [Production readiness checklist](docs/production-checklist.md)
 

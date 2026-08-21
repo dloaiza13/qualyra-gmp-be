@@ -271,6 +271,26 @@ describeDatabase('Authentication lifecycle', () => {
       .get('/api/v1/auth/me')
       .set('Authorization', `Bearer ${loginBody.accessToken}`)
       .expect(200);
+    expect(
+      bodyAs<{
+        commercialEntitlements: {
+          userLimit: number;
+          committedUsers: number;
+          trialExpired: boolean;
+          writeAccess: boolean;
+          modules: { access: string }[];
+        };
+      }>(me).commercialEntitlements,
+    ).toMatchObject({
+      userLimit: 5,
+      committedUsers: 1,
+      trialExpired: false,
+      writeAccess: true,
+    });
+    expect(
+      bodyAs<{ commercialEntitlements: { modules: { access: string }[] } }>(me)
+        .commercialEntitlements.modules,
+    ).toHaveLength(13);
     expect(JSON.stringify(bodyAs<unknown>(me))).not.toMatch(
       /passwordHash|tokenHash|refreshToken/i,
     );

@@ -29,6 +29,7 @@ Every successful commercial change appends a global immutable audit event with t
 
 - Changing a plan updates capacity immediately; it never moves or deletes evidence.
 - A downgrade below current storage requires `acknowledgeOverQuota=true`. Existing evidence remains readable, while new uploads remain blocked by the normal quota control.
+- A downgrade below committed user usage requires `acknowledgeUserOverage=true`. Existing users and reserved invitations are preserved, while new invitations and disabled-user reactivations remain blocked until capacity is available.
 - Moving an active tenant to `SUSPENDED` or `DISABLED` atomically revokes its active sessions and refresh tokens.
 - Reactivating a tenant does not restore revoked sessions; users must authenticate again.
 - `expectedUpdatedAt` is mandatory, provides optimistic concurrency, and rejects a stale operator change.
@@ -59,7 +60,7 @@ Invoke-RestMethod `
   -Uri "http://localhost:3000/api/v1/platform/tenants/$($tenant.id)"
 ```
 
-For the initial launch, keep public organization registration disabled and provision commercial customers through an approved onboarding runbook. Billing-provider automation, per-seat enforcement, workforce SSO/MFA, and a separately deployed internal operator frontend remain later controls.
+For the initial launch, keep public organization registration disabled and provision commercial customers through an approved onboarding runbook. Billing-provider automation, configurable add-ons, workforce SSO/MFA, and a separately deployed internal operator frontend remain later controls. Plan, seat, module, and Trial-expiration enforcement are documented in [commercial plan entitlements](commercial-entitlements.md).
 
 ## Private operator console
 

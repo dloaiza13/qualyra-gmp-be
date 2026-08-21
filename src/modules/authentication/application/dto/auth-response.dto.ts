@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { CommercialEntitlementsResponseDto } from '../../../commercial-entitlements/application/dto/commercial-entitlement-response.dto.js';
 
 export class AuthenticatedUserDto {
   @ApiProperty({ format: 'uuid' })
@@ -56,6 +57,9 @@ export class MeResponseDto {
 
   @ApiProperty({ type: String, isArray: true })
   permissions!: string[];
+
+  @ApiProperty({ type: CommercialEntitlementsResponseDto })
+  commercialEntitlements!: CommercialEntitlementsResponseDto;
 }
 
 export class NeutralResponseDto {

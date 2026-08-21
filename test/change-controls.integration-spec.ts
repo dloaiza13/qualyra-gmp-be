@@ -8,6 +8,7 @@ import {
   AuthenticationNotifier,
   type InvitationEmail,
 } from '../src/modules/authentication/domain/ports/authentication-notifier.js';
+import { TenantUnitOfWork } from '../src/modules/tenancy/application/ports/tenant-unit-of-work.js';
 
 const describeDatabase =
   process.env.RUN_DATABASE_INTEGRATION === 'true' ? describe : describe.skip;
@@ -15,6 +16,7 @@ const describeDatabase =
 interface AuthenticationBody {
   accessToken: string;
   user: { id: string; email: string };
+  tenant: { id: string };
 }
 interface RoleBody {
   id: string;
@@ -78,6 +80,12 @@ describeDatabase('GMP change control lifecycle', () => {
     const server = app.getHttpServer() as Parameters<typeof request>[0];
     const tenantA = await registerCompany(server, `change-a-${suffix}`);
     const tenantB = await registerCompany(server, `change-b-${suffix}`);
+    await app.get(TenantUnitOfWork).execute(tenantA.tenant.id, (transaction) =>
+      transaction.tenant.update({
+        where: { id: tenantA.tenant.id },
+        data: { plan: 'PROFESSIONAL' },
+      }),
+    );
     const authA = bearer(tenantA.accessToken);
     const authB = bearer(tenantB.accessToken);
     const roles = bodyAs<RoleBody[]>(

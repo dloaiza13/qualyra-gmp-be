@@ -7,6 +7,7 @@ import type { SecureTokenService } from '../../../infrastructure/crypto/secure-t
 import type { PrismaService } from '../../../infrastructure/database/prisma/prisma.service.js';
 import type { NotificationOutboxService } from '../../notifications/application/notification-outbox.service.js';
 import type { TenantUnitOfWork } from '../../tenancy/application/ports/tenant-unit-of-work.js';
+import { CommercialEntitlementPolicy } from '../../commercial-entitlements/application/commercial-entitlement.policy.js';
 import { AuthenticationService } from './authentication.service.js';
 
 describe('AuthenticationService platform provisioning', () => {
@@ -79,6 +80,7 @@ describe('AuthenticationService platform provisioning', () => {
       tokens as unknown as SecureTokenService,
       {} as AccessTokenService,
       outbox as unknown as NotificationOutboxService,
+      new CommercialEntitlementPolicy(),
       {
         getOrThrow: jest.fn((key: keyof Environment) => {
           if (key === 'REFRESH_TOKEN_TTL_DAYS') return 30;

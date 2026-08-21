@@ -17,6 +17,7 @@ import type {
   TenantPlan,
   UserStatus,
 } from '../../../generated/prisma/client.js';
+import { CommercialEntitlementPolicy } from '../../commercial-entitlements/application/commercial-entitlement.policy.js';
 import { TenantUnitOfWork } from '../../tenancy/application/ports/tenant-unit-of-work.js';
 import type { AuthenticatedPrincipal } from '../domain/authenticated-principal.js';
 import { NotificationOutboxService } from '../../notifications/application/notification-outbox.service.js';
@@ -269,6 +270,7 @@ export class AuthenticationService {
     private readonly tokens: SecureTokenService,
     private readonly accessTokens: AccessTokenService,
     private readonly outbox: NotificationOutboxService,
+    private readonly commercialEntitlements: CommercialEntitlementPolicy,
     configService: ConfigService<Environment, true>,
   ) {
     this.refreshTokenTtlDays = configService.getOrThrow(
@@ -321,6 +323,7 @@ export class AuthenticationService {
           email: input.email,
           passwordHash,
           passwordChangedAt: now,
+          commercialStartedAt: now,
         });
         await transaction.session.create({
           data: {
@@ -425,6 +428,7 @@ export class AuthenticationService {
           passwordHash,
           passwordChangedAt: null,
           plan: input.plan,
+          commercialStartedAt: now,
         });
         await transaction.passwordResetToken.create({
           data: {
@@ -799,47 +803,92 @@ export class AuthenticationService {
   }
 
   async getMe(principal: AuthenticatedPrincipal): Promise<MeResponseDto> {
-    const tenant = await this.prisma.tenant.findUniqueOrThrow({
-      where: { id: principal.tenantId },
-      select: { id: true, name: true, slug: true },
-    });
-    const user = await this.tenantUnitOfWork.execute(
+    const now = new Date();
+    const result = await this.tenantUnitOfWork.execute(
       principal.tenantId,
-      (transaction) =>
-        transaction.user.findFirstOrThrow({
-          where: { id: principal.userId, tenantId: principal.tenantId },
-          select: {
-            id: true,
-            email: true,
-            displayName: true,
-            status: true,
-            emailVerifiedAt: true,
-            userRoles: {
+      async (transaction) => {
+        const [tenant, user, committedUsers, pendingInvitations] =
+          await Promise.all([
+            transaction.tenant.findFirstOrThrow({
+              where: { id: principal.tenantId },
               select: {
-                role: {
+                id: true,
+                name: true,
+                slug: true,
+                plan: true,
+                trialEndsAt: true,
+              },
+            }),
+            transaction.user.findFirstOrThrow({
+              where: { id: principal.userId, tenantId: principal.tenantId },
+              select: {
+                id: true,
+                email: true,
+                displayName: true,
+                status: true,
+                emailVerifiedAt: true,
+                userRoles: {
                   select: {
-                    name: true,
-                    rolePermissions: {
-                      select: { permission: { select: { code: true } } },
+                    role: {
+                      select: {
+                        name: true,
+                        rolePermissions: {
+                          select: {
+                            permission: { select: { code: true } },
+                          },
+                        },
+                      },
                     },
                   },
                 },
               },
-            },
-          },
-        }),
+            }),
+            transaction.user.count({
+              where: {
+                tenantId: principal.tenantId,
+                status: { not: 'DISABLED' },
+              },
+            }),
+            transaction.invitation.count({
+              where: {
+                tenantId: principal.tenantId,
+                status: 'PENDING',
+                expiresAt: { gt: now },
+              },
+            }),
+          ]);
+        return { tenant, user, committedUsers, pendingInvitations };
+      },
     );
+    const rawPermissions = new Set(
+      result.user.userRoles.flatMap(({ role }) =>
+        role.rolePermissions.map(({ permission }) => permission.code),
+      ),
+    );
+    const tenantCommercialState = {
+      plan: result.tenant.plan,
+      trialEndsAt: result.tenant.trialEndsAt,
+    };
     return {
-      user: mapUser(user),
-      tenant,
-      roles: user.userRoles.map(({ role }) => role.name).sort(),
+      user: mapUser(result.user),
+      tenant: {
+        id: result.tenant.id,
+        name: result.tenant.name,
+        slug: result.tenant.slug,
+      },
+      roles: result.user.userRoles.map(({ role }) => role.name).sort(),
       permissions: [
-        ...new Set(
-          user.userRoles.flatMap(({ role }) =>
-            role.rolePermissions.map(({ permission }) => permission.code),
-          ),
+        ...this.commercialEntitlements.effectivePermissions(
+          rawPermissions,
+          tenantCommercialState,
+          now,
         ),
       ].sort(),
+      commercialEntitlements: this.commercialEntitlements.describe(
+        tenantCommercialState,
+        result.committedUsers + result.pendingInvitations,
+        now,
+      ),
     };
   }
 
@@ -1221,6 +1270,7 @@ export class AuthenticationService {
       passwordHash: string;
       passwordChangedAt: Date | null;
       plan?: TenantPlan;
+      commercialStartedAt: Date;
     },
   ): Promise<void> {
     await transaction.tenant.create({
@@ -1229,6 +1279,10 @@ export class AuthenticationService {
         name: input.tenantName,
         slug: input.tenantSlug,
         plan: input.plan,
+        trialEndsAt:
+          (input.plan ?? 'TRIAL') === 'TRIAL'
+            ? this.commercialEntitlements.trialEndsAt(input.commercialStartedAt)
+            : null,
       },
     });
 

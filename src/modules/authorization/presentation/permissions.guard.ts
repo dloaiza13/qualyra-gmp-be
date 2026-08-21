@@ -9,6 +9,10 @@ import type { Request } from 'express';
 import { ApplicationError } from '../../../common/errors/application-error.js';
 import { ErrorCode } from '../../../common/errors/error-codes.js';
 import type { RequestWithContext } from '../../../common/request-context/request-with-context.js';
+import {
+  CommercialEntitlementPolicy,
+  commercialRestrictionError,
+} from '../../commercial-entitlements/application/commercial-entitlement.policy.js';
 import { TenantUnitOfWork } from '../../tenancy/application/ports/tenant-unit-of-work.js';
 import { requiredPermissionsKey } from './permissions.decorator.js';
 
@@ -17,6 +21,7 @@ export class PermissionsGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly tenantUnitOfWork: TenantUnitOfWork,
+    private readonly commercialEntitlements: CommercialEntitlementPolicy,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -32,58 +37,87 @@ export class PermissionsGuard implements CanActivate {
     const principal = request.principal;
     if (!principal) throw unauthorized();
 
-    const granted = await this.tenantUnitOfWork.execute(
+    const authorization = await this.tenantUnitOfWork.execute(
       principal.tenantId,
       async (transaction) => {
         const now = new Date();
-        const user = await transaction.user.findFirst({
-          where: {
-            id: principal.userId,
-            tenantId: principal.tenantId,
-            status: 'ACTIVE',
-          },
-          select: {
-            userRoles: {
-              select: {
-                role: {
-                  select: {
-                    rolePermissions: {
-                      select: { permission: { select: { code: true } } },
+        const [user, session, tenant] = await Promise.all([
+          transaction.user.findFirst({
+            where: {
+              id: principal.userId,
+              tenantId: principal.tenantId,
+              status: 'ACTIVE',
+            },
+            select: {
+              userRoles: {
+                select: {
+                  role: {
+                    select: {
+                      rolePermissions: {
+                        select: {
+                          permission: { select: { code: true } },
+                        },
+                      },
                     },
                   },
                 },
               },
             },
-          },
-        });
-        const session = await transaction.session.findFirst({
-          where: {
-            id: principal.sessionId,
-            tenantId: principal.tenantId,
-            userId: principal.userId,
-            status: 'ACTIVE',
-            expiresAt: { gt: now },
-          },
-          select: { id: true },
-        });
-        if (!user || !session) return undefined;
-        return new Set(
+          }),
+          transaction.session.findFirst({
+            where: {
+              id: principal.sessionId,
+              tenantId: principal.tenantId,
+              userId: principal.userId,
+              status: 'ACTIVE',
+              expiresAt: { gt: now },
+            },
+            select: { id: true },
+          }),
+          transaction.tenant.findFirst({
+            where: { id: principal.tenantId },
+            select: { plan: true, trialEndsAt: true },
+          }),
+        ]);
+        if (!user || !session || !tenant) return undefined;
+        const rawPermissions = new Set(
           user.userRoles.flatMap(({ role }) =>
             role.rolePermissions.map(({ permission }) => permission.code),
           ),
         );
+        return {
+          rawPermissions,
+          effectivePermissions:
+            this.commercialEntitlements.effectivePermissions(
+              rawPermissions,
+              tenant,
+              now,
+            ),
+          tenant,
+          evaluatedAt: now,
+        };
       },
     );
 
-    if (!granted) throw unauthorized();
-    if (!required.every((permission) => granted.has(permission))) {
-      throw new ApplicationError(
-        ErrorCode.Forbidden,
-        'The operation is forbidden.',
-        HttpStatus.FORBIDDEN,
+    if (!authorization) throw unauthorized();
+    if (
+      !required.every((permission) =>
+        authorization.effectivePermissions.has(permission),
+      )
+    ) {
+      const restriction = this.commercialEntitlements.restrictionFor(
+        required,
+        authorization.rawPermissions,
+        authorization.tenant,
+        authorization.evaluatedAt,
+      );
+      throw commercialRestrictionError(
+        restriction ?? 'ROLE',
+        authorization.tenant,
+        required,
       );
     }
-    request.permissions = [...granted].sort();
+    request.permissions = [...authorization.effectivePermissions].sort();
     return true;
   }
 }

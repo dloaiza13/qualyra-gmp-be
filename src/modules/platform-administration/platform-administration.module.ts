@@ -5,9 +5,15 @@ import { AuthenticationModule } from '../authentication/authentication.module.js
 import { PlatformTenantsService } from './application/platform-tenants.service.js';
 import { PlatformAdminGuard } from './presentation/platform-admin.guard.js';
 import { PlatformTenantsController } from './presentation/platform-tenants.controller.js';
+import { CommercialEntitlementsModule } from '../commercial-entitlements/commercial-entitlements.module.js';
 
 @Module({
-  imports: [PrismaModule, PhotoEvidenceModule, AuthenticationModule],
+  imports: [
+    PrismaModule,
+    PhotoEvidenceModule,
+    AuthenticationModule,
+    CommercialEntitlementsModule,
+  ],
   controllers: [PlatformTenantsController],
   providers: [PlatformAdminGuard, PlatformTenantsService],
 })

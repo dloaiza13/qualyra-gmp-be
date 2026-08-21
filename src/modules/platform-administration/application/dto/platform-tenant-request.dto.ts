@@ -86,6 +86,11 @@ export class UpdatePlatformTenantDto {
   @IsBoolean()
   acknowledgeOverQuota = false;
 
+  @ApiPropertyOptional({ default: false })
+  @IsOptional()
+  @IsBoolean()
+  acknowledgeUserOverage = false;
+
   @ApiProperty({ format: 'date-time' })
   @IsISO8601({ strict: true })
   expectedUpdatedAt!: string;

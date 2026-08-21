@@ -4,6 +4,7 @@ import { ErrorCode } from '../../../common/errors/error-codes.js';
 import type { Prisma } from '../../../generated/prisma/client.js';
 import type { RequestMetadata } from '../../authentication/application/request-metadata.js';
 import type { AuthenticatedPrincipal } from '../../authentication/domain/authenticated-principal.js';
+import { CommercialEntitlementPolicy } from '../../commercial-entitlements/application/commercial-entitlement.policy.js';
 import { appendSecurityEvent } from '../../security-events/application/append-security-event.js';
 import { TenantUnitOfWork } from '../../tenancy/application/ports/tenant-unit-of-work.js';
 import type {
@@ -23,7 +24,10 @@ type UserWithRoles = Prisma.UserGetPayload<{ include: typeof userWithRoles }>;
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly tenantUnitOfWork: TenantUnitOfWork) {}
+  constructor(
+    private readonly tenantUnitOfWork: TenantUnitOfWork,
+    private readonly commercialEntitlements: CommercialEntitlementPolicy,
+  ) {}
 
   list(principal: AuthenticatedPrincipal): Promise<UserResponseDto[]> {
     return this.tenantUnitOfWork.execute(
@@ -51,6 +55,7 @@ export class UsersService {
           include: userWithRoles,
         });
         if (!user) throw userNotFound();
+
         return mapUser(user);
       },
     );
@@ -71,6 +76,35 @@ export class UsersService {
           include: userWithRoles,
         });
         if (!user) throw userNotFound();
+
+        if (user.status === 'DISABLED' && input.status === 'ACTIVE') {
+          const now = new Date();
+          const [tenant, committedUsers, pendingInvitations] =
+            await Promise.all([
+              transaction.tenant.findUniqueOrThrow({
+                where: { id: principal.tenantId },
+                select: { plan: true, trialEndsAt: true },
+              }),
+              transaction.user.count({
+                where: {
+                  tenantId: principal.tenantId,
+                  status: { not: 'DISABLED' },
+                },
+              }),
+              transaction.invitation.count({
+                where: {
+                  tenantId: principal.tenantId,
+                  status: 'PENDING',
+                  expiresAt: { gt: now },
+                },
+              }),
+            ]);
+          this.commercialEntitlements.assertCanAllocateSeat(
+            tenant,
+            committedUsers + pendingInvitations,
+            { now },
+          );
+        }
 
         if (
           input.status === 'DISABLED' &&
@@ -206,6 +240,12 @@ async function lockTenant(
   transaction: Prisma.TransactionClient,
   tenantId: string,
 ): Promise<void> {
+  await transaction.$queryRaw`
+    SELECT 1::int AS locked
+    FROM pg_advisory_xact_lock(
+      hashtextextended(${`${tenantId}:commercial-seat-allocation`}, 0)
+    )
+  `;
   await transaction.$queryRaw`
     SELECT id FROM tenants WHERE id = ${tenantId}::uuid FOR UPDATE
   `;

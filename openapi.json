@@ -6590,6 +6590,86 @@
           "password"
         ]
       },
+      "CommercialModuleEntitlementDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "DOCUMENTS",
+              "TRAINING",
+              "DEVIATIONS",
+              "CAPA",
+              "CHANGE_CONTROL",
+              "AUDITS",
+              "QUALITY_RISKS",
+              "SUPPLIERS",
+              "EQUIPMENT",
+              "COMPLAINTS",
+              "RECALLS",
+              "PRODUCT_REVIEWS",
+              "PHOTO_EVIDENCE"
+            ]
+          },
+          "access": {
+            "type": "string",
+            "enum": [
+              "FULL",
+              "READ_ONLY"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "access"
+        ]
+      },
+      "CommercialEntitlementsResponseDto": {
+        "type": "object",
+        "properties": {
+          "userLimit": {
+            "type": "object",
+            "nullable": true,
+            "minimum": 1
+          },
+          "committedUsers": {
+            "type": "number"
+          },
+          "remainingUserSeats": {
+            "type": "object",
+            "nullable": true,
+            "minimum": 0
+          },
+          "trialEndsAt": {
+            "type": "object",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "trialExpired": {
+            "type": "boolean"
+          },
+          "trialDaysRemaining": {
+            "type": "object",
+            "nullable": true,
+            "minimum": 0
+          },
+          "writeAccess": {
+            "type": "boolean"
+          },
+          "modules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommercialModuleEntitlementDto"
+            }
+          }
+        },
+        "required": [
+          "committedUsers",
+          "trialExpired",
+          "writeAccess",
+          "modules"
+        ]
+      },
       "MeResponseDto": {
         "type": "object",
         "properties": {
@@ -6610,13 +6690,17 @@
             "items": {
               "type": "string"
             }
+          },
+          "commercialEntitlements": {
+            "$ref": "#/components/schemas/CommercialEntitlementsResponseDto"
           }
         },
         "required": [
           "user",
           "tenant",
           "roles",
-          "permissions"
+          "permissions",
+          "commercialEntitlements"
         ]
       },
       "SessionResponseDto": {
@@ -14994,6 +15078,9 @@
           },
           "disabled": {
             "type": "number"
+          },
+          "pendingInvitations": {
+            "type": "number"
           }
         },
         "required": [
@@ -15001,7 +15088,8 @@
           "active",
           "invited",
           "locked",
-          "disabled"
+          "disabled",
+          "pendingInvitations"
         ]
       },
       "PlatformTenantStorageDto": {
@@ -15078,6 +15166,14 @@
           "photographicEvidence": {
             "$ref": "#/components/schemas/PlatformTenantStorageDto"
           },
+          "commercialEntitlements": {
+            "$ref": "#/components/schemas/CommercialEntitlementsResponseDto"
+          },
+          "trialEndsAt": {
+            "type": "object",
+            "nullable": true,
+            "format": "date-time"
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -15095,6 +15191,7 @@
           "plan",
           "users",
           "photographicEvidence",
+          "commercialEntitlements",
           "createdAt",
           "updatedAt"
         ]
@@ -15144,6 +15241,10 @@
             "maxLength": 500
           },
           "acknowledgeOverQuota": {
+            "type": "object",
+            "default": false
+          },
+          "acknowledgeUserOverage": {
             "type": "object",
             "default": false
           },
@@ -15356,6 +15457,9 @@
               "PROVIDER_MANAGED"
             ]
           },
+          "commercialEntitlements": {
+            "$ref": "#/components/schemas/CommercialEntitlementsResponseDto"
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -15371,6 +15475,7 @@
           "photographicEvidence",
           "membership",
           "commercialManagement",
+          "commercialEntitlements",
           "createdAt"
         ]
       }

@@ -7,6 +7,7 @@ import {
   photoEvidenceCapacityStatuses,
   type PhotoEvidenceCapacityStatus,
 } from '../../../photo-evidence/application/photo-evidence-capacity.policy.js';
+import { CommercialEntitlementsResponseDto } from '../../../commercial-entitlements/application/dto/commercial-entitlement-response.dto.js';
 
 export class OrganizationUserUsageDto {
   @ApiProperty()
@@ -66,6 +67,9 @@ export class OrganizationCommercialSummaryDto {
 
   @ApiProperty({ enum: ['PROVIDER_MANAGED'] })
   commercialManagement!: 'PROVIDER_MANAGED';
+
+  @ApiProperty({ type: CommercialEntitlementsResponseDto })
+  commercialEntitlements!: CommercialEntitlementsResponseDto;
 
   @ApiProperty({ format: 'date-time' })
   createdAt!: string;

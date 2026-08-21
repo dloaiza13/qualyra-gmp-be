@@ -5,6 +5,7 @@ import type { PrismaService } from '../../../infrastructure/database/prisma/pris
 import type { PhotoEvidenceCapacityPolicy } from '../../photo-evidence/application/photo-evidence-capacity.policy.js';
 import type { TenantUnitOfWork } from '../../tenancy/application/ports/tenant-unit-of-work.js';
 import { PlatformTenantsService } from './platform-tenants.service.js';
+import { CommercialEntitlementPolicy } from '../../commercial-entitlements/application/commercial-entitlement.policy.js';
 
 const tenantId = '11111111-1111-4111-8111-111111111111';
 
@@ -18,6 +19,7 @@ describe('PlatformTenantsService', () => {
       slug: 'acme',
       status: 'ACTIVE',
       plan: 'TRIAL',
+      trialEndsAt: new Date('2026-09-01T00:00:00.000Z'),
       createdAt,
       updatedAt,
     } as const;
@@ -60,10 +62,12 @@ describe('PlatformTenantsService', () => {
         create: createAuditEvent,
       },
       user: {
+        count: jest.fn(() => Promise.resolve(4)),
         groupBy: jest.fn(() =>
           Promise.resolve([{ status: 'ACTIVE', _count: { _all: 4 } }]),
         ),
       },
+      invitation: { count: jest.fn(() => Promise.resolve(0)) },
     };
     const prisma = {
       tenant: { findUnique: jest.fn(() => Promise.resolve(saved)) },
@@ -84,6 +88,7 @@ describe('PlatformTenantsService', () => {
       tenantUnitOfWork as unknown as TenantUnitOfWork,
       capacityPolicy as unknown as PhotoEvidenceCapacityPolicy,
       authentication as never,
+      new CommercialEntitlementPolicy(),
       {
         getOrThrow: jest.fn(() => 'operator-test'),
       } as unknown as ConfigService<Environment, true>,
@@ -97,6 +102,7 @@ describe('PlatformTenantsService', () => {
           status: 'SUSPENDED',
           reason: 'Customer requested a temporary commercial suspension.',
           acknowledgeOverQuota: false,
+          acknowledgeUserOverage: false,
           expectedUpdatedAt: updatedAt.toISOString(),
         },
         { correlationId: '22222222-2222-4222-8222-222222222222' },
@@ -119,6 +125,67 @@ describe('PlatformTenantsService', () => {
           revokedRefreshTokens: 3,
         },
       },
+    });
+  });
+
+  it('requires an explicit acknowledgement before a user-overage downgrade', async () => {
+    const updatedAt = new Date('2026-08-20T00:00:00.000Z');
+    const current = {
+      id: tenantId,
+      name: 'Acme',
+      slug: 'acme',
+      status: 'ACTIVE',
+      plan: 'PROFESSIONAL',
+      trialEndsAt: null,
+      createdAt: new Date('2026-08-01T00:00:00.000Z'),
+      updatedAt,
+    } as const;
+    const transaction = {
+      $queryRaw: jest.fn(() => Promise.resolve([{ id: tenantId }])),
+      tenant: { findUnique: jest.fn(() => Promise.resolve(current)) },
+      tenantPhotoEvidenceUsage: {
+        findUnique: jest.fn(() =>
+          Promise.resolve({ usedBytes: 1024n, photoCount: 1 }),
+        ),
+      },
+      photoEvidence: { aggregate: jest.fn() },
+      user: { count: jest.fn(() => Promise.resolve(11)) },
+      invitation: { count: jest.fn(() => Promise.resolve(0)) },
+    };
+    const service = new PlatformTenantsService(
+      {} as PrismaService,
+      {
+        execute: jest.fn(
+          (_tenantId: string, work: (value: unknown) => Promise<unknown>) =>
+            work(transaction),
+        ),
+      } as unknown as TenantUnitOfWork,
+      {
+        quotaFor: jest.fn(() => 10_000),
+        statusFor: jest.fn(() => 'NORMAL'),
+      } as unknown as PhotoEvidenceCapacityPolicy,
+      { provisionCompany: jest.fn() } as never,
+      new CommercialEntitlementPolicy(),
+      {
+        getOrThrow: jest.fn(() => 'operator-test'),
+      } as unknown as ConfigService<Environment, true>,
+    );
+
+    await expect(
+      service.update(
+        tenantId,
+        {
+          plan: 'STARTER',
+          reason: 'Customer requested a controlled Starter plan downgrade.',
+          acknowledgeOverQuota: false,
+          acknowledgeUserOverage: false,
+          expectedUpdatedAt: updatedAt.toISOString(),
+        },
+        { correlationId: '22222222-2222-4222-8222-222222222222' },
+      ),
+    ).rejects.toMatchObject({
+      code: 'PLATFORM_TENANT_CONFLICT',
+      details: [{ committedUsers: 11, nextUserLimit: 10 }],
     });
   });
 });

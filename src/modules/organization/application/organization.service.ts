@@ -5,12 +5,14 @@ import { TenantUnitOfWork } from '../../tenancy/application/ports/tenant-unit-of
 import { ApplicationError } from '../../../common/errors/application-error.js';
 import { ErrorCode } from '../../../common/errors/error-codes.js';
 import type { OrganizationCommercialSummaryDto } from './dto/organization-response.dto.js';
+import { CommercialEntitlementPolicy } from '../../commercial-entitlements/application/commercial-entitlement.policy.js';
 
 @Injectable()
 export class OrganizationService {
   constructor(
     private readonly tenantUnitOfWork: TenantUnitOfWork,
     private readonly capacityPolicy: PhotoEvidenceCapacityPolicy,
+    private readonly commercialEntitlements: CommercialEntitlementPolicy,
   ) {}
 
   summary(
@@ -19,31 +21,49 @@ export class OrganizationService {
     return this.tenantUnitOfWork.execute(
       principal.tenantId,
       async (transaction) => {
-        const [tenant, activeUsers, totalUsers, pendingInvitations, counter] =
-          await Promise.all([
-            transaction.tenant.findFirst({
-              where: { id: principal.tenantId },
-              select: {
-                id: true,
-                name: true,
-                slug: true,
-                status: true,
-                plan: true,
-                createdAt: true,
-              },
-            }),
-            transaction.user.count({
-              where: { tenantId: principal.tenantId, status: 'ACTIVE' },
-            }),
-            transaction.user.count({ where: { tenantId: principal.tenantId } }),
-            transaction.invitation.count({
-              where: { tenantId: principal.tenantId, status: 'PENDING' },
-            }),
-            transaction.tenantPhotoEvidenceUsage.findUnique({
-              where: { tenantId: principal.tenantId },
-              select: { usedBytes: true, photoCount: true },
-            }),
-          ]);
+        const now = new Date();
+        const [
+          tenant,
+          activeUsers,
+          totalUsers,
+          committedUsers,
+          pendingInvitations,
+          counter,
+        ] = await Promise.all([
+          transaction.tenant.findFirst({
+            where: { id: principal.tenantId },
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              status: true,
+              plan: true,
+              trialEndsAt: true,
+              createdAt: true,
+            },
+          }),
+          transaction.user.count({
+            where: { tenantId: principal.tenantId, status: 'ACTIVE' },
+          }),
+          transaction.user.count({ where: { tenantId: principal.tenantId } }),
+          transaction.user.count({
+            where: {
+              tenantId: principal.tenantId,
+              status: { not: 'DISABLED' },
+            },
+          }),
+          transaction.invitation.count({
+            where: {
+              tenantId: principal.tenantId,
+              status: 'PENDING',
+              expiresAt: { gt: now },
+            },
+          }),
+          transaction.tenantPhotoEvidenceUsage.findUnique({
+            where: { tenantId: principal.tenantId },
+            select: { usedBytes: true, photoCount: true },
+          }),
+        ]);
         if (!tenant) {
           throw new ApplicationError(
             ErrorCode.NotFound,
@@ -64,7 +84,11 @@ export class OrganizationService {
         }
         const quotaBytes = this.capacityPolicy.quotaFor(tenant.plan);
         return {
-          ...tenant,
+          id: tenant.id,
+          name: tenant.name,
+          slug: tenant.slug,
+          status: tenant.status,
+          plan: tenant.plan,
           createdAt: tenant.createdAt.toISOString(),
           users: { total: totalUsers, active: activeUsers, pendingInvitations },
           photographicEvidence: {
@@ -80,6 +104,11 @@ export class OrganizationService {
           },
           membership: 'INVITATION_ONLY',
           commercialManagement: 'PROVIDER_MANAGED',
+          commercialEntitlements: this.commercialEntitlements.describe(
+            tenant,
+            committedUsers + pendingInvitations,
+            now,
+          ),
         };
       },
     );

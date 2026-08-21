@@ -15,6 +15,7 @@ import type { Prisma } from '../../../generated/prisma/client.js';
 import type { AuthenticationResult } from '../../authentication/application/authentication.service.js';
 import type { RequestMetadata } from '../../authentication/application/request-metadata.js';
 import type { AuthenticatedPrincipal } from '../../authentication/domain/authenticated-principal.js';
+import { CommercialEntitlementPolicy } from '../../commercial-entitlements/application/commercial-entitlement.policy.js';
 import { NotificationOutboxService } from '../../notifications/application/notification-outbox.service.js';
 import { appendSecurityEvent } from '../../security-events/application/append-security-event.js';
 import { TenantUnitOfWork } from '../../tenancy/application/ports/tenant-unit-of-work.js';
@@ -52,6 +53,7 @@ export class InvitationsService {
     private readonly passwordHasher: PasswordHasher,
     private readonly accessTokens: AccessTokenService,
     private readonly outbox: NotificationOutboxService,
+    private readonly commercialEntitlements: CommercialEntitlementPolicy,
     config: ConfigService<Environment, true>,
   ) {
     this.invitationTtlHours = config.getOrThrow('INVITATION_TTL_HOURS', {
@@ -74,7 +76,7 @@ export class InvitationsService {
         await transaction.$queryRaw`
           SELECT 1::int AS locked
           FROM pg_advisory_xact_lock(
-            hashtextextended(${`${principal.tenantId}:${input.email}`}, 0)
+            hashtextextended(${`${principal.tenantId}:commercial-seat-allocation`}, 0)
           )
         `;
         const existingUser = await transaction.user.count({
@@ -107,6 +109,36 @@ export class InvitationsService {
           });
         }
 
+        const [tenant, committedUsers, pendingInvitations] = await Promise.all([
+          transaction.tenant.findUniqueOrThrow({
+            where: { id: principal.tenantId },
+            select: {
+              name: true,
+              slug: true,
+              plan: true,
+              trialEndsAt: true,
+            },
+          }),
+          transaction.user.count({
+            where: {
+              tenantId: principal.tenantId,
+              status: { not: 'DISABLED' },
+            },
+          }),
+          transaction.invitation.count({
+            where: {
+              tenantId: principal.tenantId,
+              status: 'PENDING',
+              expiresAt: { gt: now },
+            },
+          }),
+        ]);
+        this.commercialEntitlements.assertCanAllocateSeat(
+          tenant,
+          committedUsers + pendingInvitations,
+          { now },
+        );
+
         const invitation = await transaction.invitation.create({
           data: {
             id: token.id,
@@ -133,10 +165,6 @@ export class InvitationsService {
             invitationId: invitation.id,
             roleIds: roles.map(({ id }) => id),
           },
-        });
-        const tenant = await transaction.tenant.findUniqueOrThrow({
-          where: { id: principal.tenantId },
-          select: { name: true, slug: true },
         });
         await this.outbox.enqueue(transaction, {
           tenantId: principal.tenantId,
@@ -347,6 +375,12 @@ export class InvitationsService {
       accepted = await this.tenantUnitOfWork.execute(
         tenant.id,
         async (transaction) => {
+          await transaction.$queryRaw`
+            SELECT 1::int AS locked
+            FROM pg_advisory_xact_lock(
+              hashtextextended(${`${tenant.id}:commercial-seat-allocation`}, 0)
+            )
+          `;
           const invitation = await transaction.invitation.findFirst({
             where: {
               id: parsed.tokenId,
@@ -363,6 +397,31 @@ export class InvitationsService {
             });
             return { expired: true as const };
           }
+          const [commercialState, committedUsers, pendingInvitations] =
+            await Promise.all([
+              transaction.tenant.findUniqueOrThrow({
+                where: { id: tenant.id },
+                select: { plan: true, trialEndsAt: true },
+              }),
+              transaction.user.count({
+                where: {
+                  tenantId: tenant.id,
+                  status: { not: 'DISABLED' },
+                },
+              }),
+              transaction.invitation.count({
+                where: {
+                  tenantId: tenant.id,
+                  status: 'PENDING',
+                  expiresAt: { gt: now },
+                },
+              }),
+            ]);
+          this.commercialEntitlements.assertCanAllocateSeat(
+            commercialState,
+            committedUsers + pendingInvitations,
+            { now, reservedSeat: true },
+          );
           const claimed = await transaction.invitation.updateMany({
             where: {
               id: invitation.id,

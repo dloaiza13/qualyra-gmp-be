@@ -12,6 +12,7 @@ import { ErrorCode } from '../../../common/errors/error-codes.js';
 import { PrismaService } from '../../../infrastructure/database/prisma/prisma.service.js';
 import type { RequestMetadata } from '../../authentication/application/request-metadata.js';
 import { AuthenticationService } from '../../authentication/application/authentication.service.js';
+import { CommercialEntitlementPolicy } from '../../commercial-entitlements/application/commercial-entitlement.policy.js';
 import { PhotoEvidenceCapacityPolicy } from '../../photo-evidence/application/photo-evidence-capacity.policy.js';
 import { TenantUnitOfWork } from '../../tenancy/application/ports/tenant-unit-of-work.js';
 import type {
@@ -32,6 +33,7 @@ type TenantSnapshot = {
   slug: string;
   status: TenantStatus;
   plan: TenantPlan;
+  trialEndsAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -45,6 +47,7 @@ export class PlatformTenantsService {
     private readonly tenantUnitOfWork: TenantUnitOfWork,
     private readonly capacityPolicy: PhotoEvidenceCapacityPolicy,
     private readonly authentication: AuthenticationService,
+    private readonly commercialEntitlements: CommercialEntitlementPolicy,
     config: ConfigService<Environment, true>,
   ) {
     this.operatorId = config.getOrThrow('PLATFORM_OPERATOR_ID', {
@@ -142,6 +145,12 @@ export class PlatformTenantsService {
       throw invalidTenant('A meaningful commercial change reason is required.');
     }
     await this.tenantUnitOfWork.execute(tenantId, async (transaction) => {
+      await transaction.$queryRaw`
+        SELECT 1::int AS locked
+        FROM pg_advisory_xact_lock(
+          hashtextextended(${`${tenantId}:commercial-seat-allocation`}, 0)
+        )
+      `;
       const locked = await transaction.$queryRaw<{ id: string }[]>`
         SELECT id
         FROM tenants
@@ -170,7 +179,10 @@ export class PlatformTenantsService {
         throw invalidTenant('The requested commercial state has no changes.');
       }
 
-      const usage = await readStorageUsage(transaction, tenantId);
+      const [usage, commitments] = await Promise.all([
+        readStorageUsage(transaction, tenantId),
+        readUserCommitments(transaction, tenantId, new Date()),
+      ]);
       const nextQuota = this.capacityPolicy.quotaFor(nextPlan);
       if (usage.usedBytes > nextQuota && !input.acknowledgeOverQuota) {
         throw new ApplicationError(
@@ -181,7 +193,30 @@ export class PlatformTenantsService {
         );
       }
 
+      const nextUserLimit = this.commercialEntitlements.userLimitFor(nextPlan);
+      if (
+        nextUserLimit !== null &&
+        commitments.committedUsers > nextUserLimit &&
+        !input.acknowledgeUserOverage
+      ) {
+        throw new ApplicationError(
+          ErrorCode.PlatformTenantConflict,
+          'The selected plan is below the users currently committed.',
+          HttpStatus.CONFLICT,
+          [
+            {
+              committedUsers: commitments.committedUsers,
+              nextUserLimit,
+            },
+          ],
+        );
+      }
+
       const now = new Date();
+      const nextTrialEndsAt =
+        nextPlan === 'TRIAL' && current.plan !== 'TRIAL'
+          ? this.commercialEntitlements.trialEndsAt(now)
+          : current.trialEndsAt;
       let revokedSessions = 0;
       let revokedRefreshTokens = 0;
       if (current.status === 'ACTIVE' && nextStatus !== 'ACTIVE') {
@@ -205,7 +240,11 @@ export class PlatformTenantsService {
 
       await transaction.tenant.update({
         where: { id: tenantId },
-        data: { plan: nextPlan, status: nextStatus },
+        data: {
+          plan: nextPlan,
+          status: nextStatus,
+          trialEndsAt: nextTrialEndsAt,
+        },
       });
       await transaction.platformAuditEvent.create({
         data: {
@@ -224,6 +263,13 @@ export class PlatformTenantsService {
               usage.usedBytes > nextQuota && input.acknowledgeOverQuota,
             usedBytes: usage.usedBytes,
             quotaBytes: nextQuota,
+            userOverageAcknowledged:
+              nextUserLimit !== null &&
+              commitments.committedUsers > nextUserLimit &&
+              input.acknowledgeUserOverage,
+            committedUsers: commitments.committedUsers,
+            userLimit: nextUserLimit,
+            trialEndsAt: nextTrialEndsAt?.toISOString() ?? null,
             revokedSessions,
             revokedRefreshTokens,
           },
@@ -287,15 +333,16 @@ export class PlatformTenantsService {
     const operational = await this.tenantUnitOfWork.execute(
       tenant.id,
       async (transaction) => {
-        const [userGroups, usage] = await Promise.all([
+        const [userGroups, commitments, usage] = await Promise.all([
           transaction.user.groupBy({
             by: ['status'],
             where: { tenantId: tenant.id },
             _count: { _all: true },
           }),
+          readUserCommitments(transaction, tenant.id, new Date()),
           readStorageUsage(transaction, tenant.id),
         ]);
-        return { userGroups, usage };
+        return { userGroups, commitments, usage };
       },
     );
     const users: Record<UserStatus, number> = {
@@ -310,6 +357,7 @@ export class PlatformTenantsService {
     const quotaBytes = this.capacityPolicy.quotaFor(tenant.plan);
     return {
       ...tenant,
+      trialEndsAt: tenant.trialEndsAt?.toISOString() ?? null,
       createdAt: tenant.createdAt.toISOString(),
       updatedAt: tenant.updatedAt.toISOString(),
       users: {
@@ -318,6 +366,7 @@ export class PlatformTenantsService {
         invited: users.INVITED,
         locked: users.LOCKED,
         disabled: users.DISABLED,
+        pendingInvitations: operational.commitments.pendingInvitations,
       },
       photographicEvidence: {
         usedBytes: operational.usage.usedBytes,
@@ -332,6 +381,10 @@ export class PlatformTenantsService {
         ),
         counterAvailable: operational.usage.counterAvailable,
       },
+      commercialEntitlements: this.commercialEntitlements.describe(
+        tenant,
+        operational.commitments.committedUsers,
+      ),
     };
   }
 }
@@ -342,9 +395,29 @@ const tenantSelection = {
   slug: true,
   status: true,
   plan: true,
+  trialEndsAt: true,
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.TenantSelect;
+
+async function readUserCommitments(
+  transaction: Prisma.TransactionClient,
+  tenantId: string,
+  now: Date,
+): Promise<{ committedUsers: number; pendingInvitations: number }> {
+  const [users, pendingInvitations] = await Promise.all([
+    transaction.user.count({
+      where: { tenantId, status: { not: 'DISABLED' } },
+    }),
+    transaction.invitation.count({
+      where: { tenantId, status: 'PENDING', expiresAt: { gt: now } },
+    }),
+  ]);
+  return {
+    committedUsers: users + pendingInvitations,
+    pendingInvitations,
+  };
+}
 
 async function readStorageUsage(
   transaction: Prisma.TransactionClient,

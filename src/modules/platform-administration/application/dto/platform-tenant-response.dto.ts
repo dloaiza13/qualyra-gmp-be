@@ -7,6 +7,7 @@ import {
   photoEvidenceCapacityStatuses,
   type PhotoEvidenceCapacityStatus,
 } from '../../../photo-evidence/application/photo-evidence-capacity.policy.js';
+import { CommercialEntitlementsResponseDto } from '../../../commercial-entitlements/application/dto/commercial-entitlement-response.dto.js';
 
 export class PlatformTenantUsersDto {
   @ApiProperty()
@@ -23,6 +24,9 @@ export class PlatformTenantUsersDto {
 
   @ApiProperty()
   disabled!: number;
+
+  @ApiProperty()
+  pendingInvitations!: number;
 }
 
 export class PlatformTenantStorageDto {
@@ -68,6 +72,12 @@ export class PlatformTenantResponseDto {
 
   @ApiProperty({ type: PlatformTenantStorageDto })
   photographicEvidence!: PlatformTenantStorageDto;
+
+  @ApiProperty({ type: CommercialEntitlementsResponseDto })
+  commercialEntitlements!: CommercialEntitlementsResponseDto;
+
+  @ApiPropertyOptional({ nullable: true, format: 'date-time' })
+  trialEndsAt!: string | null;
 
   @ApiProperty({ format: 'date-time' })
   createdAt!: string;
