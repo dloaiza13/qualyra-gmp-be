@@ -60,16 +60,16 @@ export const systemHelpGuides: readonly SystemHelpGuide[] = [
     'Usa el menú para entrar a cada proceso y el panel de ayuda para consultar instrucciones sin abandonar tu trabajo.',
     'Use the menu to open each process and the help panel to consult instructions without leaving your work.',
     [
-      'Revisa el resumen para identificar tareas y procesos disponibles según tu rol.',
+      'Revisa el dashboard para identificar tareas y procesos disponibles según tu rol.',
       'Abre un módulo desde el menú izquierdo; sólo aparecerán las funciones autorizadas para tu cuenta.',
       'Pulsa Ayuda en cualquier pantalla para ver la guía correspondiente.',
-      'Si una acción requiere firma, confirma el significado y vuelve a autenticarte con tu contraseña.',
+      'Si una acción requiere firma, lee y acepta la declaración que indica qué estás confirmando —por ejemplo, revisión, aprobación o ejecución— y vuelve a ingresar tu contraseña.',
     ],
     [
-      'Review the overview to identify tasks and processes available for your role.',
+      'Review the dashboard to identify tasks and processes available for your role.',
       'Open a module from the left menu; only functions authorized for your account are shown.',
       'Select Help on any screen to view its contextual guide.',
-      'When an action requires a signature, confirm its meaning and reauthenticate with your password.',
+      'When an action requires a signature, read and accept the statement explaining what you are confirming—for example, review, approval, or execution—and re-enter your password.',
     ],
   ),
   guide(
