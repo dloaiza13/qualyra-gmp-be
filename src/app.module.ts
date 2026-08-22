@@ -48,6 +48,7 @@ import { RedisThrottlerStorage } from './common/rate-limiting/redis-throttler.st
 import { ObservabilityModule } from './modules/observability/observability.module.js';
 import { PlatformAdministrationModule } from './modules/platform-administration/platform-administration.module.js';
 import { OrganizationModule } from './modules/organization/organization.module.js';
+import { HelpGuidesModule } from './modules/help-guides/help-guides.module.js';
 
 @Module({
   imports: [
@@ -135,6 +136,7 @@ import { OrganizationModule } from './modules/organization/organization.module.j
     NotificationDeliveriesModule,
     PlatformAdministrationModule,
     OrganizationModule,
+    HelpGuidesModule,
     RouterModule.register([
       { path: 'api/v1', module: AuthenticationModule },
       { path: 'api/v1', module: CapasModule },
@@ -157,6 +159,7 @@ import { OrganizationModule } from './modules/organization/organization.module.j
       { path: 'api/v1', module: NotificationDeliveriesModule },
       { path: 'api/v1', module: PlatformAdministrationModule },
       { path: 'api/v1', module: OrganizationModule },
+      { path: 'api/v1', module: HelpGuidesModule },
     ]),
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

@@ -6484,6 +6484,335 @@
           "Organization"
         ]
       }
+    },
+    "/api/v1/help-guides/context/{context}": {
+      "get": {
+        "operationId": "HelpGuidesController_contextual",
+        "parameters": [
+          {
+            "name": "context",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "OVERVIEW",
+                "ORGANIZATION",
+                "DOCUMENTS",
+                "TRAINING",
+                "DEVIATIONS",
+                "CAPAS",
+                "CHANGES",
+                "AUDITS",
+                "RISKS",
+                "SUPPLIERS",
+                "EQUIPMENT",
+                "COMPLAINTS",
+                "RECALLS",
+                "PRODUCT_REVIEWS",
+                "USERS",
+                "ROLES",
+                "INVITATIONS",
+                "SECURITY",
+                "NOTIFICATIONS",
+                "PROFILE",
+                "SECURITY_SETTINGS"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PublishedHelpGuideResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Help guides"
+        ]
+      }
+    },
+    "/api/v1/help-guides": {
+      "get": {
+        "operationId": "HelpGuidesController_list",
+        "parameters": [
+          {
+            "name": "context",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "OVERVIEW",
+                "ORGANIZATION",
+                "DOCUMENTS",
+                "TRAINING",
+                "DEVIATIONS",
+                "CAPAS",
+                "CHANGES",
+                "AUDITS",
+                "RISKS",
+                "SUPPLIERS",
+                "EQUIPMENT",
+                "COMPLAINTS",
+                "RECALLS",
+                "PRODUCT_REVIEWS",
+                "USERS",
+                "ROLES",
+                "INVITATIONS",
+                "SECURITY",
+                "NOTIFICATIONS",
+                "PROFILE",
+                "SECURITY_SETTINGS"
+              ]
+            }
+          },
+          {
+            "name": "includeArchived",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": false,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ManagedHelpGuideResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Help guides"
+        ]
+      },
+      "post": {
+        "operationId": "HelpGuidesController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateHelpGuideDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagedHelpGuideResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Help guides"
+        ]
+      }
+    },
+    "/api/v1/help-guides/{guideId}": {
+      "patch": {
+        "operationId": "HelpGuidesController_update",
+        "parameters": [
+          {
+            "name": "guideId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateHelpGuideDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagedHelpGuideResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Help guides"
+        ]
+      }
+    },
+    "/api/v1/help-guides/{guideId}/publish": {
+      "post": {
+        "operationId": "HelpGuidesController_publish",
+        "parameters": [
+          {
+            "name": "guideId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagedHelpGuideResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Help guides"
+        ]
+      }
+    },
+    "/api/v1/help-guides/{guideId}/archive": {
+      "post": {
+        "operationId": "HelpGuidesController_archive",
+        "parameters": [
+          {
+            "name": "guideId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagedHelpGuideResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Help guides"
+        ]
+      }
+    },
+    "/api/v1/help-guides/{guideKey}/feedback": {
+      "post": {
+        "operationId": "HelpGuidesController_feedback",
+        "parameters": [
+          {
+            "name": "guideKey",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HelpGuideFeedbackDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HelpGuideFeedbackResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Help guides"
+        ]
+      }
     }
   },
   "info": {
@@ -15816,6 +16145,547 @@
           "commercialEntitlements",
           "subscription",
           "createdAt"
+        ]
+      },
+      "PublishedHelpGuideResponseDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "SYSTEM",
+              "TENANT"
+            ]
+          },
+          "context": {
+            "type": "string",
+            "enum": [
+              "OVERVIEW",
+              "ORGANIZATION",
+              "DOCUMENTS",
+              "TRAINING",
+              "DEVIATIONS",
+              "CAPAS",
+              "CHANGES",
+              "AUDITS",
+              "RISKS",
+              "SUPPLIERS",
+              "EQUIPMENT",
+              "COMPLAINTS",
+              "RECALLS",
+              "PRODUCT_REVIEWS",
+              "USERS",
+              "ROLES",
+              "INVITATIONS",
+              "SECURITY",
+              "NOTIFICATIONS",
+              "PROFILE",
+              "SECURITY_SETTINGS"
+            ]
+          },
+          "slug": {
+            "type": "string"
+          },
+          "sortOrder": {
+            "type": "number"
+          },
+          "version": {
+            "type": "number"
+          },
+          "titleEs": {
+            "type": "string"
+          },
+          "titleEn": {
+            "type": "string"
+          },
+          "summaryEs": {
+            "type": "string"
+          },
+          "summaryEn": {
+            "type": "string"
+          },
+          "stepsEs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "stepsEn": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mediaUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "videoUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "resourceLabelEs": {
+            "type": "string",
+            "nullable": true
+          },
+          "resourceLabelEn": {
+            "type": "string",
+            "nullable": true
+          },
+          "resourceUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "viewerFeedback": {
+            "type": "boolean",
+            "nullable": true
+          }
+        },
+        "required": [
+          "key",
+          "source",
+          "context",
+          "slug",
+          "sortOrder",
+          "version",
+          "titleEs",
+          "titleEn",
+          "summaryEs",
+          "summaryEn",
+          "stepsEs",
+          "stepsEn",
+          "mediaUrl",
+          "videoUrl",
+          "resourceLabelEs",
+          "resourceLabelEn",
+          "resourceUrl",
+          "viewerFeedback"
+        ]
+      },
+      "HelpGuideRevisionResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "PUBLISHED",
+              "RETIRED"
+            ]
+          },
+          "titleEs": {
+            "type": "string"
+          },
+          "titleEn": {
+            "type": "string"
+          },
+          "summaryEs": {
+            "type": "string"
+          },
+          "summaryEn": {
+            "type": "string"
+          },
+          "stepsEs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "stepsEn": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mediaUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "videoUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "resourceLabelEs": {
+            "type": "string",
+            "nullable": true
+          },
+          "resourceLabelEn": {
+            "type": "string",
+            "nullable": true
+          },
+          "resourceUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdBy": {
+            "type": "string"
+          },
+          "publishedBy": {
+            "type": "string",
+            "nullable": true
+          },
+          "publishedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "status",
+          "titleEs",
+          "titleEn",
+          "summaryEs",
+          "summaryEn",
+          "stepsEs",
+          "stepsEn",
+          "mediaUrl",
+          "videoUrl",
+          "resourceLabelEs",
+          "resourceLabelEn",
+          "resourceUrl",
+          "createdBy",
+          "publishedBy",
+          "publishedAt",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "ManagedHelpGuideResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "key": {
+            "type": "string"
+          },
+          "context": {
+            "type": "string",
+            "enum": [
+              "OVERVIEW",
+              "ORGANIZATION",
+              "DOCUMENTS",
+              "TRAINING",
+              "DEVIATIONS",
+              "CAPAS",
+              "CHANGES",
+              "AUDITS",
+              "RISKS",
+              "SUPPLIERS",
+              "EQUIPMENT",
+              "COMPLAINTS",
+              "RECALLS",
+              "PRODUCT_REVIEWS",
+              "USERS",
+              "ROLES",
+              "INVITATIONS",
+              "SECURITY",
+              "NOTIFICATIONS",
+              "PROFILE",
+              "SECURITY_SETTINGS"
+            ]
+          },
+          "slug": {
+            "type": "string"
+          },
+          "sortOrder": {
+            "type": "number"
+          },
+          "createdBy": {
+            "type": "string"
+          },
+          "archivedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "draft": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/HelpGuideRevisionResponseDto"
+              }
+            ]
+          },
+          "published": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/HelpGuideRevisionResponseDto"
+              }
+            ]
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HelpGuideRevisionResponseDto"
+            }
+          },
+          "helpfulCount": {
+            "type": "number"
+          },
+          "notHelpfulCount": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "key",
+          "context",
+          "slug",
+          "sortOrder",
+          "createdBy",
+          "archivedAt",
+          "draft",
+          "published",
+          "history",
+          "helpfulCount",
+          "notHelpfulCount",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "CreateHelpGuideDto": {
+        "type": "object",
+        "properties": {
+          "context": {
+            "type": "string",
+            "enum": [
+              "OVERVIEW",
+              "ORGANIZATION",
+              "DOCUMENTS",
+              "TRAINING",
+              "DEVIATIONS",
+              "CAPAS",
+              "CHANGES",
+              "AUDITS",
+              "RISKS",
+              "SUPPLIERS",
+              "EQUIPMENT",
+              "COMPLAINTS",
+              "RECALLS",
+              "PRODUCT_REVIEWS",
+              "USERS",
+              "ROLES",
+              "INVITATIONS",
+              "SECURITY",
+              "NOTIFICATIONS",
+              "PROFILE",
+              "SECURITY_SETTINGS"
+            ]
+          },
+          "slug": {
+            "type": "string",
+            "example": "documentos-del-sitio"
+          },
+          "sortOrder": {
+            "type": "number",
+            "default": 0,
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "titleEs": {
+            "type": "string"
+          },
+          "titleEn": {
+            "type": "string"
+          },
+          "summaryEs": {
+            "type": "string"
+          },
+          "summaryEn": {
+            "type": "string"
+          },
+          "stepsEs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "stepsEn": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mediaUrl": {
+            "type": "object",
+            "nullable": true,
+            "format": "uri"
+          },
+          "videoUrl": {
+            "type": "object",
+            "nullable": true,
+            "format": "uri"
+          },
+          "resourceLabelEs": {
+            "type": "object",
+            "nullable": true
+          },
+          "resourceLabelEn": {
+            "type": "object",
+            "nullable": true
+          },
+          "resourceUrl": {
+            "type": "object",
+            "nullable": true,
+            "format": "uri"
+          }
+        },
+        "required": [
+          "context",
+          "slug",
+          "titleEs",
+          "titleEn",
+          "summaryEs",
+          "summaryEn",
+          "stepsEs",
+          "stepsEn"
+        ]
+      },
+      "UpdateHelpGuideDto": {
+        "type": "object",
+        "properties": {
+          "context": {
+            "type": "string",
+            "enum": [
+              "OVERVIEW",
+              "ORGANIZATION",
+              "DOCUMENTS",
+              "TRAINING",
+              "DEVIATIONS",
+              "CAPAS",
+              "CHANGES",
+              "AUDITS",
+              "RISKS",
+              "SUPPLIERS",
+              "EQUIPMENT",
+              "COMPLAINTS",
+              "RECALLS",
+              "PRODUCT_REVIEWS",
+              "USERS",
+              "ROLES",
+              "INVITATIONS",
+              "SECURITY",
+              "NOTIFICATIONS",
+              "PROFILE",
+              "SECURITY_SETTINGS"
+            ]
+          },
+          "slug": {
+            "type": "string",
+            "example": "documentos-del-sitio"
+          },
+          "sortOrder": {
+            "type": "number",
+            "default": 0,
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "titleEs": {
+            "type": "string"
+          },
+          "titleEn": {
+            "type": "string"
+          },
+          "summaryEs": {
+            "type": "string"
+          },
+          "summaryEn": {
+            "type": "string"
+          },
+          "stepsEs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "stepsEn": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mediaUrl": {
+            "type": "object",
+            "nullable": true,
+            "format": "uri"
+          },
+          "videoUrl": {
+            "type": "object",
+            "nullable": true,
+            "format": "uri"
+          },
+          "resourceLabelEs": {
+            "type": "object",
+            "nullable": true
+          },
+          "resourceLabelEn": {
+            "type": "object",
+            "nullable": true
+          },
+          "resourceUrl": {
+            "type": "object",
+            "nullable": true,
+            "format": "uri"
+          }
+        }
+      },
+      "HelpGuideFeedbackDto": {
+        "type": "object",
+        "properties": {
+          "helpful": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "helpful"
+        ]
+      },
+      "HelpGuideFeedbackResponseDto": {
+        "type": "object",
+        "properties": {
+          "accepted": {
+            "type": "boolean"
+          },
+          "helpful": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "accepted",
+          "helpful"
         ]
       }
     }

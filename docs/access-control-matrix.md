@@ -11,13 +11,13 @@ Esta validación se ejecuta en el backend para listas, detalles y evidencias. Oc
 
 ## Roles predeterminados
 
-| Rol                 | Alcance de lectura                                                                    | Responsabilidades predeterminadas                                                                                                                                      |
-| ------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Administrator       | Todos los registros, usuarios, configuración y plan                                   | Administración completa de la organización; acceso de contingencia                                                                                                     |
-| QA Manager          | Todos los procesos y documentos de calidad                                            | Decisiones y firmas de calidad, flujos documentales y capacitación; sin administración de empresa, usuarios o roles                                                    |
-| Document Controller | Todos los documentos; sólo registros propios o asignados en otros módulos habilitados | Crear, actualizar, revisar y liberar documentos; asignar capacitación; ejecutar CAPA/cambios asignados; responder auditorías y reportar reclamaciones                  |
-| Operator            | Documentos efectivos y registros propios o asignados                                  | Completar capacitación, reportar desviaciones y reclamaciones, ejecutar CAPA/cambios/mitigaciones, responder hallazgos y realizar calibración o mantenimiento asignado |
-| Auditor             | Lectura de todos los procesos y eventos de seguridad                                  | Planificar, ejecutar y revisar auditorías; exportar evidencia CAPA; sin aprobar operaciones que audita                                                                 |
+| Rol                 | Alcance de lectura                                                                    | Responsabilidades predeterminadas                                                                                                                                              |
+| ------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Administrator       | Todos los registros, usuarios, configuración y plan                                   | Administración completa de la organización; acceso de contingencia                                                                                                             |
+| QA Manager          | Todos los procesos y documentos de calidad                                            | Decisiones y firmas de calidad, flujos documentales y capacitación; sin administración de empresa, usuarios o roles                                                            |
+| Document Controller | Todos los documentos; sólo registros propios o asignados en otros módulos habilitados | Crear, actualizar, revisar y liberar documentos; publicar guías de ayuda; asignar capacitación; ejecutar CAPA/cambios asignados; responder auditorías y reportar reclamaciones |
+| Operator            | Documentos efectivos y registros propios o asignados                                  | Completar capacitación, reportar desviaciones y reclamaciones, ejecutar CAPA/cambios/mitigaciones, responder hallazgos y realizar calibración o mantenimiento asignado         |
+| Auditor             | Lectura de todos los procesos y eventos de seguridad                                  | Planificar, ejecutar y revisar auditorías; exportar evidencia CAPA; sin aprobar operaciones que audita                                                                         |
 
 ## Alcance por módulo
 
@@ -38,6 +38,7 @@ Esta validación se ejecuta en el backend para listas, detalles y evidencias. Oc
 | Retiros/acciones de campo      | Todo          | Todo                       | —                              | —                              | Lectura total                       |
 | PQR/APR                        | Todo          | Todo                       | —                              | —                              | Lectura total                       |
 | Seguridad/notificaciones       | Todo          | Notificaciones             | —                              | —                              | Lectura de eventos y notificaciones |
+| Guías de ayuda                 | Administrar   | Lectura                    | Administrar                    | Lectura                        | Lectura                             |
 
 `—` significa que el rol no recibe el módulo de forma predeterminada. Un Administrador puede crear roles personalizados para responsabilidades de calidad, manteniendo segregación de funciones. Los permisos de empresa, usuarios, invitaciones y roles están reservados de forma permanente al rol `Administrator` y no aparecen en el catálogo asignable.
 

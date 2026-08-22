@@ -47,6 +47,7 @@ const initialRolePermissions: Record<(typeof initialRoles)[number], string[]> =
   {
     Administrator: [],
     'QA Manager': [
+      'help_guides.read',
       'documents.read',
       'documents.read_all',
       'documents.create',
@@ -130,6 +131,9 @@ const initialRolePermissions: Record<(typeof initialRoles)[number], string[]> =
       'photo_evidence.upload',
     ],
     'Document Controller': [
+      'help_guides.read',
+      'help_guides.manage',
+      'help_guides.publish',
       'documents.read',
       'documents.read_all',
       'documents.create',
@@ -152,6 +156,7 @@ const initialRolePermissions: Record<(typeof initialRoles)[number], string[]> =
       'photo_evidence.upload',
     ],
     Operator: [
+      'help_guides.read',
       'documents.read',
       'training.read',
       'training.complete',
@@ -175,6 +180,7 @@ const initialRolePermissions: Record<(typeof initialRoles)[number], string[]> =
       'photo_evidence.upload',
     ],
     Auditor: [
+      'help_guides.read',
       'documents.read',
       'documents.read_all',
       'security.events.read',

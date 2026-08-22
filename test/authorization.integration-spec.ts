@@ -144,6 +144,7 @@ describeDatabase('RBAC and invitation lifecycle', () => {
         'risks.mitigate',
         'equipment.maintain',
         'complaints.create',
+        'help_guides.read',
       ]),
     );
     for (const permission of [
@@ -162,6 +163,8 @@ describeDatabase('RBAC and invitation lifecycle', () => {
         'capas.execute',
         'changes.implement',
         'audits.respond',
+        'help_guides.manage',
+        'help_guides.publish',
       ]),
     );
     for (const permission of [
@@ -180,6 +183,7 @@ describeDatabase('RBAC and invitation lifecycle', () => {
         'equipment.verify',
         'recalls.close',
         'product_reviews.approve',
+        'help_guides.read',
       ]),
     );
     for (const permission of [
@@ -197,6 +201,7 @@ describeDatabase('RBAC and invitation lifecycle', () => {
         'audits.execute',
         'audits.review',
         'product_reviews.read_all',
+        'help_guides.read',
       ]),
     );
     for (const permission of [

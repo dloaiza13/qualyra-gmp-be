@@ -647,6 +647,36 @@ enum PhotoEvidenceSubjectType {
   PRODUCT_REVIEW
 }
 
+enum HelpGuideContext {
+  OVERVIEW
+  ORGANIZATION
+  DOCUMENTS
+  TRAINING
+  DEVIATIONS
+  CAPAS
+  CHANGES
+  AUDITS
+  RISKS
+  SUPPLIERS
+  EQUIPMENT
+  COMPLAINTS
+  RECALLS
+  PRODUCT_REVIEWS
+  USERS
+  ROLES
+  INVITATIONS
+  SECURITY
+  NOTIFICATIONS
+  PROFILE
+  SECURITY_SETTINGS
+}
+
+enum HelpGuideRevisionStatus {
+  DRAFT
+  PUBLISHED
+  RETIRED
+}
+
 model Tenant {
   id                       String                          @id @default(uuid()) @db.Uuid
   name                     String                          @db.VarChar(200)
@@ -733,6 +763,9 @@ model Tenant {
   productReviewDecisions   ProductReviewDecision[]
   photoEvidence            PhotoEvidence[]
   photoEvidenceUsage       TenantPhotoEvidenceUsage?
+  helpGuides               HelpGuide[]
+  helpGuideRevisions       HelpGuideRevision[]
+  helpGuideFeedback        HelpGuideFeedback[]
   platformAuditEvents      PlatformAuditEvent[]
   subscription             TenantSubscription?
   billingProviderEvents    BillingProviderEvent[]
@@ -852,6 +885,10 @@ model User {
   productReviewAssessmentsCompleted ProductReviewAssessment[]       @relation("ProductReviewAssessmentSigner")
   productReviewDecisionsCompleted   ProductReviewDecision[]         @relation("ProductReviewDecisionSigner")
   photoEvidenceUploaded             PhotoEvidence[]                 @relation("PhotoEvidenceUploader")
+  helpGuidesCreated                 HelpGuide[]                     @relation("HelpGuideCreator")
+  helpGuideRevisionsCreated         HelpGuideRevision[]             @relation("HelpGuideRevisionCreator")
+  helpGuideRevisionsPublished       HelpGuideRevision[]             @relation("HelpGuideRevisionPublisher")
+  helpGuideFeedback                 HelpGuideFeedback[]
 
   @@unique([tenantId, id], map: "users_tenant_id_id_key")
   @@unique([tenantId, email], map: "users_tenant_id_email_key")
@@ -913,6 +950,74 @@ model UserRole {
   @@id([tenantId, userId, roleId])
   @@index([tenantId, roleId], map: "user_roles_tenant_id_role_id_idx")
   @@map("user_roles")
+}
+
+model HelpGuide {
+  id              String              @id @default(uuid()) @db.Uuid
+  tenantId        String              @map("tenant_id") @db.Uuid
+  context         HelpGuideContext
+  slug            String              @db.VarChar(100)
+  sortOrder       Int                 @default(0) @map("sort_order")
+  createdByUserId String              @map("created_by_user_id") @db.Uuid
+  archivedAt      DateTime?           @map("archived_at") @db.Timestamptz(3)
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant          Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  createdBy       User                @relation("HelpGuideCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
+  revisions       HelpGuideRevision[]
+
+  @@unique([tenantId, id], map: "help_guides_tenant_id_id_key")
+  @@unique([tenantId, slug], map: "help_guides_tenant_slug_key")
+  @@index([tenantId, context, archivedAt, sortOrder], map: "help_guides_context_idx")
+  @@map("help_guides")
+}
+
+model HelpGuideRevision {
+  id                String                  @id @default(uuid()) @db.Uuid
+  tenantId          String                  @map("tenant_id") @db.Uuid
+  guideId           String                  @map("guide_id") @db.Uuid
+  version           Int
+  status            HelpGuideRevisionStatus @default(DRAFT)
+  titleEs           String                  @map("title_es") @db.VarChar(160)
+  titleEn           String                  @map("title_en") @db.VarChar(160)
+  summaryEs         String                  @map("summary_es") @db.VarChar(600)
+  summaryEn         String                  @map("summary_en") @db.VarChar(600)
+  stepsEs           Json                    @map("steps_es")
+  stepsEn           Json                    @map("steps_en")
+  mediaUrl          String?                 @map("media_url") @db.VarChar(2048)
+  videoUrl          String?                 @map("video_url") @db.VarChar(2048)
+  resourceLabelEs   String?                 @map("resource_label_es") @db.VarChar(160)
+  resourceLabelEn   String?                 @map("resource_label_en") @db.VarChar(160)
+  resourceUrl       String?                 @map("resource_url") @db.VarChar(2048)
+  createdByUserId   String                  @map("created_by_user_id") @db.Uuid
+  publishedByUserId String?                 @map("published_by_user_id") @db.Uuid
+  publishedAt       DateTime?               @map("published_at") @db.Timestamptz(3)
+  createdAt         DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant            Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  guide             HelpGuide               @relation(fields: [tenantId, guideId], references: [tenantId, id], onDelete: Restrict)
+  createdBy         User                    @relation("HelpGuideRevisionCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
+  publishedBy       User?                   @relation("HelpGuideRevisionPublisher", fields: [tenantId, publishedByUserId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id], map: "help_guide_revisions_tenant_id_id_key")
+  @@unique([tenantId, guideId, version], map: "help_guide_revisions_version_key")
+  @@index([tenantId, guideId, status], map: "help_guide_revisions_status_idx")
+  @@map("help_guide_revisions")
+}
+
+model HelpGuideFeedback {
+  tenantId  String   @map("tenant_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  guideKey  String   @map("guide_key") @db.VarChar(140)
+  helpful   Boolean
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user      User     @relation(fields: [tenantId, userId], references: [tenantId, id], onDelete: Restrict)
+
+  @@id([tenantId, userId, guideKey])
+  @@index([tenantId, guideKey, helpful], map: "help_guide_feedback_summary_idx")
+  @@map("help_guide_feedback")
 }
 
 model Session {
