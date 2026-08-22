@@ -3,4 +3,5 @@ export interface AuthenticatedPrincipal {
   tenantId: string;
   sessionId: string;
   tokenVersion: number;
+  effectivePermissions?: readonly string[];
 }

@@ -11,7 +11,7 @@ The quality-risk module implements a tenant-scoped FMEA workflow aligned with th
 | `risks.mitigate` | Complete and sign an assigned mitigation                    |
 | `risks.review`   | Independently review and sign the residual-risk disposition |
 
-Administrators and QA Managers receive all four permissions. Document Controllers can create and mitigate, Operators can mitigate, and Auditors can perform independent reviews. Custom roles remain unchanged.
+Administrators and QA Managers receive all four permissions. Operators can read and complete mitigations assigned to them. Auditors receive organization-wide read-only access and do not sign the operational risk decision. Document Controllers do not receive this module by default. See `access-control-matrix.md` for the complete role model.
 
 ## API
 

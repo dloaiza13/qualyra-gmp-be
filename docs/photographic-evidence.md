@@ -12,6 +12,7 @@ On a tablet or phone, the frontend exposes a dedicated rear-camera input with `a
 - Image bytes use the managed evidence storage adapter. Local development may use the configured path on `D:`; production must use the existing S3-compatible adapter.
 - JPEG, PNG, WebP, HEIC, and HEIF signatures are checked before acceptance. Production configuration already requires the external ClamAV adapter.
 - Downloads are authenticated, tenant-scoped, returned with `nosniff` and private no-store caching, and re-hashed before delivery.
+- Listing and downloading inherit the record parent's scoped access. Uploading additionally requires an operational permission for that subject type, so organization-wide read access does not let an Auditor modify unrelated operational records.
 - Metadata is append-only. Runtime access has no update or delete grant, a database trigger rejects mutation, and forced Row-Level Security isolates tenants.
 - The same image cannot be attached twice to the same parent record in one tenant.
 

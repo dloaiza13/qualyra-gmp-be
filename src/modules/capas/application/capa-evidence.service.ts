@@ -7,6 +7,7 @@ import { ApplicationError } from '../../../common/errors/application-error.js';
 import { ErrorCode } from '../../../common/errors/error-codes.js';
 import type { RequestMetadata } from '../../authentication/application/request-metadata.js';
 import type { AuthenticatedPrincipal } from '../../authentication/domain/authenticated-principal.js';
+import { capaAccessWhere } from '../../authorization/application/record-access.policy.js';
 import { appendSecurityEvent } from '../../security-events/application/append-security-event.js';
 import { TenantUnitOfWork } from '../../tenancy/application/ports/tenant-unit-of-work.js';
 import { CapaEvidenceScanner } from '../domain/ports/capa-evidence-scanner.js';
@@ -179,7 +180,12 @@ export class CapaEvidenceService {
       principal.tenantId,
       (transaction) =>
         transaction.capaActionEvidenceReference.findFirst({
-          where: { id: evidenceId, capaId, tenantId: principal.tenantId },
+          where: {
+            id: evidenceId,
+            capaId,
+            tenantId: principal.tenantId,
+            capa: { is: capaAccessWhere(principal) },
+          },
           include: { evidenceUpload: true },
         }),
     );

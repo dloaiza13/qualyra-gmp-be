@@ -270,6 +270,7 @@ function moduleForPermission(permission: string): CommercialModule | undefined {
 function isReadPermission(permission: string): boolean {
   return (
     permission.endsWith('.read') ||
+    permission.endsWith('.read_all') ||
     permission.endsWith('.read_self') ||
     permission === 'capas.export'
   );

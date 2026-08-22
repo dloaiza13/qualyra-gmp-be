@@ -106,6 +106,9 @@ describeDatabase('Document training assignments', () => {
     expect(operatorRole.permissions.map(({ code }) => code)).toEqual(
       expect.arrayContaining(['training.read', 'training.complete']),
     );
+    expect(controllerRole.permissions.map(({ code }) => code)).toEqual(
+      expect.arrayContaining(['training.read', 'training.assign']),
+    );
 
     const reviewer = await inviteAndAccept(
       server,
@@ -267,10 +270,7 @@ describeDatabase('Document training assignments', () => {
     await request(server)
       .get(`/api/v1/training/assignments/${assignmentId}`)
       .set(bearer(controller.accessToken))
-      .expect(403)
-      .expect(({ body }: { body: ErrorBody }) => {
-        expect(body.code).toBe('TRAINING_FORBIDDEN');
-      });
+      .expect(200);
 
     const detail = bodyAs<TrainingAssignmentBody>(
       await request(server)

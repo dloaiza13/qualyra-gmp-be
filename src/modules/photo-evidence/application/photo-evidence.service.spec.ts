@@ -18,7 +18,13 @@ describe('PhotoEvidenceService', () => {
     const fixture = createFixture(0);
 
     const result = await fixture.service.upload(
-      { tenantId, userId, sessionId: 'session', tokenVersion: 0 },
+      {
+        tenantId,
+        userId,
+        sessionId: 'session',
+        tokenVersion: 0,
+        effectivePermissions: ['photo_evidence.upload', 'deviations.create'],
+      },
       { subjectType: 'DEVIATION', subjectId, caption: 'Leak location' },
       {
         originalname: 'camera.jpg',
@@ -57,7 +63,13 @@ describe('PhotoEvidenceService', () => {
 
     await expect(
       fixture.service.upload(
-        { tenantId, userId, sessionId: 'session', tokenVersion: 0 },
+        {
+          tenantId,
+          userId,
+          sessionId: 'session',
+          tokenVersion: 0,
+          effectivePermissions: ['photo_evidence.upload', 'deviations.create'],
+        },
         { subjectType: 'DEVIATION', subjectId },
         {
           originalname: 'camera.jpg',
@@ -92,6 +104,34 @@ describe('PhotoEvidenceService', () => {
       photoCount: 1,
       capacityStatus: 'NORMAL',
     });
+  });
+
+  it('does not let a read-only auditor add evidence to an operational record', async () => {
+    const fixture = createFixture(0);
+
+    await expect(
+      fixture.service.upload(
+        {
+          tenantId,
+          userId,
+          sessionId: 'session',
+          tokenVersion: 0,
+          effectivePermissions: [
+            'photo_evidence.upload',
+            'deviations.read_all',
+            'audits.execute',
+          ],
+        },
+        { subjectType: 'DEVIATION', subjectId },
+        {
+          originalname: 'camera.jpg',
+          mimetype: 'image/jpeg',
+          buffer: Buffer.from([0xff, 0xd8, 0xff, 0xdb]),
+        },
+        { correlationId: 'correlation' },
+      ),
+    ).rejects.toMatchObject({ code: ErrorCode.Forbidden });
+    expect(fixture.storage.store).not.toHaveBeenCalled();
   });
 });
 

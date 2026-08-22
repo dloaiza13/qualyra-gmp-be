@@ -6,6 +6,7 @@ import { ErrorCode } from '../../../common/errors/error-codes.js';
 import { PasswordHasher } from '../../../infrastructure/crypto/password-hasher.js';
 import type { RequestMetadata } from '../../authentication/application/request-metadata.js';
 import type { AuthenticatedPrincipal } from '../../authentication/domain/authenticated-principal.js';
+import { capaAccessWhere } from '../../authorization/application/record-access.policy.js';
 import { appendSecurityEvent } from '../../security-events/application/append-security-event.js';
 import { TenantUnitOfWork } from '../../tenancy/application/ports/tenant-unit-of-work.js';
 import type {
@@ -115,6 +116,7 @@ export class CapasService {
         const capas = await transaction.capa.findMany({
           where: {
             tenantId: principal.tenantId,
+            AND: [capaAccessWhere(principal)],
             ...(search
               ? {
                   OR: [
@@ -280,7 +282,14 @@ export class CapasService {
     return this.tenantUnitOfWork.execute(
       principal.tenantId,
       async (transaction) =>
-        mapDetail(await readCapa(transaction, principal.tenantId, capaId)),
+        mapDetail(
+          await readCapa(
+            transaction,
+            principal.tenantId,
+            capaId,
+            capaAccessWhere(principal),
+          ),
+        ),
     );
   }
 
@@ -1240,9 +1249,10 @@ async function readCapa(
   transaction: Prisma.TransactionClient,
   tenantId: string,
   capaId: string,
+  accessWhere: Prisma.CapaWhereInput = {},
 ): Promise<CapaDetailRecord> {
   const capa = await transaction.capa.findFirst({
-    where: { id: capaId, tenantId },
+    where: { id: capaId, tenantId, AND: [accessWhere] },
     include: capaDetailInclude,
   });
   if (!capa) throw capaNotFound();

@@ -80,18 +80,12 @@ describeDatabase('product recall and field-action lifecycle', () => {
     const roles = bodyAs<RoleBody[]>(
       await request(server).get('/api/v1/roles').set(authA).expect(200),
     );
-    const operatorRole = requiredRole(roles, 'Operator');
-    const auditorRole = requiredRole(roles, 'Auditor');
-    expect(operatorRole.permissions.map(({ code }) => code)).toEqual(
+    const qaRole = requiredRole(roles, 'QA Manager');
+    expect(qaRole.permissions.map(({ code }) => code)).toEqual(
       expect.arrayContaining([
         'recalls.read',
         'recalls.create',
         'recalls.execute',
-      ]),
-    );
-    expect(auditorRole.permissions.map(({ code }) => code)).toEqual(
-      expect.arrayContaining([
-        'recalls.read',
         'recalls.approve',
         'recalls.close',
       ]),
@@ -100,7 +94,7 @@ describeDatabase('product recall and field-action lifecycle', () => {
       server,
       authA,
       notifier,
-      operatorRole.id,
+      qaRole.id,
       `recall-executor-${suffix}@example.test`,
       'Recall Executor',
       'Recall executor passphrase 2026',
@@ -109,7 +103,7 @@ describeDatabase('product recall and field-action lifecycle', () => {
       server,
       authA,
       notifier,
-      auditorRole.id,
+      qaRole.id,
       `recall-approver-${suffix}@example.test`,
       'Recall Approver',
       'Recall approver passphrase 2026',

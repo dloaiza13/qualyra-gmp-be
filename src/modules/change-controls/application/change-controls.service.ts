@@ -6,6 +6,7 @@ import { ErrorCode } from '../../../common/errors/error-codes.js';
 import { PasswordHasher } from '../../../infrastructure/crypto/password-hasher.js';
 import type { RequestMetadata } from '../../authentication/application/request-metadata.js';
 import type { AuthenticatedPrincipal } from '../../authentication/domain/authenticated-principal.js';
+import { changeAccessWhere } from '../../authorization/application/record-access.policy.js';
 import { appendSecurityEvent } from '../../security-events/application/append-security-event.js';
 import { TenantUnitOfWork } from '../../tenancy/application/ports/tenant-unit-of-work.js';
 import type {
@@ -126,6 +127,7 @@ export class ChangeControlsService {
         const records = await transaction.changeControl.findMany({
           where: {
             tenantId: principal.tenantId,
+            AND: [changeAccessWhere(principal)],
             status: query.status,
             ...(search
               ? {
@@ -159,6 +161,7 @@ export class ChangeControlsService {
             transaction,
             principal.tenantId,
             changeControlId,
+            changeAccessWhere(principal),
           ),
         ),
     );
@@ -762,9 +765,10 @@ async function readChangeControl(
   transaction: Prisma.TransactionClient,
   tenantId: string,
   changeControlId: string,
+  accessWhere: Prisma.ChangeControlWhereInput = {},
 ): Promise<ChangeControlRecord> {
   const record = await transaction.changeControl.findFirst({
-    where: { id: changeControlId, tenantId },
+    where: { id: changeControlId, tenantId, AND: [accessWhere] },
     include: changeControlInclude,
   });
   if (!record) throw changeNotFound();

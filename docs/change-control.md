@@ -13,7 +13,7 @@ The change-control module governs planned changes from proposal through independ
 | `changes.implement` | Sign completion of assigned implementation tasks                   |
 | `changes.verify`    | Sign the assigned independent effectiveness verification           |
 
-Administrators and default QA Managers receive all six permissions. Document Controllers and Operators can read, propose, and implement. Auditors receive read-only access. Existing standard roles receive additive grants; custom roles are not changed.
+Administrators and default QA Managers receive all six permissions. Document Controllers and Operators can propose changes and read or implement records assigned to them. Auditors receive organization-wide read-only access. See `access-control-matrix.md` for the complete role model.
 
 ## API
 

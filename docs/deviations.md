@@ -11,7 +11,7 @@ Phases 14 and 15 add tenant-isolated reporting, triage, and authenticated root-c
 | `deviations.triage`      | Classify, assign, contain, or cancel a reported deviation |
 | `deviations.investigate` | Complete an investigation assigned to the caller          |
 
-Administrators receive every permission. Default QA Managers can read, report, triage, and investigate. Document Controllers can read, report, and investigate. Operators can read and report. Auditors have read-only access. The migrations add these grants to existing standard system roles without changing custom roles or replacing existing grants.
+Administrators receive every permission. Default QA Managers can read every record, report, triage, and investigate. Operators can report and read their own deviations. Auditors have organization-wide read-only access. Document Controllers do not receive this module by default. See `access-control-matrix.md` for the complete role model.
 
 An investigator must be an active user in the same tenant and hold `deviations.investigate`. Only that assigned person may complete the investigation. Frontend visibility is not an authorization control; every route verifies the authenticated tenant and permission at the API.
 

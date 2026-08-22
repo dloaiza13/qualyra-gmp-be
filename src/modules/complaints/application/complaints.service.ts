@@ -6,6 +6,7 @@ import { ErrorCode } from '../../../common/errors/error-codes.js';
 import { PasswordHasher } from '../../../infrastructure/crypto/password-hasher.js';
 import type { RequestMetadata } from '../../authentication/application/request-metadata.js';
 import type { AuthenticatedPrincipal } from '../../authentication/domain/authenticated-principal.js';
+import { complaintAccessWhere } from '../../authorization/application/record-access.policy.js';
 import { appendSecurityEvent } from '../../security-events/application/append-security-event.js';
 import { TenantUnitOfWork } from '../../tenancy/application/ports/tenant-unit-of-work.js';
 import type {
@@ -179,6 +180,7 @@ export class ComplaintsService {
         const complaints = await transaction.productComplaint.findMany({
           where: {
             tenantId: principal.tenantId,
+            AND: [complaintAccessWhere(principal)],
             status: query.status,
             ...(search
               ? {
@@ -210,7 +212,12 @@ export class ComplaintsService {
       principal.tenantId,
       async (transaction) =>
         mapDetail(
-          await readComplaint(transaction, principal.tenantId, complaintId),
+          await readComplaint(
+            transaction,
+            principal.tenantId,
+            complaintId,
+            complaintAccessWhere(principal),
+          ),
         ),
     );
   }
@@ -660,9 +667,10 @@ async function readComplaint(
   transaction: Prisma.TransactionClient,
   tenantId: string,
   complaintId: string,
+  accessWhere: Prisma.ProductComplaintWhereInput = {},
 ): Promise<ComplaintRecord> {
   const complaint = await transaction.productComplaint.findFirst({
-    where: { id: complaintId, tenantId },
+    where: { id: complaintId, tenantId, AND: [accessWhere] },
     include: complaintInclude,
   });
   if (!complaint) throw complaintNotFound();

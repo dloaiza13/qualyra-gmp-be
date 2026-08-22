@@ -6,6 +6,7 @@ import { ErrorCode } from '../../../common/errors/error-codes.js';
 import { PasswordHasher } from '../../../infrastructure/crypto/password-hasher.js';
 import type { RequestMetadata } from '../../authentication/application/request-metadata.js';
 import type { AuthenticatedPrincipal } from '../../authentication/domain/authenticated-principal.js';
+import { supplierAccessWhere } from '../../authorization/application/record-access.policy.js';
 import { appendSecurityEvent } from '../../security-events/application/append-security-event.js';
 import { TenantUnitOfWork } from '../../tenancy/application/ports/tenant-unit-of-work.js';
 import type {
@@ -174,6 +175,7 @@ export class SuppliersService {
         const records = await transaction.supplier.findMany({
           where: {
             tenantId: principal.tenantId,
+            AND: [supplierAccessWhere(principal)],
             status: query.status,
             ...(search
               ? {
@@ -209,7 +211,12 @@ export class SuppliersService {
       principal.tenantId,
       async (transaction) =>
         mapDetail(
-          await readSupplier(transaction, principal.tenantId, supplierId),
+          await readSupplier(
+            transaction,
+            principal.tenantId,
+            supplierId,
+            supplierAccessWhere(principal),
+          ),
         ),
     );
   }
@@ -904,9 +911,10 @@ async function readSupplier(
   transaction: Prisma.TransactionClient,
   tenantId: string,
   supplierId: string,
+  accessWhere: Prisma.SupplierWhereInput = {},
 ): Promise<SupplierRecord> {
   const supplier = await transaction.supplier.findFirst({
-    where: { id: supplierId, tenantId },
+    where: { id: supplierId, tenantId, AND: [accessWhere] },
     include: supplierInclude,
   });
   if (!supplier) throw supplierNotFound();

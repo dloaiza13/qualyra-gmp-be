@@ -91,7 +91,7 @@ export class CapasController {
   }
 
   @Get('analytics')
-  @Permissions('capas.read')
+  @Permissions('capas.read_all')
   @ApiOkResponse({ type: CapaAnalyticsResponseDto })
   analytics(
     @CurrentUser() principal: AuthenticatedPrincipal,

@@ -6,6 +6,7 @@ import { ErrorCode } from '../../../common/errors/error-codes.js';
 import { PasswordHasher } from '../../../infrastructure/crypto/password-hasher.js';
 import type { RequestMetadata } from '../../authentication/application/request-metadata.js';
 import type { AuthenticatedPrincipal } from '../../authentication/domain/authenticated-principal.js';
+import { recallAccessWhere } from '../../authorization/application/record-access.policy.js';
 import { appendSecurityEvent } from '../../security-events/application/append-security-event.js';
 import { TenantUnitOfWork } from '../../tenancy/application/ports/tenant-unit-of-work.js';
 import type {
@@ -166,6 +167,7 @@ export class RecallsService {
         const recalls = await transaction.productRecall.findMany({
           where: {
             tenantId: principal.tenantId,
+            AND: [recallAccessWhere(principal)],
             status: query.status,
             ...(search
               ? {
@@ -211,7 +213,14 @@ export class RecallsService {
     return this.tenantUnitOfWork.execute(
       principal.tenantId,
       async (transaction) =>
-        mapDetail(await readRecall(transaction, principal.tenantId, recallId)),
+        mapDetail(
+          await readRecall(
+            transaction,
+            principal.tenantId,
+            recallId,
+            recallAccessWhere(principal),
+          ),
+        ),
     );
   }
 
@@ -759,9 +768,10 @@ async function readRecall(
   transaction: Prisma.TransactionClient,
   tenantId: string,
   recallId: string,
+  accessWhere: Prisma.ProductRecallWhereInput = {},
 ): Promise<RecallRecord> {
   const recall = await transaction.productRecall.findFirst({
-    where: { id: recallId, tenantId },
+    where: { id: recallId, tenantId, AND: [accessWhere] },
     include: recallInclude,
   });
   if (!recall) throw recallNotFound();

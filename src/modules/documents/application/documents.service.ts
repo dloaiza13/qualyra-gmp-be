@@ -6,6 +6,7 @@ import { ErrorCode } from '../../../common/errors/error-codes.js';
 import { PasswordHasher } from '../../../infrastructure/crypto/password-hasher.js';
 import type { RequestMetadata } from '../../authentication/application/request-metadata.js';
 import type { AuthenticatedPrincipal } from '../../authentication/domain/authenticated-principal.js';
+import { documentAccessWhere } from '../../authorization/application/record-access.policy.js';
 import { appendSecurityEvent } from '../../security-events/application/append-security-event.js';
 import { TenantUnitOfWork } from '../../tenancy/application/ports/tenant-unit-of-work.js';
 import type {
@@ -123,6 +124,7 @@ export class DocumentsService {
         const documents = await transaction.document.findMany({
           where: {
             tenantId: principal.tenantId,
+            AND: [documentAccessWhere(principal)],
             type: query.type,
             status: query.status,
             ...(query.search
@@ -165,7 +167,11 @@ export class DocumentsService {
       principal.tenantId,
       async (transaction) => {
         const document = await transaction.document.findFirst({
-          where: { id: documentId, tenantId: principal.tenantId },
+          where: {
+            id: documentId,
+            tenantId: principal.tenantId,
+            AND: [documentAccessWhere(principal)],
+          },
           include: documentDetails,
         });
         if (!document) throw documentNotFound();

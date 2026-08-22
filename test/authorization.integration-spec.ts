@@ -125,6 +125,85 @@ describeDatabase('RBAC and invitation lifecycle', () => {
     const rolesA = bodyAs<RoleBody[]>(rolesAResponse);
     const administratorA = roleNamed(rolesA, 'Administrator');
     const operatorA = roleNamed(rolesA, 'Operator');
+    const qaManagerA = roleNamed(rolesA, 'QA Manager');
+    const documentControllerA = roleNamed(rolesA, 'Document Controller');
+    const auditorA = roleNamed(rolesA, 'Auditor');
+
+    expect(permissionCodes(operatorA)).toEqual(
+      expect.arrayContaining([
+        'documents.read',
+        'training.complete',
+        'deviations.create',
+        'capas.execute',
+        'audits.respond',
+        'risks.mitigate',
+        'equipment.maintain',
+        'complaints.create',
+      ]),
+    );
+    for (const permission of [
+      'deviations.read_all',
+      'suppliers.read',
+      'recalls.read',
+      'product_reviews.read',
+    ]) {
+      expect(permissionCodes(operatorA)).not.toContain(permission);
+    }
+    expect(permissionCodes(documentControllerA)).toEqual(
+      expect.arrayContaining([
+        'documents.read_all',
+        'documents.release',
+        'training.assign',
+        'capas.execute',
+        'changes.implement',
+        'audits.respond',
+      ]),
+    );
+    for (const permission of [
+      'deviations.read',
+      'risks.read',
+      'suppliers.read',
+      'equipment.read',
+    ]) {
+      expect(permissionCodes(documentControllerA)).not.toContain(permission);
+    }
+    expect(permissionCodes(qaManagerA)).toEqual(
+      expect.arrayContaining([
+        'documents.read_all',
+        'deviations.read_all',
+        'suppliers.approve',
+        'equipment.verify',
+        'recalls.close',
+        'product_reviews.approve',
+      ]),
+    );
+    for (const permission of [
+      'tenants.read',
+      'users.read',
+      'roles.read',
+      'documents.release',
+    ]) {
+      expect(permissionCodes(qaManagerA)).not.toContain(permission);
+    }
+    expect(permissionCodes(auditorA)).toEqual(
+      expect.arrayContaining([
+        'security.events.read',
+        'documents.read_all',
+        'audits.execute',
+        'audits.review',
+        'product_reviews.read_all',
+      ]),
+    );
+    for (const permission of [
+      'risks.review',
+      'suppliers.approve',
+      'equipment.verify',
+      'complaints.review',
+      'recalls.approve',
+      'product_reviews.approve',
+    ]) {
+      expect(permissionCodes(auditorA)).not.toContain(permission);
+    }
 
     const rolesBResponse = await request(server)
       .get('/api/v1/roles')
@@ -419,6 +498,10 @@ function roleNamed(roles: RoleBody[], name: string): RoleBody {
   const role = roles.find((candidate) => candidate.name === name);
   if (!role) throw new Error(`Role ${name} was not found.`);
   return role;
+}
+
+function permissionCodes(role: RoleBody): string[] {
+  return role.permissions.map(({ code }) => code);
 }
 
 function bodyAs<T>(response: Response): T {

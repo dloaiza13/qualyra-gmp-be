@@ -10,7 +10,7 @@ Phase 13 adds version-bound reading assignments for effective controlled documen
 | `training.assign`   | List tenant assignments, create assignments, and cancel pending assignments |
 | `training.complete` | Complete an assignment addressed to the authenticated user                  |
 
-Administrators receive every permission. Default QA Managers can read, assign, and complete training. Document Controllers, Operators, and Auditors can read and complete their own training. The service still verifies permissions, tenant identity, user status, and assignment ownership; frontend visibility is not an authorization control.
+Administrators and default QA Managers can read, assign, and complete training. Document Controllers can also manage assignments and complete their own training. Operators and Auditors can read and complete only their own assignments. The service verifies permissions, tenant identity, user status, and assignment ownership; frontend visibility is not an authorization control.
 
 ## API
 

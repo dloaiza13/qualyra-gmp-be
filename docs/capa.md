@@ -15,7 +15,7 @@ Phases 16 through 20 turn a completed deviation investigation into a controlled 
 | `capas.approve_extensions`     | Approve action due-date extensions with reauthentication   |
 | `capas.export`                 | Generate an immutable, hashed CAPA audit manifest          |
 
-Administrators and default QA Managers receive every CAPA permission. QA Managers also receive read-only user and role directory access so assignment controls are operable without user-management authority. Document Controllers and Operators can read plans and execute assigned actions. Auditors can read and export. Existing standard roles receive additive grants in the migration; custom roles are not changed.
+Administrators and default QA Managers receive every CAPA permission. Document Controllers and Operators can read and execute plans assigned to them. Auditors can read every plan and export audit evidence, but cannot operate it. Assignment selectors do not require access to tenant administration. See `access-control-matrix.md` for the complete role model.
 
 An action assignee must be active in the same tenant and hold `capas.execute`. UI visibility does not authorize an action: the API verifies tenant, permission, assignment, active session, and current password.
 

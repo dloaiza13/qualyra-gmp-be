@@ -13,7 +13,7 @@ The audits module preserves a tenant-scoped inspection lifecycle from an approve
 | `audits.review`  | Accept a response or request a new immutable attempt             |
 | `audits.close`   | Sign independent closure after every finding is accepted         |
 
-Administrators and default QA Managers receive all permissions. Auditors can plan, execute, and review. Operators and Document Controllers can read and respond. Existing standard roles receive additive grants; custom roles are unchanged.
+Administrators and default QA Managers receive all permissions. Auditors can read every audit and plan, execute, and review them. Operators and Document Controllers can read and respond only where they have an assigned finding or other formal participation. See `access-control-matrix.md` for the complete role model.
 
 ## API
 

@@ -92,18 +92,12 @@ describeDatabase('supplier quality management lifecycle', () => {
     const roles = bodyAs<RoleBody[]>(
       await request(server).get('/api/v1/roles').set(authA).expect(200),
     );
-    const operatorRole = requiredRole(roles, 'Operator');
-    const auditorRole = requiredRole(roles, 'Auditor');
-    expect(operatorRole.permissions.map(({ code }) => code)).toEqual(
+    const qaRole = requiredRole(roles, 'QA Manager');
+    expect(qaRole.permissions.map(({ code }) => code)).toEqual(
       expect.arrayContaining([
         'suppliers.read',
         'suppliers.assess',
         'suppliers.scar',
-      ]),
-    );
-    expect(auditorRole.permissions.map(({ code }) => code)).toEqual(
-      expect.arrayContaining([
-        'suppliers.read',
         'suppliers.approve',
         'suppliers.review_scar',
       ]),
@@ -113,7 +107,7 @@ describeDatabase('supplier quality management lifecycle', () => {
       server,
       authA,
       notifier,
-      operatorRole.id,
+      qaRole.id,
       `supplier-owner-${suffix}@example.test`,
       'Supplier Quality Owner',
       'Supplier owner passphrase 2026',
@@ -122,7 +116,7 @@ describeDatabase('supplier quality management lifecycle', () => {
       server,
       authA,
       notifier,
-      auditorRole.id,
+      qaRole.id,
       `supplier-approver-${suffix}@example.test`,
       'Supplier Independent Approver',
       'Supplier approver passphrase 2026',

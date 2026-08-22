@@ -6,6 +6,7 @@ import { ErrorCode } from '../../../common/errors/error-codes.js';
 import { PasswordHasher } from '../../../infrastructure/crypto/password-hasher.js';
 import type { RequestMetadata } from '../../authentication/application/request-metadata.js';
 import type { AuthenticatedPrincipal } from '../../authentication/domain/authenticated-principal.js';
+import { equipmentAccessWhere } from '../../authorization/application/record-access.policy.js';
 import { appendSecurityEvent } from '../../security-events/application/append-security-event.js';
 import { TenantUnitOfWork } from '../../tenancy/application/ports/tenant-unit-of-work.js';
 import type {
@@ -128,6 +129,7 @@ export class EquipmentService {
         const records = await transaction.equipment.findMany({
           where: {
             tenantId: principal.tenantId,
+            AND: [equipmentAccessWhere(principal)],
             status: query.status,
             ...(search
               ? {
@@ -163,7 +165,12 @@ export class EquipmentService {
       principal.tenantId,
       async (transaction) =>
         mapDetail(
-          await readEquipment(transaction, principal.tenantId, equipmentId),
+          await readEquipment(
+            transaction,
+            principal.tenantId,
+            equipmentId,
+            equipmentAccessWhere(principal),
+          ),
         ),
     );
   }
@@ -827,9 +834,10 @@ async function readEquipment(
   transaction: Prisma.TransactionClient,
   tenantId: string,
   equipmentId: string,
+  accessWhere: Prisma.EquipmentWhereInput = {},
 ): Promise<EquipmentRecord> {
   const equipment = await transaction.equipment.findFirst({
-    where: { id: equipmentId, tenantId },
+    where: { id: equipmentId, tenantId, AND: [accessWhere] },
     include: equipmentInclude,
   });
   if (!equipment) throw equipmentNotFound();

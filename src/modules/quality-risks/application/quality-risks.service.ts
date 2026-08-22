@@ -6,6 +6,7 @@ import { ErrorCode } from '../../../common/errors/error-codes.js';
 import { PasswordHasher } from '../../../infrastructure/crypto/password-hasher.js';
 import type { RequestMetadata } from '../../authentication/application/request-metadata.js';
 import type { AuthenticatedPrincipal } from '../../authentication/domain/authenticated-principal.js';
+import { riskAccessWhere } from '../../authorization/application/record-access.policy.js';
 import { appendSecurityEvent } from '../../security-events/application/append-security-event.js';
 import { TenantUnitOfWork } from '../../tenancy/application/ports/tenant-unit-of-work.js';
 import type {
@@ -155,6 +156,7 @@ export class QualityRisksService {
         const risks = await transaction.qualityRiskAssessment.findMany({
           where: {
             tenantId: principal.tenantId,
+            AND: [riskAccessWhere(principal)],
             status: query.status,
             ...(search
               ? {
@@ -188,7 +190,14 @@ export class QualityRisksService {
     return this.tenantUnitOfWork.execute(
       principal.tenantId,
       async (transaction) =>
-        mapDetail(await readRisk(transaction, principal.tenantId, riskId)),
+        mapDetail(
+          await readRisk(
+            transaction,
+            principal.tenantId,
+            riskId,
+            riskAccessWhere(principal),
+          ),
+        ),
     );
   }
 
@@ -629,9 +638,10 @@ async function readRisk(
   transaction: Prisma.TransactionClient,
   tenantId: string,
   riskId: string,
+  accessWhere: Prisma.QualityRiskAssessmentWhereInput = {},
 ): Promise<RiskRecord> {
   const risk = await transaction.qualityRiskAssessment.findFirst({
-    where: { id: riskId, tenantId },
+    where: { id: riskId, tenantId, AND: [accessWhere] },
     include: riskInclude,
   });
   if (!risk) throw riskNotFound();

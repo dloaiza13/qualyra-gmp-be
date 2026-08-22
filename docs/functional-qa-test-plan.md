@@ -21,16 +21,18 @@ La contraseña compartida existe únicamente para el ambiente local de QA. No de
 
 ### Usuarios de prueba
 
-| Actor                | Correo                     | Rol                 | Uso principal                                                                  |
-| -------------------- | -------------------------- | ------------------- | ------------------------------------------------------------------------------ |
-| Administrador        | `admin@qualyra.local`      | Administrator       | Configuración, liberación documental y verificación independiente de cambios   |
-| Control documental   | `controller@qualyra.local` | Document Controller | Documentos, investigaciones, proveedores y equipos                             |
-| Operador             | `operator@qualyra.local`   | Operator            | Reportes, tareas, capacitaciones y ejecución de acciones                       |
-| Revisor de calidad   | `reviewer@qualyra.local`   | QA Manager          | Revisión, evaluación, investigación y decisiones de calidad                    |
-| Aprobador de calidad | `approver@qualyra.local`   | QA Manager          | Aprobación y planificación independiente                                       |
-| Auditor              | `auditor@qualyra.local`    | Auditor             | Auditorías y revisiones independientes de riesgo, proveedor, equipo y producto |
+| Actor                | Correo                     | Rol                 | Uso principal                                                                     |
+| -------------------- | -------------------------- | ------------------- | --------------------------------------------------------------------------------- |
+| Administrador        | `admin@qualyra.local`      | Administrator       | Configuración, contingencia y participación independiente cuando el caso la exige |
+| Control documental   | `controller@qualyra.local` | Document Controller | Documentos, capacitación y tareas formalmente asignadas                           |
+| Operador             | `operator@qualyra.local`   | Operator            | Reportes propios, capacitaciones y ejecución de acciones asignadas                |
+| Revisor de calidad   | `reviewer@qualyra.local`   | QA Manager          | Evaluación, investigación y decisiones operativas de calidad                      |
+| Aprobador de calidad | `approver@qualyra.local`   | QA Manager          | Aprobación y revisión independiente                                               |
+| Auditor              | `auditor@qualyra.local`    | Auditor             | Auditorías y consulta transversal sin aprobar operaciones auditadas               |
 
 Aunque Revisor y Aprobador poseen el mismo rol, son identidades diferentes. Esa separación es necesaria para comprobar las reglas de independencia.
+
+La matriz detallada, incluido el alcance de registros propios/asignados frente a lectura global, está en `docs/access-control-matrix.md`.
 
 ## 3. Reglas de ejecución
 
@@ -263,7 +265,7 @@ La creación de empresas desde la consola queda fuera de esta ejecución para pr
 **Pasos:**
 
 1. Entrar como Revisor y abrir la desviación.
-2. Clasificarla como `MAJOR`, documentar contención e impacto y asignar a Control documental como investigador.
+2. Clasificarla como `MAJOR`, documentar contención e impacto y asignar al Aprobador de calidad como investigador.
 3. Intentar repetir la clasificación desde otra sesión o pestaña.
 
 **Resultado esperado:** La primera transición deja la desviación `UNDER_INVESTIGATION`; la segunda se rechaza y no duplica evidencia.
@@ -274,7 +276,7 @@ La creación de empresas desde la consola queda fuera de esta ejecución para pr
 
 **Pasos:**
 
-1. Entrar como Control documental.
+1. Entrar como Aprobador de calidad.
 2. Completar la investigación con método `FIVE_WHYS`, problema, cronología, causa inmediata, causa raíz, factores contribuyentes e impacto.
 3. Marcar que requiere CAPA y justificarlo.
 4. Probar la contraseña incorrecta y después firmar con la correcta.
@@ -412,14 +414,14 @@ La creación de empresas desde la consola queda fuera de esta ejecución para pr
 
 ### QA-QRM-001 — Mitigación y aceptación independiente
 
-**Historia:** Como Control documental, quiero evaluar un modo de falla y obtener aceptación independiente del riesgo residual.
+**Historia:** Como Administrador, quiero iniciar un análisis con dueño y aceptación de calidad independientes.
 
 **Pasos:**
 
-1. Como Control documental, crear una evaluación FMEA `QA - Riesgo de sello`, con Control documental como dueño, Auditor como revisor y un ítem asignado a Operador.
+1. Como Administrador, crear una evaluación FMEA `QA - Riesgo de sello`, con Revisor de calidad como dueño, Aprobador de calidad como revisor y un ítem asignado a Operador.
 2. Usar severidad 5, probabilidad 4 y detectabilidad 5; comprobar RPN inicial `100`, nivel crítico.
 3. Como Operador, firmar la mitigación, evidencia y puntajes residuales 3 × 2 × 2 = `12`.
-4. Como Auditor, firmar `ACCEPT` con justificación.
+4. Como Aprobador de calidad, firmar `ACCEPT` con justificación.
 
 **Resultado esperado:** Se genera `QRM-YYYY-NNNN`; los RPN se calculan correctamente, el último ítem mueve a `PENDING_REVIEW` y la aceptación deja el riesgo `CLOSED`.
 
@@ -430,7 +432,7 @@ La creación de empresas desde la consola queda fuera de esta ejecución para pr
 **Pasos:**
 
 1. Intentar crear una FMEA usando como revisor al creador, dueño o mitigador.
-2. En una FMEA válida distinta, completar mitigaciones y firmar `NOT_ACCEPTABLE` con Auditor.
+2. En una FMEA válida distinta, completar mitigaciones y firmar `NOT_ACCEPTABLE` con Aprobador de calidad.
 
 **Resultado esperado:** La asignación incompatible se bloquea y el caso válido termina `RESIDUAL_RISK_NOT_ACCEPTED`, sin forzar una reducción artificial del RPN.
 
@@ -438,14 +440,14 @@ La creación de empresas desde la consola queda fuera de esta ejecución para pr
 
 ### QA-SUP-001 — Calificación inicial y lista aprobada
 
-**Historia:** Como Control documental, quiero calificar un proveedor con decisión independiente.
+**Historia:** Como calidad, quiero calificar un proveedor con decisión independiente.
 
 **Pasos:**
 
-1. Como Control documental, registrar `Proveedor QA de Empaques` con número `REG-QA-001`, criticidad alta y Control documental como dueño de calidad.
-2. Firmar evaluación `INITIAL` con puntajes 4, 4, 3 y 4; comprobar resultado `75`.
-3. Recomendar aprobación y asignar Auditor como aprobador.
-4. Como Auditor, firmar `APPROVE` y establecer reevaluación futura.
+1. Como Administrador, registrar `Proveedor QA de Empaques` con número `REG-QA-001`, criticidad alta, Revisor de calidad como dueño y Aprobador de calidad como aprobador.
+2. Como Revisor de calidad, firmar evaluación `INITIAL` con puntajes 4, 4, 3 y 4; comprobar resultado `75`.
+3. Recomendar aprobación.
+4. Como Aprobador de calidad, firmar `APPROVE` y establecer reevaluación futura.
 
 **Resultado esperado:** Se genera `SUP-YYYY-NNNN`; la evaluación queda inmutable, la decisión es independiente y el proveedor aparece `APPROVED` en la lista aprobada.
 
@@ -457,11 +459,11 @@ La creación de empresas desde la consola queda fuera de esta ejecución para pr
 
 **Pasos:**
 
-1. Como Control documental, emitir una SCAR mayor con vencimiento futuro y Auditor como revisor.
+1. Como Revisor de calidad, emitir una SCAR mayor con vencimiento futuro y Aprobador de calidad como revisor.
 2. Registrar y firmar una primera respuesta recibida con causa raíz, corrección, acción y referencia de evidencia.
-3. Como Auditor, firmar `REQUEST_REVISION`.
-4. Como Control documental, registrar una segunda respuesta.
-5. Como Auditor, firmar `ACCEPT`.
+3. Como Aprobador de calidad, firmar `REQUEST_REVISION`.
+4. Como Revisor de calidad, registrar una segunda respuesta.
+5. Como Aprobador de calidad, firmar `ACCEPT`.
 
 **Resultado esperado:** Se genera `SCAR-YYYY-NNNN`; ambos intentos permanecen visibles y la aceptación final deja la SCAR `CLOSED`.
 
@@ -469,14 +471,14 @@ La creación de empresas desde la consola queda fuera de esta ejecución para pr
 
 ### QA-EQP-001 — Calibración con verificación independiente
 
-**Historia:** Como Control documental, quiero impedir el uso de un equipo mientras su calibración no haya sido aceptada.
+**Historia:** Como calidad, quiero impedir el uso de un equipo mientras su calibración no haya sido aceptada.
 
 **Pasos:**
 
-1. Registrar `Balanza QA`, categoría `MEASUREMENT`, criticidad alta, Operador como responsable y Auditor como verificador, con planes requeridos.
+1. Como Administrador, registrar `Balanza QA`, categoría `MEASUREMENT`, criticidad alta, Operador como responsable y Revisor de calidad como verificador, con planes requeridos.
 2. Como Operador, firmar una calibración `PASS` y adjuntar evidencia fotográfica.
 3. Comprobar el estado antes de revisión.
-4. Como Auditor, firmar `ACCEPT`.
+4. Como Revisor de calidad, firmar `ACCEPT`.
 
 **Resultado esperado:** Se genera `EQP-YYYY-NNNN`; al iniciar/firmar la calibración el equipo queda fuera de servicio o no apto y sólo la aceptación independiente restaura aptitud si los demás planes están vigentes.
 
@@ -487,9 +489,9 @@ La creación de empresas desde la consola queda fuera de esta ejecución para pr
 **Pasos:**
 
 1. Como Operador, firmar mantenimiento correctivo `UNSATISFACTORY`.
-2. Como Auditor, rechazar la revisión.
+2. Como Revisor de calidad, rechazar la revisión.
 3. Confirmar que el equipo sigue fuera de servicio/no apto.
-4. Como Auditor, firmar el retiro con contraseña, atestación y motivo.
+4. Como Revisor de calidad, firmar el retiro con contraseña, atestación y motivo.
 5. Intentar registrar otra calibración o mantenimiento.
 
 **Resultado esperado:** El rechazo no habilita el equipo; el retiro deja estado `RETIRED`, conserva el historial y bloquea nuevas intervenciones.
@@ -503,9 +505,9 @@ La creación de empresas desde la consola queda fuera de esta ejecución para pr
 **Pasos:**
 
 1. Como Operador y desde tablet, crear `QA - Empaque abierto`, fuente cliente, producto/lote definidos, posible evento de seguridad y una foto.
-2. Como Aprobador, clasificarla alta, documentar acción inmediata y evaluación regulatoria, asignar Revisor como investigador y Auditor como revisor final.
+2. Como Administrador, clasificarla alta, documentar acción inmediata y evaluación regulatoria, asignar Revisor como investigador y Aprobador como revisor final.
 3. Como Revisor, firmar la investigación, disposición propuesta y vínculos controlados aplicables.
-4. Como Auditor, firmar la decisión final con disposición `SUBSTANTIATED` y definir justificadamente si requiere acción de retiro.
+4. Como Aprobador, firmar la decisión final con disposición `SUBSTANTIATED` y definir justificadamente si requiere acción de retiro.
 
 **Resultado esperado:** Se conserva el intake y la foto; el flujo pasa `REPORTED` → `UNDER_INVESTIGATION` → `PENDING_REVIEW` → `CLOSED`, con investigador y revisor diferentes.
 
@@ -528,11 +530,11 @@ La creación de empresas desde la consola queda fuera de esta ejecución para pr
 
 **Pasos:**
 
-1. Como Control documental y desde tablet, reportar una acción `RECALL` para el producto/lote definidos, con foto y referencia controlada.
-2. Como Revisor, firmar evaluación de peligro, alcance, clase, profundidad, comunicaciones y reporte regulatorio; asignar Auditor como aprobador.
-3. Como Auditor, firmar aprobación.
-4. Como Operador, agregar actualizaciones acumulativas de inicio, notificaciones, recuperación y comunicación regulatoria.
-5. Como Auditor, firmar cierre con efectividad y reconciliación de cantidades.
+1. Como Revisor de calidad y desde tablet, reportar una acción `RECALL` para el producto/lote definidos, con foto y referencia controlada.
+2. Como Revisor, firmar evaluación de peligro, alcance, clase, profundidad, comunicaciones y reporte regulatorio; asignar Aprobador de calidad como aprobador.
+3. Como Aprobador, firmar aprobación.
+4. Como Revisor, agregar actualizaciones acumulativas de inicio, notificaciones, recuperación y comunicación regulatoria.
+5. Como Aprobador, firmar cierre con efectividad y reconciliación de cantidades.
 
 **Resultado esperado:** Se genera `RCL-YYYY-NNNN`; el flujo avanza `REPORTED` → `PENDING_APPROVAL` → `APPROVED/IN_EXECUTION` → `CLOSED` y ninguna actualización firmada reemplaza otra.
 
@@ -543,8 +545,8 @@ La creación de empresas desde la consola queda fuera de esta ejecución para pr
 **Pasos:**
 
 1. Preparar una segunda acción y firmar la evaluación.
-2. Como Auditor, firmar rechazo.
-3. Como Operador, intentar añadir una actualización de ejecución.
+2. Como Aprobador, firmar rechazo.
+3. Como Revisor, intentar añadir una actualización de ejecución.
 4. Intentar cerrar o editar el intake.
 
 **Resultado esperado:** El registro queda `REJECTED`; ejecución, cierre y edición posterior se bloquean y la evaluación/decisión permanecen visibles.
@@ -553,15 +555,15 @@ La creación de empresas desde la consola queda fuera de esta ejecución para pr
 
 ### QA-PQR-001 — Preparación, tendencias y aprobación
 
-**Historia:** Como Control documental, quiero consolidar una revisión de producto y someterla a aprobación independiente.
+**Historia:** Como Revisor de calidad, quiero consolidar una revisión de producto y someterla a aprobación independiente.
 
 **Pasos:**
 
-1. Como Control documental, crear un PQR/APR para `Producto QA 10 mg`, autorización `MA-QA-001`, un periodo pasado no solapado, objetivo futuro y Auditor como aprobador; adjuntar una foto si aplica.
-2. Como Operador, preparar lotes, OOS, estabilidad, validación, regulación, beneficio-riesgo y recomendaciones.
+1. Como Revisor de calidad, crear un PQR/APR para `Producto QA 10 mg`, autorización `MA-QA-001`, un periodo pasado no solapado, objetivo futuro y Aprobador de calidad como aprobador; adjuntar una foto si aplica.
+2. Como Revisor, preparar lotes, OOS, estabilidad, validación, regulación, beneficio-riesgo y recomendaciones.
 3. Firmar la evaluación con contraseña y atestación.
 4. Revisar el snapshot de tendencias capturado.
-5. Como Auditor, firmar `APPROVE`, racional y próxima revisión.
+5. Como Aprobador, firmar `APPROVE`, racional y próxima revisión.
 
 **Resultado esperado:** El alcance queda inmutable, el snapshot incluye conteos del periodo y comparación anterior, conserva su SHA-256 y el registro termina `APPROVED`.
 
@@ -572,7 +574,7 @@ La creación de empresas desde la consola queda fuera de esta ejecución para pr
 **Pasos:**
 
 1. Preparar un segundo PQR válido y firmar su evaluación.
-2. Como Auditor, decidir `REQUIRE_FOLLOW_UP` con razón, referencia controlada y próxima fecha.
+2. Como Aprobador, decidir `REQUIRE_FOLLOW_UP` con razón, referencia controlada y próxima fecha.
 3. Crear un tercer borrador incorrecto y cancelarlo antes de evaluación.
 4. Intentar cancelar el PQR ya firmado.
 

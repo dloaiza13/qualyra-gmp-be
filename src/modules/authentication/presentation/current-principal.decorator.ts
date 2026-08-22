@@ -11,6 +11,11 @@ export const CurrentPrincipal = createParamDecorator(
     if (!request.principal) {
       throw new Error('Authenticated principal is unavailable.');
     }
-    return request.principal;
+    return request.permissions
+      ? {
+          ...request.principal,
+          effectivePermissions: request.permissions,
+        }
+      : request.principal;
   },
 );

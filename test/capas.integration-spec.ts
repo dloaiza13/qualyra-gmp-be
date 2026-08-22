@@ -189,7 +189,7 @@ describeDatabase('CAPA planning and action execution', () => {
       server,
       authA,
       notifier,
-      controllerRole.id,
+      qaManagerRole.id,
       `capa-investigator-${suffix}@example.test`,
       'CAPA Investigator',
       'CAPA investigator passphrase 2026',

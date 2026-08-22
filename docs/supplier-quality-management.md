@@ -13,7 +13,7 @@ The supplier-quality module controls supplier registration, risk-based qualifica
 | `suppliers.scar`        | Issue SCARs and sign received supplier responses            |
 | `suppliers.review_scar` | Independently accept or request revision of SCAR responses  |
 
-Administrators and QA Managers receive all permissions. Document Controllers can create, assess, and manage SCARs; Operators can assess and manage SCARs; Auditors can perform independent qualification and SCAR reviews. Custom roles remain unchanged.
+Administrators and QA Managers receive all supplier and SCAR permissions. Auditors receive organization-wide read-only access and do not approve supplier operations. Document Controllers and Operators do not receive this module by default. See `access-control-matrix.md` for the complete role model.
 
 ## API
 

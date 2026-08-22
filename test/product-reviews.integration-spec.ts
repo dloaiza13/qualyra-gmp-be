@@ -89,17 +89,11 @@ describeDatabase('periodic product quality review lifecycle', () => {
     const roles = bodyAs<RoleBody[]>(
       await request(server).get('/api/v1/roles').set(authA).expect(200),
     );
-    const operatorRole = requiredRole(roles, 'Operator');
-    const auditorRole = requiredRole(roles, 'Auditor');
-    expect(operatorRole.permissions.map(({ code }) => code)).toEqual(
+    const qaRole = requiredRole(roles, 'QA Manager');
+    expect(qaRole.permissions.map(({ code }) => code)).toEqual(
       expect.arrayContaining([
         'product_reviews.read',
         'product_reviews.prepare',
-      ]),
-    );
-    expect(auditorRole.permissions.map(({ code }) => code)).toEqual(
-      expect.arrayContaining([
-        'product_reviews.read',
         'product_reviews.approve',
       ]),
     );
@@ -107,7 +101,7 @@ describeDatabase('periodic product quality review lifecycle', () => {
       server,
       authA,
       notifier,
-      operatorRole.id,
+      qaRole.id,
       `pqr-preparer-${suffix}@example.test`,
       'PQR Preparer',
       'PQR preparer passphrase 2026',
@@ -116,7 +110,7 @@ describeDatabase('periodic product quality review lifecycle', () => {
       server,
       authA,
       notifier,
-      auditorRole.id,
+      qaRole.id,
       `pqr-approver-${suffix}@example.test`,
       'PQR Approver',
       'PQR approver passphrase 2026',

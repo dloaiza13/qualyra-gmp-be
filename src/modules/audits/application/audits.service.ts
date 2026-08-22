@@ -6,6 +6,7 @@ import { ErrorCode } from '../../../common/errors/error-codes.js';
 import { PasswordHasher } from '../../../infrastructure/crypto/password-hasher.js';
 import type { RequestMetadata } from '../../authentication/application/request-metadata.js';
 import type { AuthenticatedPrincipal } from '../../authentication/domain/authenticated-principal.js';
+import { auditAccessWhere } from '../../authorization/application/record-access.policy.js';
 import { appendSecurityEvent } from '../../security-events/application/append-security-event.js';
 import { TenantUnitOfWork } from '../../tenancy/application/ports/tenant-unit-of-work.js';
 import type {
@@ -129,6 +130,7 @@ export class AuditsService {
         const records = await transaction.gmpAudit.findMany({
           where: {
             tenantId: principal.tenantId,
+            AND: [auditAccessWhere(principal)],
             status: query.status,
             ...(search
               ? {
@@ -157,7 +159,14 @@ export class AuditsService {
     return this.tenantUnitOfWork.execute(
       principal.tenantId,
       async (transaction) =>
-        mapDetail(await readAudit(transaction, principal.tenantId, auditId)),
+        mapDetail(
+          await readAudit(
+            transaction,
+            principal.tenantId,
+            auditId,
+            auditAccessWhere(principal),
+          ),
+        ),
     );
   }
 
@@ -836,9 +845,10 @@ async function readAudit(
   transaction: Prisma.TransactionClient,
   tenantId: string,
   auditId: string,
+  accessWhere: Prisma.GmpAuditWhereInput = {},
 ): Promise<AuditRecord> {
   const audit = await transaction.gmpAudit.findFirst({
-    where: { id: auditId, tenantId },
+    where: { id: auditId, tenantId, AND: [accessWhere] },
     include: auditInclude,
   });
   if (!audit) throw auditNotFound();

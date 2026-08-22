@@ -1,12 +1,14 @@
 # Authorization, users, roles, and invitations
 
-Phase 4 adds tenant-scoped role-based access control (RBAC) and the only supported workflow for adding internal users.
+Qualyra uses tenant-scoped role-based access control (RBAC) and an invitation-only workflow for adding internal users.
 
 ## Authorization model
 
 Authenticated routes use `JwtAuthGuard` followed by `PermissionsGuard`. Controllers declare the required permissions with `@Permissions(...)`. The guard queries the current user's active roles and permissions from PostgreSQL for every protected request instead of trusting permission claims embedded in an access token. Role or status changes therefore take effect immediately.
 
 The application validates tenant ownership and the database enforces it again with composite foreign keys and row-level security. A resource owned by another tenant is never returned to the caller.
+
+Module access also distinguishes `*.read` from `*.read_all`. The first permits only effective, owned, created or formally assigned records; the second permits organization-wide reading without granting workflow decisions. List, detail and evidence endpoints apply the same record policy. See [access-control-matrix.md](access-control-matrix.md) for the complete default matrix.
 
 ## Built-in roles
 
@@ -19,6 +21,8 @@ Organization registration creates these system roles:
 - Auditor
 
 System-role names are immutable. The Administrator role keeps the full platform permission set and cannot be reduced. Tenant administrators can create and update custom roles.
+
+The built-in roles intentionally separate responsibilities: QA Manager performs quality operations, Document Controller governs documents and assigned work, Operator performs own/assigned work, and Auditor has broad read access plus audit duties without becoming the routine approver of the operations being audited.
 
 ## Last-administrator protection
 

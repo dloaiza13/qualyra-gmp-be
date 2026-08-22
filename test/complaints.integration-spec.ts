@@ -77,23 +77,20 @@ describeDatabase('product quality complaint lifecycle', () => {
     const roles = bodyAs<RoleBody[]>(
       await request(server).get('/api/v1/roles').set(authA).expect(200),
     );
-    const operatorRole = requiredRole(roles, 'Operator');
-    const auditorRole = requiredRole(roles, 'Auditor');
-    expect(operatorRole.permissions.map(({ code }) => code)).toEqual(
+    const qaRole = requiredRole(roles, 'QA Manager');
+    expect(qaRole.permissions.map(({ code }) => code)).toEqual(
       expect.arrayContaining([
         'complaints.read',
         'complaints.create',
         'complaints.investigate',
+        'complaints.review',
       ]),
-    );
-    expect(auditorRole.permissions.map(({ code }) => code)).toEqual(
-      expect.arrayContaining(['complaints.read', 'complaints.review']),
     );
     const investigator = await inviteAndAccept(
       server,
       authA,
       notifier,
-      operatorRole.id,
+      qaRole.id,
       `complaint-investigator-${suffix}@example.test`,
       'Complaint Investigator',
       'Complaint investigator passphrase 2026',
@@ -102,7 +99,7 @@ describeDatabase('product quality complaint lifecycle', () => {
       server,
       authA,
       notifier,
-      auditorRole.id,
+      qaRole.id,
       `complaint-reviewer-${suffix}@example.test`,
       'Complaint Reviewer',
       'Complaint reviewer passphrase 2026',

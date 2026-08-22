@@ -103,7 +103,6 @@ describeDatabase('Deviation intake and triage', () => {
       await request(server).get('/api/v1/roles').set(authA).expect(200),
     );
     const qaManager = requiredRole(roles, 'QA Manager');
-    const controllerRole = requiredRole(roles, 'Document Controller');
     const operatorRole = requiredRole(roles, 'Operator');
     expect(qaManager.permissions.map(({ code }) => code)).toEqual(
       expect.arrayContaining([
@@ -115,9 +114,6 @@ describeDatabase('Deviation intake and triage', () => {
     );
     expect(operatorRole.permissions.map(({ code }) => code)).toEqual(
       expect.arrayContaining(['deviations.read', 'deviations.create']),
-    );
-    expect(controllerRole.permissions.map(({ code }) => code)).toEqual(
-      expect.arrayContaining(['deviations.read', 'deviations.investigate']),
     );
 
     const reporter = await inviteAndAccept(
@@ -133,10 +129,19 @@ describeDatabase('Deviation intake and triage', () => {
       server,
       authA,
       notifier,
-      controllerRole.id,
+      qaManager.id,
       `deviation-investigator-${suffix}@example.test`,
       'Deviation Investigator',
       'Deviation investigator passphrase 2026',
+    );
+    const unrelatedOperator = await inviteAndAccept(
+      server,
+      authA,
+      notifier,
+      operatorRole.id,
+      `deviation-observer-${suffix}@example.test`,
+      'Unrelated Deviation Operator',
+      'Deviation observer passphrase 2026',
     );
 
     await request(server)
@@ -178,6 +183,25 @@ describeDatabase('Deviation intake and triage', () => {
     const second = reports[1];
     if (!first || !second)
       throw new Error('Deviation reports were not created.');
+
+    const unrelatedList = bodyAs<DeviationBody[]>(
+      await request(server)
+        .get('/api/v1/deviations')
+        .set(bearer(unrelatedOperator.accessToken))
+        .expect(200),
+    );
+    expect(unrelatedList).toEqual([]);
+    await request(server)
+      .get(`/api/v1/deviations/${first.id}`)
+      .set(bearer(unrelatedOperator.accessToken))
+      .expect(404);
+    const qaList = bodyAs<DeviationBody[]>(
+      await request(server)
+        .get('/api/v1/deviations')
+        .set(bearer(investigator.accessToken))
+        .expect(200),
+    );
+    expect(qaList).toHaveLength(2);
 
     await request(server)
       .post(`/api/v1/deviations/${first.id}/triage`)

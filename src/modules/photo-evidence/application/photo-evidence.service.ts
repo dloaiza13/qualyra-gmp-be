@@ -12,6 +12,20 @@ import { ApplicationError } from '../../../common/errors/application-error.js';
 import { ErrorCode } from '../../../common/errors/error-codes.js';
 import type { RequestMetadata } from '../../authentication/application/request-metadata.js';
 import type { AuthenticatedPrincipal } from '../../authentication/domain/authenticated-principal.js';
+import {
+  auditAccessWhere,
+  capaAccessWhere,
+  changeAccessWhere,
+  complaintAccessWhere,
+  documentAccessWhere,
+  equipmentAccessWhere,
+  hasPermission,
+  productReviewAccessWhere,
+  recallAccessWhere,
+  riskAccessWhere,
+  supplierAccessWhere,
+  deviationAccessWhere,
+} from '../../authorization/application/record-access.policy.js';
 import { CapaEvidenceScanner } from '../../capas/domain/ports/capa-evidence-scanner.js';
 import { CapaEvidenceStorage } from '../../capas/domain/ports/capa-evidence-storage.js';
 import { MetricsService } from '../../observability/application/metrics.service.js';
@@ -76,9 +90,9 @@ export class PhotoEvidenceService {
     const records = await this.tenantUnitOfWork.execute(
       principal.tenantId,
       async (transaction) => {
-        await assertSubjectExists(
+        await assertSubjectAccessible(
           transaction,
-          principal.tenantId,
+          principal,
           query.subjectType,
           query.subjectId,
         );
@@ -156,6 +170,7 @@ export class PhotoEvidenceService {
     file: UploadedPhotoFile | undefined,
     request: RequestMetadata,
   ): Promise<PhotoEvidenceResponseDto> {
+    assertPhotoUploadAllowed(principal, input.subjectType);
     if (!file || file.buffer.length === 0) {
       throw invalidPhoto('A non-empty image file is required.');
     }
@@ -225,9 +240,9 @@ export class PhotoEvidenceService {
         principal.tenantId,
         async (transaction) => {
           await lockTenantUsage(transaction, principal.tenantId);
-          await assertSubjectExists(
+          await assertSubjectAccessible(
             transaction,
-            principal.tenantId,
+            principal,
             input.subjectType,
             input.subjectId,
           );
@@ -325,10 +340,20 @@ export class PhotoEvidenceService {
   ): Promise<DownloadedPhotoEvidence> {
     const evidence = await this.tenantUnitOfWork.execute(
       principal.tenantId,
-      (transaction) =>
-        transaction.photoEvidence.findFirst({
+      async (transaction) => {
+        const record = await transaction.photoEvidence.findFirst({
           where: { id: evidenceId, tenantId: principal.tenantId },
-        }),
+        });
+        if (record) {
+          await assertSubjectAccessible(
+            transaction,
+            principal,
+            record.subjectType,
+            record.subjectId,
+          );
+        }
+        return record;
+      },
     );
     if (!evidence) {
       throw new ApplicationError(
@@ -358,81 +383,225 @@ export class PhotoEvidenceService {
   }
 }
 
-async function assertSubjectExists(
+const photoUploadPermissions: Record<
+  PhotoEvidenceSubjectType,
+  readonly string[]
+> = {
+  DOCUMENT: [
+    'documents.create',
+    'documents.update',
+    'documents.review',
+    'documents.approve',
+    'documents.release',
+  ],
+  TRAINING_ASSIGNMENT: ['training.assign', 'training.complete'],
+  DEVIATION: [
+    'deviations.create',
+    'deviations.triage',
+    'deviations.investigate',
+  ],
+  CAPA: [
+    'capas.create',
+    'capas.execute',
+    'capas.schedule_effectiveness',
+    'capas.verify_effectiveness',
+    'capas.create_follow_up',
+  ],
+  CHANGE_CONTROL: [
+    'changes.create',
+    'changes.assess',
+    'changes.approve',
+    'changes.implement',
+    'changes.verify',
+  ],
+  AUDIT: [
+    'audits.plan',
+    'audits.execute',
+    'audits.respond',
+    'audits.review',
+    'audits.close',
+  ],
+  QUALITY_RISK: ['risks.create', 'risks.mitigate', 'risks.review'],
+  SUPPLIER: [
+    'suppliers.create',
+    'suppliers.assess',
+    'suppliers.approve',
+    'suppliers.scar',
+    'suppliers.review_scar',
+  ],
+  EQUIPMENT: [
+    'equipment.create',
+    'equipment.calibrate',
+    'equipment.maintain',
+    'equipment.verify',
+    'equipment.retire',
+  ],
+  COMPLAINT: [
+    'complaints.create',
+    'complaints.triage',
+    'complaints.investigate',
+    'complaints.review',
+  ],
+  RECALL: [
+    'recalls.create',
+    'recalls.assess',
+    'recalls.approve',
+    'recalls.execute',
+    'recalls.close',
+  ],
+  PRODUCT_REVIEW: [
+    'product_reviews.create',
+    'product_reviews.prepare',
+    'product_reviews.approve',
+  ],
+};
+
+function assertPhotoUploadAllowed(
+  principal: AuthenticatedPrincipal,
+  subjectType: PhotoEvidenceSubjectType,
+): void {
+  if (
+    photoUploadPermissions[subjectType].some((permission) =>
+      hasPermission(principal, permission),
+    )
+  ) {
+    return;
+  }
+  throw new ApplicationError(
+    ErrorCode.Forbidden,
+    'Photographic evidence can only be added while participating in the record workflow.',
+    HttpStatus.FORBIDDEN,
+  );
+}
+
+async function assertSubjectAccessible(
   transaction: Prisma.TransactionClient,
-  tenantId: string,
+  principal: AuthenticatedPrincipal,
   subjectType: PhotoEvidenceSubjectType,
   subjectId: string,
 ): Promise<void> {
-  const where = { id: subjectId, tenantId };
+  const tenantId = principal.tenantId;
   let found: { id: string } | null;
   switch (subjectType) {
     case 'DOCUMENT':
       found = await transaction.document.findFirst({
-        where,
+        where: {
+          id: subjectId,
+          tenantId,
+          AND: [documentAccessWhere(principal)],
+        },
         select: { id: true },
       });
       break;
     case 'TRAINING_ASSIGNMENT':
       found = await transaction.trainingAssignment.findFirst({
-        where,
+        where: {
+          id: subjectId,
+          tenantId,
+          ...(hasPermission(principal, 'training.assign')
+            ? {}
+            : { assignedToUserId: principal.userId }),
+        },
         select: { id: true },
       });
       break;
     case 'DEVIATION':
       found = await transaction.deviation.findFirst({
-        where,
+        where: {
+          id: subjectId,
+          tenantId,
+          AND: [deviationAccessWhere(principal)],
+        },
         select: { id: true },
       });
       break;
     case 'CAPA':
-      found = await transaction.capa.findFirst({ where, select: { id: true } });
+      found = await transaction.capa.findFirst({
+        where: {
+          id: subjectId,
+          tenantId,
+          AND: [capaAccessWhere(principal)],
+        },
+        select: { id: true },
+      });
       break;
     case 'CHANGE_CONTROL':
       found = await transaction.changeControl.findFirst({
-        where,
+        where: {
+          id: subjectId,
+          tenantId,
+          AND: [changeAccessWhere(principal)],
+        },
         select: { id: true },
       });
       break;
     case 'AUDIT':
       found = await transaction.gmpAudit.findFirst({
-        where,
+        where: {
+          id: subjectId,
+          tenantId,
+          AND: [auditAccessWhere(principal)],
+        },
         select: { id: true },
       });
       break;
     case 'QUALITY_RISK':
       found = await transaction.qualityRiskAssessment.findFirst({
-        where,
+        where: {
+          id: subjectId,
+          tenantId,
+          AND: [riskAccessWhere(principal)],
+        },
         select: { id: true },
       });
       break;
     case 'SUPPLIER':
       found = await transaction.supplier.findFirst({
-        where,
+        where: {
+          id: subjectId,
+          tenantId,
+          AND: [supplierAccessWhere(principal)],
+        },
         select: { id: true },
       });
       break;
     case 'EQUIPMENT':
       found = await transaction.equipment.findFirst({
-        where,
+        where: {
+          id: subjectId,
+          tenantId,
+          AND: [equipmentAccessWhere(principal)],
+        },
         select: { id: true },
       });
       break;
     case 'COMPLAINT':
       found = await transaction.productComplaint.findFirst({
-        where,
+        where: {
+          id: subjectId,
+          tenantId,
+          AND: [complaintAccessWhere(principal)],
+        },
         select: { id: true },
       });
       break;
     case 'RECALL':
       found = await transaction.productRecall.findFirst({
-        where,
+        where: {
+          id: subjectId,
+          tenantId,
+          AND: [recallAccessWhere(principal)],
+        },
         select: { id: true },
       });
       break;
     case 'PRODUCT_REVIEW':
       found = await transaction.productQualityReview.findFirst({
-        where,
+        where: {
+          id: subjectId,
+          tenantId,
+          AND: [productReviewAccessWhere(principal)],
+        },
         select: { id: true },
       });
       break;
