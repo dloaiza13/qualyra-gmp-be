@@ -44,7 +44,12 @@ export class RolesService {
   }
 
   async listPermissions(): Promise<PermissionResponseDto[]> {
-    return this.prisma.permission.findMany({ orderBy: { code: 'asc' } });
+    const permissions = await this.prisma.permission.findMany({
+      orderBy: { code: 'asc' },
+    });
+    return permissions.filter(
+      ({ code }) => !isAdministratorOnlyPermission(code),
+    );
   }
 
   create(
@@ -57,10 +62,15 @@ export class RolesService {
       async (transaction) => {
         const permissions = await transaction.permission.findMany({
           where: { id: { in: input.permissionIds } },
-          select: { id: true },
+          select: { id: true, code: true },
         });
         if (permissions.length !== input.permissionIds.length) {
           throw roleInvalid();
+        }
+        if (
+          permissions.some(({ code }) => isAdministratorOnlyPermission(code))
+        ) {
+          throw administratorOnlyPermission();
         }
         try {
           const role = await transaction.role.create({
@@ -145,9 +155,15 @@ export class RolesService {
         if (permissionIds) {
           const permissions = await transaction.permission.findMany({
             where: { id: { in: permissionIds } },
-            select: { id: true },
+            select: { id: true, code: true },
           });
           if (permissions.length !== permissionIds.length) throw roleInvalid();
+          if (
+            existing.name !== 'Administrator' &&
+            permissions.some(({ code }) => isAdministratorOnlyPermission(code))
+          ) {
+            throw administratorOnlyPermission();
+          }
           permissionIds = permissions.map(({ id }) => id);
         }
 
@@ -222,6 +238,22 @@ function roleInvalid(): ApplicationError {
     ErrorCode.RoleInvalid,
     'One or more roles or permissions are invalid.',
     HttpStatus.BAD_REQUEST,
+  );
+}
+
+function administratorOnlyPermission(): ApplicationError {
+  return new ApplicationError(
+    ErrorCode.Forbidden,
+    'Tenant, user, invitation, and role administration is reserved for the Administrator role.',
+    HttpStatus.FORBIDDEN,
+  );
+}
+
+function isAdministratorOnlyPermission(code: string): boolean {
+  return (
+    code === 'tenants.read' ||
+    code.startsWith('users.') ||
+    code.startsWith('roles.')
   );
 }
 

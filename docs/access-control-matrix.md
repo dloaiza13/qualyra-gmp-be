@@ -39,7 +39,7 @@ Esta validación se ejecuta en el backend para listas, detalles y evidencias. Oc
 | PQR/APR                        | Todo          | Todo                       | —                              | —                              | Lectura total                       |
 | Seguridad/notificaciones       | Todo          | Notificaciones             | —                              | —                              | Lectura de eventos y notificaciones |
 
-`—` significa que el rol no recibe el módulo de forma predeterminada. Un Administrador puede crear un rol personalizado cuando una función real lo requiera, manteniendo segregación de funciones.
+`—` significa que el rol no recibe el módulo de forma predeterminada. Un Administrador puede crear roles personalizados para responsabilidades de calidad, manteniendo segregación de funciones. Los permisos de empresa, usuarios, invitaciones y roles están reservados de forma permanente al rol `Administrator` y no aparecen en el catálogo asignable.
 
 ## Reglas de registros asignados
 

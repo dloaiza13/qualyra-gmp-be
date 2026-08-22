@@ -20,7 +20,7 @@ Organization registration creates these system roles:
 - Operator
 - Auditor
 
-System-role names are immutable. The Administrator role keeps the full platform permission set and cannot be reduced. Tenant administrators can create and update custom roles.
+System-role names are immutable. The Administrator role keeps the full platform permission set and cannot be reduced. Tenant administrators can create and update custom quality roles, but permissions under `users.*`, `roles.*`, and `tenants.read` are reserved for Administrator and cannot be delegated.
 
 The built-in roles intentionally separate responsibilities: QA Manager performs quality operations, Document Controller governs documents and assigned work, Operator performs own/assigned work, and Auditor has broad read access plus audit duties without becoming the routine approver of the operations being audited.
 

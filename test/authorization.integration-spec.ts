@@ -115,8 +115,13 @@ describeDatabase('RBAC and invitation lifecycle', () => {
       .set(authA)
       .expect(200);
     const permissions = bodyAs<PermissionBody[]>(permissionsResponse);
-    const usersRead = permissions.find(({ code }) => code === 'users.read');
-    expect(usersRead).toBeDefined();
+    const documentsRead = permissions.find(
+      ({ code }) => code === 'documents.read',
+    );
+    expect(documentsRead).toBeDefined();
+    for (const reserved of ['tenants.read', 'users.read', 'roles.read']) {
+      expect(permissions.find(({ code }) => code === reserved)).toBeUndefined();
+    }
 
     const rolesAResponse = await request(server)
       .get('/api/v1/roles')
@@ -241,18 +246,32 @@ describeDatabase('RBAC and invitation lifecycle', () => {
       'LAST_ADMINISTRATOR_REQUIRED',
     );
 
+    const administratorUsersRead = administratorA.permissions.find(
+      ({ code }) => code === 'users.read',
+    );
+    expect(administratorUsersRead).toBeDefined();
+    await request(server)
+      .post('/api/v1/roles')
+      .set(authA)
+      .send({
+        name: `Forbidden administrator ${suffix}`,
+        description: 'Must not inherit tenant administration.',
+        permissionIds: [administratorUsersRead?.id],
+      })
+      .expect(403);
+
     const restrictedRoleResponse = await request(server)
       .post('/api/v1/roles')
       .set(authA)
       .send({
         name: `Read only ${suffix}`,
-        description: 'Can only view users.',
-        permissionIds: [usersRead?.id],
+        description: 'Can only view assigned documents.',
+        permissionIds: [documentsRead?.id],
       })
       .expect(201);
     const restrictedRole = bodyAs<RoleBody>(restrictedRoleResponse);
     expect(restrictedRole.permissions.map(({ code }) => code)).toEqual([
-      'users.read',
+      'documents.read',
     ]);
 
     const updatedRole = await request(server)
@@ -336,6 +355,10 @@ describeDatabase('RBAC and invitation lifecycle', () => {
 
     await request(server)
       .get('/api/v1/users')
+      .set(bearer(accepted.accessToken))
+      .expect(403);
+    await request(server)
+      .get('/api/v1/documents')
       .set(bearer(accepted.accessToken))
       .expect(200);
     const forbiddenRoles = await request(server)
