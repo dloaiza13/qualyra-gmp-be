@@ -272,7 +272,8 @@ function isReadPermission(permission: string): boolean {
     permission.endsWith('.read') ||
     permission.endsWith('.read_all') ||
     permission.endsWith('.read_self') ||
-    permission === 'capas.export'
+    permission === 'capas.export' ||
+    permission === 'reports.export'
   );
 }
 

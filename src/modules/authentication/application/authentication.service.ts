@@ -49,6 +49,7 @@ const initialRolePermissions: Record<(typeof initialRoles)[number], string[]> =
     'QA Manager': [
       'help_guides.read',
       'reports.read',
+      'reports.export',
       'documents.read',
       'documents.read_all',
       'documents.create',
@@ -134,6 +135,7 @@ const initialRolePermissions: Record<(typeof initialRoles)[number], string[]> =
     'Document Controller': [
       'help_guides.read',
       'reports.read',
+      'reports.export',
       'help_guides.manage',
       'help_guides.publish',
       'documents.read',
@@ -184,6 +186,7 @@ const initialRolePermissions: Record<(typeof initialRoles)[number], string[]> =
     Auditor: [
       'help_guides.read',
       'reports.read',
+      'reports.export',
       'documents.read',
       'documents.read_all',
       'security.events.read',

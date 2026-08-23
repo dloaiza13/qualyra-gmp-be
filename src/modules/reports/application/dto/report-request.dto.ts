@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, Matches } from 'class-validator';
+import { IsIn, IsOptional, Matches } from 'class-validator';
 
 const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -13,4 +13,11 @@ export class OperationalReportQueryDto {
   @IsOptional()
   @Matches(isoDatePattern)
   to?: string;
+}
+
+export class OperationalReportExportDto extends OperationalReportQueryDto {
+  @ApiPropertyOptional({ enum: ['es', 'en'], default: 'es' })
+  @IsOptional()
+  @IsIn(['es', 'en'])
+  locale?: 'es' | 'en';
 }

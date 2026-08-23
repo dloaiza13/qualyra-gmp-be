@@ -37,7 +37,7 @@ Esta validación se ejecuta en el backend para listas, detalles y evidencias. Oc
 | Reclamaciones                  | Todo          | Todo                       | Reportar y consultar propias   | Reportar y consultar propias   | Lectura total                       |
 | Retiros/acciones de campo      | Todo          | Todo                       | —                              | —                              | Lectura total                       |
 | PQR/APR                        | Todo          | Todo                       | —                              | —                              | Lectura total                       |
-| Reportes                       | Todos         | Todos los procesos         | Documentos y capacitación      | —                              | Procesos con lectura total          |
+| Reportes y PDF                 | Todos         | Todos los procesos         | Documentos y capacitación      | —                              | Procesos con lectura total          |
 | Seguridad/notificaciones       | Todo          | Notificaciones             | —                              | —                              | Lectura de eventos y notificaciones |
 | Guías de ayuda                 | Administrar   | Lectura                    | Administrar                    | Lectura                        | Lectura                             |
 
