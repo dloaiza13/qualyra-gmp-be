@@ -19,6 +19,7 @@ const permissions = [
   ['help_guides.read', 'View contextual system and organization help guides.'],
   ['help_guides.manage', 'Create and edit organization help guide drafts.'],
   ['help_guides.publish', 'Publish and retire organization help guides.'],
+  ['reports.read', 'View organization-wide quality reports and analytics.'],
   ['tenants.read', 'View organization settings.'],
   ['tenants.update', 'Update organization settings.'],
   ['documents.read', 'View documents.'],

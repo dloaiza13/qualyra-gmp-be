@@ -6813,6 +6813,53 @@
           "Help guides"
         ]
       }
+    },
+    "/api/v1/reports/operational": {
+      "get": {
+        "operationId": "ReportsController_operational",
+        "parameters": [
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "date",
+              "example": "2026-01-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "date",
+              "example": "2026-12-31",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationalReportResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Reports"
+        ]
+      }
     }
   },
   "info": {
@@ -16686,6 +16733,205 @@
         "required": [
           "accepted",
           "helpful"
+        ]
+      },
+      "ReportPeriodDto": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ]
+      },
+      "OperationalReportKpisDto": {
+        "type": "object",
+        "properties": {
+          "totalRecords": {
+            "type": "number"
+          },
+          "openRecords": {
+            "type": "number"
+          },
+          "overdueRecords": {
+            "type": "number"
+          },
+          "criticalRecords": {
+            "type": "number"
+          },
+          "trainingCompliancePercent": {
+            "type": "object",
+            "nullable": true
+          },
+          "capaEffectivenessPercent": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "totalRecords",
+          "openRecords",
+          "overdueRecords",
+          "criticalRecords",
+          "trainingCompliancePercent",
+          "capaEffectivenessPercent"
+        ]
+      },
+      "ReportStatusBucketDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "count": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "status",
+          "count"
+        ]
+      },
+      "ReportModuleSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "documents",
+              "training",
+              "deviations",
+              "capas",
+              "changes",
+              "audits",
+              "risks",
+              "suppliers",
+              "equipment",
+              "complaints",
+              "recalls",
+              "productReviews"
+            ]
+          },
+          "total": {
+            "type": "number"
+          },
+          "open": {
+            "type": "number"
+          },
+          "overdue": {
+            "type": "number"
+          },
+          "critical": {
+            "type": "number"
+          },
+          "byStatus": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReportStatusBucketDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "total",
+          "open",
+          "overdue",
+          "critical",
+          "byStatus"
+        ]
+      },
+      "ReportTrendModuleDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "documents",
+              "training",
+              "deviations",
+              "capas",
+              "changes",
+              "audits",
+              "risks",
+              "suppliers",
+              "equipment",
+              "complaints",
+              "recalls",
+              "productReviews"
+            ]
+          },
+          "count": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "count"
+        ]
+      },
+      "ReportTrendPointDto": {
+        "type": "object",
+        "properties": {
+          "month": {
+            "type": "string",
+            "example": "2026-08"
+          },
+          "total": {
+            "type": "number"
+          },
+          "modules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReportTrendModuleDto"
+            }
+          }
+        },
+        "required": [
+          "month",
+          "total",
+          "modules"
+        ]
+      },
+      "OperationalReportResponseDto": {
+        "type": "object",
+        "properties": {
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "period": {
+            "$ref": "#/components/schemas/ReportPeriodDto"
+          },
+          "kpis": {
+            "$ref": "#/components/schemas/OperationalReportKpisDto"
+          },
+          "modules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReportModuleSummaryDto"
+            }
+          },
+          "trend": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReportTrendPointDto"
+            }
+          }
+        },
+        "required": [
+          "generatedAt",
+          "period",
+          "kpis",
+          "modules",
+          "trend"
         ]
       }
     }

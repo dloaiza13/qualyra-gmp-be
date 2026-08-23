@@ -49,6 +49,7 @@ import { ObservabilityModule } from './modules/observability/observability.modul
 import { PlatformAdministrationModule } from './modules/platform-administration/platform-administration.module.js';
 import { OrganizationModule } from './modules/organization/organization.module.js';
 import { HelpGuidesModule } from './modules/help-guides/help-guides.module.js';
+import { ReportsModule } from './modules/reports/reports.module.js';
 
 @Module({
   imports: [
@@ -137,6 +138,7 @@ import { HelpGuidesModule } from './modules/help-guides/help-guides.module.js';
     PlatformAdministrationModule,
     OrganizationModule,
     HelpGuidesModule,
+    ReportsModule,
     RouterModule.register([
       { path: 'api/v1', module: AuthenticationModule },
       { path: 'api/v1', module: CapasModule },
@@ -160,6 +162,7 @@ import { HelpGuidesModule } from './modules/help-guides/help-guides.module.js';
       { path: 'api/v1', module: PlatformAdministrationModule },
       { path: 'api/v1', module: OrganizationModule },
       { path: 'api/v1', module: HelpGuidesModule },
+      { path: 'api/v1', module: ReportsModule },
     ]),
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
