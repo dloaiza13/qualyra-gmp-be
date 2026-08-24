@@ -49,6 +49,17 @@ enum UserStatus {
   DISABLED
 }
 
+enum UserThemePreference {
+  SYSTEM
+  LIGHT
+  DARK
+}
+
+enum UserLocalePreference {
+  ES
+  EN
+}
+
 enum SessionStatus {
   ACTIVE
   REVOKED
@@ -778,6 +789,14 @@ model User {
   tenantId                          String                          @map("tenant_id") @db.Uuid
   email                             String                          @db.VarChar(320)
   displayName                       String                          @map("display_name") @db.VarChar(200)
+  themePreference                   UserThemePreference             @default(SYSTEM) @map("theme_preference")
+  localePreference                  UserLocalePreference            @default(ES) @map("locale_preference")
+  avatarObjectKey                   String?                         @map("avatar_object_key") @db.VarChar(1000)
+  avatarStorageDriver               String?                         @map("avatar_storage_driver") @db.VarChar(50)
+  avatarContentType                 String?                         @map("avatar_content_type") @db.VarChar(100)
+  avatarSizeBytes                   Int?                            @map("avatar_size_bytes")
+  avatarSha256                      String?                         @map("avatar_sha256") @db.Char(64)
+  avatarUpdatedAt                   DateTime?                       @map("avatar_updated_at") @db.Timestamptz(3)
   passwordHash                      String                          @map("password_hash")
   status                            UserStatus                      @default(INVITED)
   emailVerifiedAt                   DateTime?                       @map("email_verified_at") @db.Timestamptz(3)

@@ -831,6 +831,9 @@ export class AuthenticationService {
                 displayName: true,
                 status: true,
                 emailVerifiedAt: true,
+                themePreference: true,
+                localePreference: true,
+                avatarUpdatedAt: true,
                 userRoles: {
                   select: {
                     role: {
@@ -1539,6 +1542,9 @@ function mapUser(user: {
   displayName: string;
   status: string;
   emailVerifiedAt: Date | null;
+  themePreference?: 'SYSTEM' | 'LIGHT' | 'DARK';
+  localePreference?: 'ES' | 'EN';
+  avatarUpdatedAt?: Date | null;
 }): AuthenticationResponseDto['user'] {
   return {
     id: user.id,
@@ -1546,6 +1552,9 @@ function mapUser(user: {
     displayName: user.displayName,
     status: user.status,
     emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null,
+    themePreference: user.themePreference ?? 'SYSTEM',
+    localePreference: user.localePreference ?? 'ES',
+    avatarUpdatedAt: user.avatarUpdatedAt?.toISOString() ?? null,
   };
 }
 

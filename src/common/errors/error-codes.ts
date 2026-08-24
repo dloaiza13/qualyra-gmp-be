@@ -56,6 +56,8 @@ export const ErrorCode = {
   PhotoEvidenceInvalid: 'PHOTO_EVIDENCE_INVALID',
   PhotoEvidenceNotFound: 'PHOTO_EVIDENCE_NOT_FOUND',
   PhotoEvidenceQuotaExceeded: 'PHOTO_EVIDENCE_QUOTA_EXCEEDED',
+  ProfileInvalid: 'PROFILE_INVALID',
+  ProfileAvatarNotFound: 'PROFILE_AVATAR_NOT_FOUND',
   HelpGuideConflict: 'HELP_GUIDE_CONFLICT',
   HelpGuideInvalid: 'HELP_GUIDE_INVALID',
   HelpGuideNotFound: 'HELP_GUIDE_NOT_FOUND',

@@ -16,6 +16,15 @@ export class AuthenticatedUserDto {
 
   @ApiPropertyOptional({ format: 'date-time' })
   emailVerifiedAt!: string | null;
+
+  @ApiProperty({ enum: ['SYSTEM', 'LIGHT', 'DARK'] })
+  themePreference!: string;
+
+  @ApiProperty({ enum: ['ES', 'EN'] })
+  localePreference!: string;
+
+  @ApiPropertyOptional({ format: 'date-time' })
+  avatarUpdatedAt!: string | null;
 }
 
 export class TenantSummaryDto {

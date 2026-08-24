@@ -7,22 +7,29 @@ import {
   HttpStatus,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   Req,
   Res,
+  StreamableFile,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiCookieAuth,
   ApiCreatedResponse,
+  ApiBody,
+  ApiConsumes,
   ApiHeader,
   ApiNoContentResponse,
   ApiOkResponse,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import type { RequestWithContext } from '../../../common/request-context/request-with-context.js';
@@ -43,6 +50,12 @@ import {
   TenantEmailDto,
   TokenDto,
 } from '../application/dto/auth-request.dto.js';
+import { UpdateProfileDto } from '../application/dto/profile-request.dto.js';
+import {
+  ProfileService,
+  type ProfilePreferences,
+  type UploadedAvatarFile,
+} from '../application/profile.service.js';
 import type { RequestMetadata } from '../application/request-metadata.js';
 import type { AuthenticatedPrincipal } from '../domain/authenticated-principal.js';
 import { AuthenticationCookieService } from './authentication-cookie.service.js';
@@ -56,6 +69,7 @@ export class AuthenticationController {
   constructor(
     private readonly authentication: AuthenticationService,
     private readonly cookies: AuthenticationCookieService,
+    private readonly profiles: ProfileService,
   ) {}
 
   @Get('registration-policy')
@@ -182,6 +196,75 @@ export class AuthenticationController {
     @CurrentPrincipal() principal: AuthenticatedPrincipal,
   ): Promise<MeResponseDto> {
     return this.authentication.getMe(principal);
+  }
+
+  @Patch('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOkResponse({ description: 'Updated personal profile preferences.' })
+  updateProfile(
+    @CurrentPrincipal() principal: AuthenticatedPrincipal,
+    @Body() input: UpdateProfileDto,
+    @Req() request: Request & RequestWithContext,
+  ): Promise<ProfilePreferences> {
+    return this.profiles.update(principal, input, requestMetadata(request));
+  }
+
+  @Post('me/avatar')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { files: 1, fileSize: 5_242_880 } }),
+  )
+  @ApiBearerAuth()
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['file'],
+      properties: { file: { type: 'string', format: 'binary' } },
+    },
+  })
+  @ApiOkResponse({ description: 'Updated personal profile preferences.' })
+  uploadAvatar(
+    @CurrentPrincipal() principal: AuthenticatedPrincipal,
+    @UploadedFile() file: UploadedAvatarFile | undefined,
+    @Req() request: Request & RequestWithContext,
+  ): Promise<ProfilePreferences> {
+    return this.profiles.uploadAvatar(
+      principal,
+      file,
+      requestMetadata(request),
+    );
+  }
+
+  @Get('me/avatar')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOkResponse({ description: 'Current user profile image.' })
+  async avatar(
+    @CurrentPrincipal() principal: AuthenticatedPrincipal,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<StreamableFile> {
+    const avatar = await this.profiles.downloadAvatar(principal);
+    response.setHeader('Content-Type', avatar.contentType);
+    response.setHeader('Content-Length', String(avatar.bytes.length));
+    response.setHeader('Content-Disposition', 'inline');
+    response.setHeader('X-Content-Type-Options', 'nosniff');
+    response.setHeader('Cache-Control', 'private, no-cache');
+    response.setHeader('ETag', `"${avatar.sha256}"`);
+    return new StreamableFile(avatar.bytes);
+  }
+
+  @Delete('me/avatar')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiNoContentResponse()
+  removeAvatar(
+    @CurrentPrincipal() principal: AuthenticatedPrincipal,
+    @Req() request: Request & RequestWithContext,
+  ): Promise<void> {
+    return this.profiles.removeAvatar(principal, requestMetadata(request));
   }
 
   @Get('sessions')

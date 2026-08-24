@@ -7,12 +7,15 @@ import { CsrfGuard } from './presentation/csrf.guard.js';
 import { JwtAuthGuard } from './presentation/jwt-auth.guard.js';
 import { NotificationOutboxModule } from '../notifications/notification-outbox.module.js';
 import { CommercialEntitlementsModule } from '../commercial-entitlements/commercial-entitlements.module.js';
+import { CapaEvidenceInfrastructureModule } from '../capas/capa-evidence-infrastructure.module.js';
+import { ProfileService } from './application/profile.service.js';
 
 @Module({
   imports: [
     PrismaModule,
     NotificationOutboxModule,
     CommercialEntitlementsModule,
+    CapaEvidenceInfrastructureModule,
   ],
   controllers: [AuthenticationController],
   providers: [
@@ -20,6 +23,7 @@ import { CommercialEntitlementsModule } from '../commercial-entitlements/commerc
     AuthenticationCookieService,
     CsrfGuard,
     JwtAuthGuard,
+    ProfileService,
   ],
   exports: [AuthenticationService, AuthenticationCookieService, JwtAuthGuard],
 })
