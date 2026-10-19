@@ -246,8 +246,9 @@ async function seedComplianceDemo(): Promise<boolean> {
         'Eliminate causes of detected nonconformities and verify effective action.',
       ],
     ] as const;
+    const requirementIds = new Map<string, string>();
     for (const [code, title, description] of requirements) {
-      await transaction.complianceRequirement.upsert({
+      const requirement = await transaction.complianceRequirement.upsert({
         where: {
           tenantId_frameworkId_code: {
             tenantId,
@@ -267,6 +268,60 @@ async function seedComplianceDemo(): Promise<boolean> {
           createdByUserId: creator.id,
         },
         update: {},
+        select: { id: true },
+      });
+      requirementIds.set(code, requirement.id);
+    }
+    const rules = [
+      {
+        key: 'CAPA-ACTION-OVERDUE',
+        name: 'Acciones CAPA vencidas',
+        description:
+          'Detecta acciones correctivas o preventivas abiertas cuya fecha objetivo ya venció.',
+        implementationKey: 'CAPA_ACTION_OVERDUE_V1',
+        category: 'CAPA',
+        severity: 'MAJOR' as const,
+        requirementCode: '8.5.2',
+      },
+      {
+        key: 'EQUIPMENT-CALIBRATION-OVERDUE',
+        name: 'Calibraciones vencidas',
+        description:
+          'Detecta equipos activos que requieren calibración y cuya próxima fecha de calibración ya venció.',
+        implementationKey: 'EQUIPMENT_CALIBRATION_OVERDUE_V1',
+        category: 'Equipment / Calibration',
+        severity: 'CRITICAL' as const,
+        requirementCode: '7.6',
+      },
+    ];
+    for (const rule of rules) {
+      const requirementId = requirementIds.get(rule.requirementCode);
+      if (!requirementId) {
+        throw new Error(`Missing demo requirement ${rule.requirementCode}.`);
+      }
+      await transaction.complianceRule.upsert({
+        where: { tenantId_key: { tenantId, key: rule.key } },
+        create: {
+          tenantId,
+          key: rule.key,
+          name: rule.name,
+          description: rule.description,
+          implementationKey: rule.implementationKey,
+          category: rule.category,
+          severity: rule.severity,
+          requirementId,
+          enabled: true,
+          configuration: { minimumDaysOverdue: 0 },
+          createdByUserId: creator.id,
+        },
+        update: {
+          name: rule.name,
+          description: rule.description,
+          category: rule.category,
+          severity: rule.severity,
+          requirementId,
+          configuration: { minimumDaysOverdue: 0 },
+        },
       });
     }
   });

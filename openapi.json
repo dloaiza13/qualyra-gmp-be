@@ -7196,6 +7196,257 @@
         ]
       }
     },
+    "/api/v1/compliance/rule-catalog": {
+      "get": {
+        "operationId": "ComplianceController_ruleCatalog",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ComplianceRuleCatalogResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Continuous compliance"
+        ]
+      }
+    },
+    "/api/v1/compliance/rules": {
+      "get": {
+        "operationId": "ComplianceController_rules",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ComplianceRuleResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Continuous compliance"
+        ]
+      },
+      "post": {
+        "operationId": "ComplianceController_createRule",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateComplianceRuleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplianceRuleResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Continuous compliance"
+        ]
+      }
+    },
+    "/api/v1/compliance/rules/{ruleId}": {
+      "patch": {
+        "operationId": "ComplianceController_updateRule",
+        "parameters": [
+          {
+            "name": "ruleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateComplianceRuleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplianceRuleResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Continuous compliance"
+        ]
+      }
+    },
+    "/api/v1/compliance/evaluations": {
+      "get": {
+        "operationId": "ComplianceController_listEvaluations",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ComplianceEvaluationRunResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Continuous compliance"
+        ]
+      },
+      "post": {
+        "operationId": "ComplianceController_runEvaluation",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunComplianceEvaluationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplianceEvaluationRunResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Continuous compliance"
+        ]
+      }
+    },
+    "/api/v1/compliance/evaluations/{evaluationId}": {
+      "get": {
+        "operationId": "ComplianceController_getEvaluation",
+        "parameters": [
+          {
+            "name": "evaluationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplianceEvaluationRunResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Continuous compliance"
+        ]
+      }
+    },
     "/api/v1/compliance/evidence": {
       "get": {
         "operationId": "ComplianceController_evidence",
@@ -17974,6 +18225,392 @@
           "evidenceCount"
         ]
       },
+      "ComplianceRuleConfigurationFieldResponseDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "INTEGER"
+            ]
+          },
+          "minimum": {
+            "type": "number"
+          },
+          "maximum": {
+            "type": "number"
+          },
+          "defaultValue": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "description",
+          "type",
+          "minimum",
+          "maximum",
+          "defaultValue"
+        ]
+      },
+      "ComplianceRuleCatalogResponseDto": {
+        "type": "object",
+        "properties": {
+          "implementationKey": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "sourceEntityType": {
+            "type": "string"
+          },
+          "defaultCategory": {
+            "type": "string"
+          },
+          "defaultSeverity": {
+            "type": "string"
+          },
+          "configurationFields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ComplianceRuleConfigurationFieldResponseDto"
+            }
+          }
+        },
+        "required": [
+          "implementationKey",
+          "name",
+          "description",
+          "sourceEntityType",
+          "defaultCategory",
+          "defaultSeverity",
+          "configurationFields"
+        ]
+      },
+      "ComplianceRuleResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "implementationKey": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "configuration": {
+            "type": "object"
+          },
+          "framework": {
+            "type": "object"
+          },
+          "requirement": {
+            "type": "object"
+          },
+          "control": {
+            "type": "object",
+            "nullable": true
+          },
+          "owner": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ComplianceUserSummaryDto"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "key",
+          "name",
+          "description",
+          "implementationKey",
+          "category",
+          "severity",
+          "enabled",
+          "configuration",
+          "framework",
+          "requirement",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "CreateComplianceRuleDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "CAPA-ACTION-OVERDUE"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "implementationKey": {
+            "type": "string",
+            "enum": [
+              "CAPA_ACTION_OVERDUE_V1",
+              "EQUIPMENT_CALIBRATION_OVERDUE_V1"
+            ]
+          },
+          "category": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "CRITICAL",
+              "MAJOR",
+              "MINOR",
+              "OBSERVATION"
+            ]
+          },
+          "requirementId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "controlId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ownerUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "enabled": {
+            "type": "object",
+            "default": true
+          },
+          "configuration": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "description",
+          "implementationKey",
+          "category",
+          "severity",
+          "requirementId"
+        ]
+      },
+      "UpdateComplianceRuleDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "CRITICAL",
+              "MAJOR",
+              "MINOR",
+              "OBSERVATION"
+            ]
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          },
+          "configuration": {
+            "type": "object"
+          }
+        }
+      },
+      "ComplianceRuleResultResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "outcome": {
+            "type": "string"
+          },
+          "scannedCount": {
+            "type": "number"
+          },
+          "violationCount": {
+            "type": "number"
+          },
+          "findingsCreated": {
+            "type": "number"
+          },
+          "findingsReopened": {
+            "type": "number"
+          },
+          "findingsResolved": {
+            "type": "number"
+          },
+          "findingsUnchanged": {
+            "type": "number"
+          },
+          "errorMessage": {
+            "type": "object"
+          },
+          "rule": {
+            "type": "object"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "outcome",
+          "scannedCount",
+          "violationCount",
+          "findingsCreated",
+          "findingsReopened",
+          "findingsResolved",
+          "findingsUnchanged",
+          "rule",
+          "startedAt",
+          "completedAt"
+        ]
+      },
+      "ComplianceEvaluationRunResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string"
+          },
+          "trigger": {
+            "type": "string"
+          },
+          "triggeredBy": {
+            "$ref": "#/components/schemas/ComplianceUserSummaryDto"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completedAt": {
+            "type": "object",
+            "format": "date-time"
+          },
+          "rulesEvaluated": {
+            "type": "number"
+          },
+          "violationsDetected": {
+            "type": "number"
+          },
+          "findingsCreated": {
+            "type": "number"
+          },
+          "findingsReopened": {
+            "type": "number"
+          },
+          "findingsResolved": {
+            "type": "number"
+          },
+          "findingsUnchanged": {
+            "type": "number"
+          },
+          "errorSummary": {
+            "type": "object"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ComplianceRuleResultResponseDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "trigger",
+          "triggeredBy",
+          "startedAt",
+          "rulesEvaluated",
+          "violationsDetected",
+          "findingsCreated",
+          "findingsReopened",
+          "findingsResolved",
+          "findingsUnchanged",
+          "results"
+        ]
+      },
+      "RunComplianceEvaluationDto": {
+        "type": "object",
+        "properties": {
+          "idempotencyKey": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ruleIds": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "idempotencyKey"
+        ]
+      },
       "CreateComplianceControlDto": {
         "type": "object",
         "properties": {
@@ -18157,6 +18794,24 @@
           },
           "detectionSource": {
             "type": "string"
+          },
+          "sourceEntityType": {
+            "type": "object"
+          },
+          "sourceEntityId": {
+            "type": "object",
+            "format": "uuid"
+          },
+          "sourceReference": {
+            "type": "object"
+          },
+          "ruleId": {
+            "type": "object",
+            "format": "uuid"
+          },
+          "lastEvaluatedAt": {
+            "type": "object",
+            "format": "date-time"
           },
           "framework": {
             "type": "object"

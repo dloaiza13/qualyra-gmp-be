@@ -8,6 +8,7 @@ import {
   IsInt,
   IsISO8601,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   IsUUID,
@@ -15,9 +16,11 @@ import {
   Max,
   MaxLength,
   Min,
+  Matches,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { complianceEvidenceSourceTypes } from '../../domain/compliance-evidence-source.js';
+import { complianceRuleImplementationKeys } from '../../domain/compliance-rule.js';
 
 export const complianceRequirementSeverities = [
   'CRITICAL',
@@ -272,4 +275,124 @@ export class ComplianceFindingListQueryDto {
   @Min(1)
   @Max(200)
   limit = 100;
+}
+
+export class CreateComplianceRuleDto {
+  @ApiProperty({ example: 'CAPA-ACTION-OVERDUE' })
+  @Transform(trimString)
+  @IsString()
+  @Length(3, 60)
+  @Matches(/^[A-Z0-9]+(?:-[A-Z0-9]+)*$/)
+  key!: string;
+
+  @ApiProperty()
+  @Transform(trimString)
+  @IsString()
+  @Length(5, 200)
+  name!: string;
+
+  @ApiProperty()
+  @Transform(trimString)
+  @IsString()
+  @Length(10, 3000)
+  description!: string;
+
+  @ApiProperty({ enum: complianceRuleImplementationKeys })
+  @IsIn(complianceRuleImplementationKeys)
+  implementationKey!: (typeof complianceRuleImplementationKeys)[number];
+
+  @ApiProperty()
+  @Transform(trimString)
+  @IsString()
+  @Length(2, 100)
+  category!: string;
+
+  @ApiProperty({ enum: complianceFindingSeverities })
+  @IsIn(complianceFindingSeverities)
+  severity!: (typeof complianceFindingSeverities)[number];
+
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID('4')
+  requirementId!: string;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID('4')
+  controlId?: string;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID('4')
+  ownerUserId?: string;
+
+  @ApiPropertyOptional({ default: true })
+  @IsOptional()
+  @IsBoolean()
+  enabled = true;
+
+  @ApiPropertyOptional({ type: Object })
+  @IsOptional()
+  @IsObject()
+  configuration?: Record<string, unknown>;
+}
+
+export class UpdateComplianceRuleDto {
+  @ApiPropertyOptional()
+  @Transform(trimString)
+  @IsOptional()
+  @IsString()
+  @Length(5, 200)
+  name?: string;
+
+  @ApiPropertyOptional()
+  @Transform(trimString)
+  @IsOptional()
+  @IsString()
+  @Length(10, 3000)
+  description?: string;
+
+  @ApiPropertyOptional()
+  @Transform(trimString)
+  @IsOptional()
+  @IsString()
+  @Length(2, 100)
+  category?: string;
+
+  @ApiPropertyOptional({ enum: complianceFindingSeverities })
+  @IsOptional()
+  @IsIn(complianceFindingSeverities)
+  severity?: (typeof complianceFindingSeverities)[number];
+
+  @ApiPropertyOptional({ default: true })
+  @IsOptional()
+  @IsBoolean()
+  enabled?: boolean;
+
+  @ApiPropertyOptional({ type: Object })
+  @IsOptional()
+  @IsObject()
+  configuration?: Record<string, unknown>;
+}
+
+export class RunComplianceEvaluationDto {
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID('4')
+  idempotencyKey!: string;
+
+  @ApiPropertyOptional({ type: String, isArray: true, maxItems: 100 })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsUUID('4', { each: true })
+  ruleIds?: string[];
+}
+
+export class ComplianceEvaluationListQueryDto {
+  @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 20 })
+  @Type(() => Number)
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit = 20;
 }

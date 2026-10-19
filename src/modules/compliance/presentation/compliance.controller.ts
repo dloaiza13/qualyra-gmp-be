@@ -25,21 +25,29 @@ import { JwtAuthGuard } from '../../authentication/presentation/jwt-auth.guard.j
 import { Permissions } from '../../authorization/presentation/permissions.decorator.js';
 import { PermissionsGuard } from '../../authorization/presentation/permissions.guard.js';
 import { ComplianceService } from '../application/compliance.service.js';
+import { ComplianceEvaluationService } from '../application/compliance-evaluation.service.js';
 import {
+  ComplianceEvaluationListQueryDto,
   ComplianceFindingListQueryDto,
   CreateComplianceControlDto,
   CreateComplianceEvidenceDto,
   CreateComplianceFindingDto,
   CreateComplianceFrameworkDto,
   CreateComplianceRequirementDto,
+  CreateComplianceRuleDto,
+  RunComplianceEvaluationDto,
+  UpdateComplianceRuleDto,
   UpdateComplianceFindingStatusDto,
 } from '../application/dto/compliance-request.dto.js';
 import {
   ComplianceControlResponseDto,
   ComplianceEvidenceResponseDto,
+  ComplianceEvaluationRunResponseDto,
   ComplianceFindingResponseDto,
   ComplianceFrameworkResponseDto,
   ComplianceOverviewResponseDto,
+  ComplianceRuleCatalogResponseDto,
+  ComplianceRuleResponseDto,
 } from '../application/dto/compliance-response.dto.js';
 
 @ApiTags('Continuous compliance')
@@ -47,7 +55,10 @@ import {
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('compliance')
 export class ComplianceController {
-  constructor(private readonly compliance: ComplianceService) {}
+  constructor(
+    private readonly compliance: ComplianceService,
+    private readonly evaluations: ComplianceEvaluationService,
+  ) {}
 
   @Get('overview')
   @Permissions('compliance.read')
@@ -106,6 +117,89 @@ export class ComplianceController {
     @CurrentUser() principal: AuthenticatedPrincipal,
   ): Promise<ComplianceControlResponseDto[]> {
     return this.compliance.listControls(principal);
+  }
+
+  @Get('rule-catalog')
+  @Permissions('compliance.read')
+  @ApiOkResponse({ type: ComplianceRuleCatalogResponseDto, isArray: true })
+  ruleCatalog(): ComplianceRuleCatalogResponseDto[] {
+    return this.evaluations.catalog();
+  }
+
+  @Get('rules')
+  @Permissions('compliance.read')
+  @ApiOkResponse({ type: ComplianceRuleResponseDto, isArray: true })
+  rules(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+  ): Promise<ComplianceRuleResponseDto[]> {
+    return this.evaluations.listRules(principal);
+  }
+
+  @Post('rules')
+  @Permissions('compliance.manage')
+  @ApiCreatedResponse({ type: ComplianceRuleResponseDto })
+  createRule(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+    @Body() input: CreateComplianceRuleDto,
+    @Req() request: Request & RequestWithContext,
+  ): Promise<ComplianceRuleResponseDto> {
+    return this.evaluations.createRule(
+      principal,
+      input,
+      requestMetadata(request),
+    );
+  }
+
+  @Patch('rules/:ruleId')
+  @Permissions('compliance.manage')
+  @ApiOkResponse({ type: ComplianceRuleResponseDto })
+  updateRule(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+    @Param('ruleId', new ParseUUIDPipe()) ruleId: string,
+    @Body() input: UpdateComplianceRuleDto,
+    @Req() request: Request & RequestWithContext,
+  ): Promise<ComplianceRuleResponseDto> {
+    return this.evaluations.updateRule(
+      principal,
+      ruleId,
+      input,
+      requestMetadata(request),
+    );
+  }
+
+  @Get('evaluations')
+  @Permissions('compliance.read')
+  @ApiOkResponse({ type: ComplianceEvaluationRunResponseDto, isArray: true })
+  listEvaluations(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+    @Query() query: ComplianceEvaluationListQueryDto,
+  ): Promise<ComplianceEvaluationRunResponseDto[]> {
+    return this.evaluations.listEvaluations(principal, query);
+  }
+
+  @Get('evaluations/:evaluationId')
+  @Permissions('compliance.read')
+  @ApiOkResponse({ type: ComplianceEvaluationRunResponseDto })
+  getEvaluation(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+    @Param('evaluationId', new ParseUUIDPipe()) evaluationId: string,
+  ): Promise<ComplianceEvaluationRunResponseDto> {
+    return this.evaluations.getEvaluation(principal, evaluationId);
+  }
+
+  @Post('evaluations')
+  @Permissions('compliance.evaluate')
+  @ApiCreatedResponse({ type: ComplianceEvaluationRunResponseDto })
+  runEvaluation(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+    @Body() input: RunComplianceEvaluationDto,
+    @Req() request: Request & RequestWithContext,
+  ): Promise<ComplianceEvaluationRunResponseDto> {
+    return this.evaluations.evaluate(
+      principal,
+      input,
+      requestMetadata(request),
+    );
   }
 
   @Post('controls')

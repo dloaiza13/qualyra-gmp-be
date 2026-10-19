@@ -104,7 +104,7 @@ events; all queries execute inside the tenant unit of work.
 
 - `compliance.read`
 - `compliance.manage`
-- `compliance.evaluate` (reserved for Phase 2)
+- `compliance.evaluate`
 - `compliance.findings.manage`
 - `compliance.frameworks.read`
 - `compliance.frameworks.manage`
@@ -124,7 +124,7 @@ permission-aware and follow the existing responsive shell and form patterns.
 
 1. **Foundation (this phase):** tenant schema, RLS, permissions, audit trail,
    CRUD/lifecycle API and initial workspace.
-2. **Rule engine:** typed rule contract, tenant evaluation runs, idempotency,
+2. **Rule engine (delivered):** typed rule contract, tenant evaluation runs, idempotency,
    generated-finding reconciliation and first adapters (for example overdue CAPA
    and calibration).
 3. **Audit readiness:** transparent scoring policy, explanations, categories,

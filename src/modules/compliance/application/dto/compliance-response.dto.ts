@@ -74,6 +74,11 @@ export class ComplianceFindingResponseDto {
   @ApiProperty() title!: string;
   @ApiProperty() description!: string;
   @ApiProperty() detectionSource!: string;
+  @ApiPropertyOptional() sourceEntityType!: string | null;
+  @ApiPropertyOptional({ format: 'uuid' }) sourceEntityId!: string | null;
+  @ApiPropertyOptional() sourceReference!: string | null;
+  @ApiPropertyOptional({ format: 'uuid' }) ruleId!: string | null;
+  @ApiPropertyOptional({ format: 'date-time' }) lastEvaluatedAt!: string | null;
   @ApiProperty({ type: Object }) framework!: {
     id: string;
     code: string;
@@ -110,4 +115,98 @@ export class ComplianceOverviewResponseDto {
   @ApiProperty() criticalFindings!: number;
   @ApiProperty() majorFindings!: number;
   @ApiProperty() unmappedRequirements!: number;
+}
+
+export class ComplianceRuleConfigurationFieldResponseDto {
+  @ApiProperty() key!: string;
+  @ApiProperty() label!: string;
+  @ApiProperty() description!: string;
+  @ApiProperty({ enum: ['INTEGER'] }) type!: 'INTEGER';
+  @ApiProperty() minimum!: number;
+  @ApiProperty() maximum!: number;
+  @ApiProperty() defaultValue!: number;
+}
+
+export class ComplianceRuleCatalogResponseDto {
+  @ApiProperty() implementationKey!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty() description!: string;
+  @ApiProperty() sourceEntityType!: string;
+  @ApiProperty() defaultCategory!: string;
+  @ApiProperty() defaultSeverity!: string;
+  @ApiProperty({
+    type: ComplianceRuleConfigurationFieldResponseDto,
+    isArray: true,
+  })
+  configurationFields!: readonly ComplianceRuleConfigurationFieldResponseDto[];
+}
+
+export class ComplianceRuleResponseDto {
+  @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiProperty() key!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty() description!: string;
+  @ApiProperty() implementationKey!: string;
+  @ApiProperty() category!: string;
+  @ApiProperty() severity!: string;
+  @ApiProperty() enabled!: boolean;
+  @ApiProperty({ type: Object }) configuration!: Record<string, unknown>;
+  @ApiProperty({ type: Object }) framework!: {
+    id: string;
+    code: string;
+    name: string;
+    version: string;
+  };
+  @ApiProperty({ type: Object }) requirement!: {
+    id: string;
+    code: string;
+    title: string;
+  };
+  @ApiPropertyOptional({ type: Object, nullable: true }) control!: {
+    id: string;
+    code: string;
+    name: string;
+  } | null;
+  @ApiPropertyOptional({ type: ComplianceUserSummaryDto, nullable: true })
+  owner!: ComplianceUserSummaryDto | null;
+  @ApiProperty({ format: 'date-time' }) createdAt!: string;
+  @ApiProperty({ format: 'date-time' }) updatedAt!: string;
+}
+
+export class ComplianceRuleResultResponseDto {
+  @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiProperty() outcome!: string;
+  @ApiProperty() scannedCount!: number;
+  @ApiProperty() violationCount!: number;
+  @ApiProperty() findingsCreated!: number;
+  @ApiProperty() findingsReopened!: number;
+  @ApiProperty() findingsResolved!: number;
+  @ApiProperty() findingsUnchanged!: number;
+  @ApiPropertyOptional() errorMessage!: string | null;
+  @ApiProperty({ type: Object }) rule!: {
+    id: string;
+    key: string;
+    name: string;
+  };
+  @ApiProperty({ format: 'date-time' }) startedAt!: string;
+  @ApiProperty({ format: 'date-time' }) completedAt!: string;
+}
+
+export class ComplianceEvaluationRunResponseDto {
+  @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiProperty() status!: string;
+  @ApiProperty() trigger!: string;
+  @ApiProperty({ type: ComplianceUserSummaryDto })
+  triggeredBy!: ComplianceUserSummaryDto;
+  @ApiProperty({ format: 'date-time' }) startedAt!: string;
+  @ApiPropertyOptional({ format: 'date-time' }) completedAt!: string | null;
+  @ApiProperty() rulesEvaluated!: number;
+  @ApiProperty() violationsDetected!: number;
+  @ApiProperty() findingsCreated!: number;
+  @ApiProperty() findingsReopened!: number;
+  @ApiProperty() findingsResolved!: number;
+  @ApiProperty() findingsUnchanged!: number;
+  @ApiPropertyOptional() errorSummary!: string | null;
+  @ApiProperty({ type: ComplianceRuleResultResponseDto, isArray: true })
+  results!: ComplianceRuleResultResponseDto[];
 }
