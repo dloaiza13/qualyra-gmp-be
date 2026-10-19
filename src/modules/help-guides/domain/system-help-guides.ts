@@ -73,6 +73,28 @@ export const systemHelpGuides: readonly SystemHelpGuide[] = [
     ],
   ),
   guide(
+    'COMPLIANCE',
+    'compliance-foundation',
+    'Cómo construir una base de cumplimiento explicable',
+    'Building an explainable compliance foundation',
+    'Relaciona frameworks, requisitos, controles, evidencia y hallazgos antes de interpretar la preparación para auditoría.',
+    'Relate frameworks, requirements, controls, evidence, and findings before interpreting audit readiness.',
+    [
+      'Adopta el framework y la versión aplicable usando códigos y resúmenes propios.',
+      'Agrega requisitos jerárquicos y asigna pesos transparentes según el criterio de calidad de la organización.',
+      'Describe los controles internos y relaciónalos con uno o varios requisitos.',
+      'Vincula evidencia existente; Qualyra comprueba que el registro origen pertenezca a esta organización.',
+      'Registra, atiende y cierra hallazgos con una justificación trazable. El score aparecerá cuando el motor de reglas esté configurado.',
+    ],
+    [
+      'Adopt the applicable framework and version using codes and original summaries.',
+      'Add hierarchical requirements and assign transparent weights under the organization quality policy.',
+      'Describe internal controls and map them to one or more requirements.',
+      'Link existing evidence; Qualyra verifies that the source record belongs to this organization.',
+      'Record, address, and close findings with a traceable rationale. A score is shown only after the rule engine is configured.',
+    ],
+  ),
+  guide(
     'DOCUMENTS',
     'documents',
     'Cómo gestionar documentos controlados',

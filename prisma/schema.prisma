@@ -660,6 +660,7 @@ enum PhotoEvidenceSubjectType {
 
 enum HelpGuideContext {
   OVERVIEW
+  COMPLIANCE
   ORGANIZATION
   DOCUMENTS
   TRAINING
@@ -686,6 +687,33 @@ enum HelpGuideRevisionStatus {
   DRAFT
   PUBLISHED
   RETIRED
+}
+
+enum ComplianceRequirementSeverity {
+  CRITICAL
+  MAJOR
+  MINOR
+  OBSERVATION
+}
+
+enum ComplianceControlStatus {
+  DRAFT
+  ACTIVE
+  RETIRED
+}
+
+enum ComplianceFindingSeverity {
+  CRITICAL
+  MAJOR
+  MINOR
+  OBSERVATION
+}
+
+enum ComplianceFindingStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  ACCEPTED_RISK
 }
 
 model Tenant {
@@ -777,6 +805,12 @@ model Tenant {
   helpGuides               HelpGuide[]
   helpGuideRevisions       HelpGuideRevision[]
   helpGuideFeedback        HelpGuideFeedback[]
+  complianceFrameworks     ComplianceFramework[]
+  complianceRequirements   ComplianceRequirement[]
+  complianceControls       ComplianceControl[]
+  complianceMappings       ComplianceControlRequirement[]
+  complianceEvidence       ComplianceEvidence[]
+  complianceFindings       ComplianceFinding[]
   platformAuditEvents      PlatformAuditEvent[]
   subscription             TenantSubscription?
   billingProviderEvents    BillingProviderEvent[]
@@ -908,6 +942,14 @@ model User {
   helpGuideRevisionsCreated         HelpGuideRevision[]             @relation("HelpGuideRevisionCreator")
   helpGuideRevisionsPublished       HelpGuideRevision[]             @relation("HelpGuideRevisionPublisher")
   helpGuideFeedback                 HelpGuideFeedback[]
+  complianceFrameworksCreated       ComplianceFramework[]           @relation("ComplianceFrameworkCreator")
+  complianceRequirementsCreated     ComplianceRequirement[]         @relation("ComplianceRequirementCreator")
+  complianceControlsOwned           ComplianceControl[]             @relation("ComplianceControlOwner")
+  complianceControlsCreated         ComplianceControl[]             @relation("ComplianceControlCreator")
+  complianceEvidenceCreated         ComplianceEvidence[]            @relation("ComplianceEvidenceCreator")
+  complianceFindingsOwned           ComplianceFinding[]             @relation("ComplianceFindingOwner")
+  complianceFindingsCreated         ComplianceFinding[]             @relation("ComplianceFindingCreator")
+  complianceFindingsResolved        ComplianceFinding[]             @relation("ComplianceFindingResolver")
 
   @@unique([tenantId, id], map: "users_tenant_id_id_key")
   @@unique([tenantId, email], map: "users_tenant_id_email_key")
@@ -3021,6 +3063,166 @@ model TenantPhotoEvidenceUsage {
   tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@map("tenant_photo_evidence_usage")
+}
+
+model ComplianceFramework {
+  id              String                  @id @default(uuid()) @db.Uuid
+  tenantId        String                  @map("tenant_id") @db.Uuid
+  code            String                  @db.VarChar(80)
+  name            String                  @db.VarChar(200)
+  version         String                  @db.VarChar(80)
+  description     String                  @db.VarChar(3000)
+  jurisdiction    String?                 @db.VarChar(120)
+  effectiveDate   DateTime?               @map("effective_date") @db.Date
+  active          Boolean                 @default(true)
+  createdByUserId String                  @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant          Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  createdBy       User                    @relation("ComplianceFrameworkCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
+  requirements    ComplianceRequirement[]
+  findings        ComplianceFinding[]
+
+  @@unique([tenantId, id], map: "compliance_frameworks_tenant_id_id_key")
+  @@unique([tenantId, code, version], map: "compliance_frameworks_code_version_key")
+  @@index([tenantId, active, name], map: "compliance_frameworks_active_name_idx")
+  @@map("compliance_frameworks")
+}
+
+model ComplianceRequirement {
+  id                  String                         @id @default(uuid()) @db.Uuid
+  tenantId            String                         @map("tenant_id") @db.Uuid
+  frameworkId         String                         @map("framework_id") @db.Uuid
+  parentRequirementId String?                        @map("parent_requirement_id") @db.Uuid
+  code                String                         @db.VarChar(100)
+  title               String                         @db.VarChar(300)
+  description         String                         @db.VarChar(5000)
+  severity            ComplianceRequirementSeverity  @default(MAJOR)
+  weight              Decimal                        @default(1) @db.Decimal(7, 2)
+  mandatory           Boolean                        @default(true)
+  sortOrder           Int                            @default(0) @map("sort_order")
+  createdByUserId     String                         @map("created_by_user_id") @db.Uuid
+  createdAt           DateTime                       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime                       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant              Tenant                         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  framework           ComplianceFramework            @relation(fields: [tenantId, frameworkId], references: [tenantId, id], onDelete: Restrict)
+  parent              ComplianceRequirement?         @relation("ComplianceRequirementHierarchy", fields: [tenantId, frameworkId, parentRequirementId], references: [tenantId, frameworkId, id], onDelete: Restrict)
+  children            ComplianceRequirement[]        @relation("ComplianceRequirementHierarchy")
+  createdBy           User                           @relation("ComplianceRequirementCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
+  controlMappings     ComplianceControlRequirement[]
+  evidence            ComplianceEvidence[]
+  findings            ComplianceFinding[]
+
+  @@unique([tenantId, id], map: "compliance_requirements_tenant_id_id_key")
+  @@unique([tenantId, frameworkId, id], map: "compliance_requirements_framework_id_key")
+  @@unique([tenantId, frameworkId, code], map: "compliance_requirements_code_key")
+  @@index([tenantId, frameworkId, parentRequirementId, sortOrder], map: "compliance_requirements_hierarchy_idx")
+  @@map("compliance_requirements")
+}
+
+model ComplianceControl {
+  id                  String                         @id @default(uuid()) @db.Uuid
+  tenantId            String                         @map("tenant_id") @db.Uuid
+  code                String                         @db.VarChar(80)
+  name                String                         @db.VarChar(250)
+  description         String                         @db.VarChar(5000)
+  category            String                         @db.VarChar(100)
+  status              ComplianceControlStatus        @default(DRAFT)
+  ownerUserId         String?                        @map("owner_user_id") @db.Uuid
+  createdByUserId     String                         @map("created_by_user_id") @db.Uuid
+  createdAt           DateTime                       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime                       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant              Tenant                         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  owner               User?                          @relation("ComplianceControlOwner", fields: [tenantId, ownerUserId], references: [tenantId, id], onDelete: Restrict)
+  createdBy           User                           @relation("ComplianceControlCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
+  requirementMappings ComplianceControlRequirement[]
+  evidence            ComplianceEvidence[]
+  findings            ComplianceFinding[]
+
+  @@unique([tenantId, id], map: "compliance_controls_tenant_id_id_key")
+  @@unique([tenantId, code], map: "compliance_controls_code_key")
+  @@index([tenantId, status, category], map: "compliance_controls_status_category_idx")
+  @@map("compliance_controls")
+}
+
+model ComplianceControlRequirement {
+  tenantId      String                @map("tenant_id") @db.Uuid
+  controlId     String                @map("control_id") @db.Uuid
+  requirementId String                @map("requirement_id") @db.Uuid
+  createdAt     DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant        Tenant                @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  control       ComplianceControl     @relation(fields: [tenantId, controlId], references: [tenantId, id], onDelete: Restrict)
+  requirement   ComplianceRequirement @relation(fields: [tenantId, requirementId], references: [tenantId, id], onDelete: Restrict)
+
+  @@id([tenantId, controlId, requirementId])
+  @@index([tenantId, requirementId], map: "compliance_control_requirements_requirement_idx")
+  @@map("compliance_control_requirements")
+}
+
+model ComplianceEvidence {
+  id               String                 @id @default(uuid()) @db.Uuid
+  tenantId         String                 @map("tenant_id") @db.Uuid
+  requirementId    String?                @map("requirement_id") @db.Uuid
+  controlId        String?                @map("control_id") @db.Uuid
+  findingId        String?                @map("finding_id") @db.Uuid
+  sourceEntityType String                 @map("source_entity_type") @db.VarChar(80)
+  sourceEntityId   String                 @map("source_entity_id") @db.Uuid
+  sourceReference  String                 @map("source_reference") @db.VarChar(300)
+  description      String                 @db.VarChar(3000)
+  validUntil       DateTime?              @map("valid_until") @db.Date
+  createdByUserId  String                 @map("created_by_user_id") @db.Uuid
+  createdAt        DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant           Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  requirement      ComplianceRequirement? @relation(fields: [tenantId, requirementId], references: [tenantId, id], onDelete: Restrict)
+  control          ComplianceControl?     @relation(fields: [tenantId, controlId], references: [tenantId, id], onDelete: Restrict)
+  finding          ComplianceFinding?     @relation(fields: [tenantId, findingId], references: [tenantId, id], onDelete: Restrict)
+  createdBy        User                   @relation("ComplianceEvidenceCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id], map: "compliance_evidence_tenant_id_id_key")
+  @@index([tenantId, requirementId], map: "compliance_evidence_requirement_idx")
+  @@index([tenantId, controlId], map: "compliance_evidence_control_idx")
+  @@index([tenantId, findingId], map: "compliance_evidence_finding_idx")
+  @@index([tenantId, sourceEntityType, sourceEntityId], map: "compliance_evidence_source_idx")
+  @@map("compliance_evidence")
+}
+
+model ComplianceFinding {
+  id               String                    @id @default(uuid()) @db.Uuid
+  tenantId         String                    @map("tenant_id") @db.Uuid
+  frameworkId      String                    @map("framework_id") @db.Uuid
+  requirementId    String                    @map("requirement_id") @db.Uuid
+  controlId        String?                   @map("control_id") @db.Uuid
+  severity         ComplianceFindingSeverity
+  status           ComplianceFindingStatus   @default(OPEN)
+  category         String                    @db.VarChar(100)
+  title            String                    @db.VarChar(300)
+  description      String                    @db.VarChar(5000)
+  detectionSource  String                    @default("MANUAL") @map("detection_source") @db.VarChar(80)
+  sourceEntityType String?                   @map("source_entity_type") @db.VarChar(80)
+  sourceEntityId   String?                   @map("source_entity_id") @db.Uuid
+  ownerUserId      String?                   @map("owner_user_id") @db.Uuid
+  createdByUserId  String                    @map("created_by_user_id") @db.Uuid
+  detectedAt       DateTime                  @default(now()) @map("detected_at") @db.Timestamptz(3)
+  dueAt            DateTime?                 @map("due_at") @db.Timestamptz(3)
+  resolvedAt       DateTime?                 @map("resolved_at") @db.Timestamptz(3)
+  resolvedByUserId String?                   @map("resolved_by_user_id") @db.Uuid
+  resolutionNote   String?                   @map("resolution_note") @db.VarChar(3000)
+  createdAt        DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant           Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  framework        ComplianceFramework       @relation(fields: [tenantId, frameworkId], references: [tenantId, id], onDelete: Restrict)
+  requirement      ComplianceRequirement     @relation(fields: [tenantId, frameworkId, requirementId], references: [tenantId, frameworkId, id], onDelete: Restrict)
+  control          ComplianceControl?        @relation(fields: [tenantId, controlId], references: [tenantId, id], onDelete: Restrict)
+  owner            User?                     @relation("ComplianceFindingOwner", fields: [tenantId, ownerUserId], references: [tenantId, id], onDelete: Restrict)
+  createdBy        User                      @relation("ComplianceFindingCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
+  resolvedBy       User?                     @relation("ComplianceFindingResolver", fields: [tenantId, resolvedByUserId], references: [tenantId, id], onDelete: Restrict)
+  evidence         ComplianceEvidence[]
+
+  @@unique([tenantId, id], map: "compliance_findings_tenant_id_id_key")
+  @@index([tenantId, status, severity, detectedAt(sort: Desc)], map: "compliance_findings_status_severity_idx")
+  @@index([tenantId, frameworkId, category], map: "compliance_findings_framework_category_idx")
+  @@index([tenantId, ownerUserId, status], map: "compliance_findings_owner_status_idx")
+  @@map("compliance_findings")
 }
 
 model PlatformAuditEvent {

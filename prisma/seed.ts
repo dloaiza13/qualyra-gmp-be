@@ -21,6 +21,24 @@ const permissions = [
   ['help_guides.publish', 'Publish and retire organization help guides.'],
   ['reports.read', 'View organization-wide quality reports and analytics.'],
   ['reports.export', 'Export traceable organization-wide quality reports.'],
+  [
+    'compliance.read',
+    'View the organization compliance foundation and findings.',
+  ],
+  [
+    'compliance.manage',
+    'Manage compliance controls and evidence relationships.',
+  ],
+  ['compliance.evaluate', 'Run deterministic compliance evaluations.'],
+  ['compliance.findings.manage', 'Create and manage compliance findings.'],
+  [
+    'compliance.frameworks.read',
+    'View adopted compliance frameworks and requirements.',
+  ],
+  [
+    'compliance.frameworks.manage',
+    'Manage adopted compliance frameworks and requirements.',
+  ],
   ['tenants.read', 'View organization settings.'],
   ['tenants.update', 'Update organization settings.'],
   ['documents.read', 'View documents.'],
@@ -158,9 +176,115 @@ async function seedPermissions(): Promise<void> {
   }
 }
 
-seedPermissions()
+async function seedComplianceDemo(): Promise<boolean> {
+  const tenantId = process.env.COMPLIANCE_DEMO_TENANT_ID;
+  if (!tenantId) return false;
+
+  await prisma.$transaction(async (transaction) => {
+    await transaction.$queryRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+    const creator = await transaction.user.findFirst({
+      where: { tenantId, status: 'ACTIVE' },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    });
+    if (!creator) {
+      throw new Error(
+        'COMPLIANCE_DEMO_TENANT_ID must identify a tenant with an active user.',
+      );
+    }
+    const framework = await transaction.complianceFramework.upsert({
+      where: {
+        tenantId_code_version: {
+          tenantId,
+          code: 'ISO-13485',
+          version: '2016',
+        },
+      },
+      create: {
+        tenantId,
+        code: 'ISO-13485',
+        name: 'ISO 13485',
+        version: '2016',
+        description:
+          'Demo framework for validating medical-device quality-system mappings. Contains original summaries only.',
+        jurisdiction: 'International',
+        active: true,
+        createdByUserId: creator.id,
+      },
+      update: {},
+      select: { id: true },
+    });
+    const requirements = [
+      [
+        '4.2.4',
+        'Document control',
+        'Maintain approved, current and traceable quality-system documents.',
+      ],
+      [
+        '6.2',
+        'Personnel competence',
+        'Ensure personnel are competent through appropriate education, training and experience.',
+      ],
+      [
+        '7.4',
+        'Purchasing controls',
+        'Apply risk-appropriate controls to suppliers and purchased product.',
+      ],
+      [
+        '7.6',
+        'Monitoring and measuring equipment',
+        'Control equipment used to demonstrate product conformity.',
+      ],
+      [
+        '8.2.4',
+        'Internal audits',
+        'Plan and perform independent audits of the quality management system.',
+      ],
+      [
+        '8.5.2',
+        'Corrective action',
+        'Eliminate causes of detected nonconformities and verify effective action.',
+      ],
+    ] as const;
+    for (const [code, title, description] of requirements) {
+      await transaction.complianceRequirement.upsert({
+        where: {
+          tenantId_frameworkId_code: {
+            tenantId,
+            frameworkId: framework.id,
+            code,
+          },
+        },
+        create: {
+          tenantId,
+          frameworkId: framework.id,
+          code,
+          title,
+          description,
+          severity: 'MAJOR',
+          weight: 1,
+          mandatory: true,
+          createdByUserId: creator.id,
+        },
+        update: {},
+      });
+    }
+  });
+  return true;
+}
+
+async function seed(): Promise<void> {
+  await seedPermissions();
+  const complianceDemo = await seedComplianceDemo();
+  process.stdout.write(
+    `Seeded ${permissions.length} permissions${
+      complianceDemo ? ' and the optional compliance demo' : ''
+    }.\n`,
+  );
+}
+
+seed()
   .then(async () => {
-    process.stdout.write(`Seeded ${permissions.length} permissions.\n`);
     await prisma.$disconnect();
   })
   .catch(async (error: unknown) => {

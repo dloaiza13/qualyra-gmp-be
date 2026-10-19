@@ -1,0 +1,113 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+export class ComplianceUserSummaryDto {
+  @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiProperty() displayName!: string;
+  @ApiProperty({ format: 'email' }) email!: string;
+}
+
+export class ComplianceRequirementResponseDto {
+  @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiPropertyOptional({ format: 'uuid', nullable: true })
+  parentRequirementId!: string | null;
+  @ApiProperty() code!: string;
+  @ApiProperty() title!: string;
+  @ApiProperty() description!: string;
+  @ApiProperty() severity!: string;
+  @ApiProperty() weight!: number;
+  @ApiProperty() mandatory!: boolean;
+  @ApiProperty() sortOrder!: number;
+}
+
+export class ComplianceFrameworkResponseDto {
+  @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiProperty() code!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty() version!: string;
+  @ApiProperty() description!: string;
+  @ApiPropertyOptional({ nullable: true }) jurisdiction!: string | null;
+  @ApiPropertyOptional({ format: 'date', nullable: true }) effectiveDate!:
+    string | null;
+  @ApiProperty() active!: boolean;
+  @ApiProperty({ type: ComplianceRequirementResponseDto, isArray: true })
+  requirements!: ComplianceRequirementResponseDto[];
+}
+
+export class ComplianceControlResponseDto {
+  @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiProperty() code!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty() description!: string;
+  @ApiProperty() category!: string;
+  @ApiProperty() status!: string;
+  @ApiPropertyOptional({ type: ComplianceUserSummaryDto, nullable: true })
+  owner!: ComplianceUserSummaryDto | null;
+  @ApiProperty({ type: ComplianceRequirementResponseDto, isArray: true })
+  requirements!: ComplianceRequirementResponseDto[];
+  @ApiProperty() evidenceCount!: number;
+}
+
+export class ComplianceEvidenceResponseDto {
+  @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiPropertyOptional({ format: 'uuid', nullable: true }) requirementId!:
+    string | null;
+  @ApiPropertyOptional({ format: 'uuid', nullable: true }) controlId!:
+    string | null;
+  @ApiPropertyOptional({ format: 'uuid', nullable: true }) findingId!:
+    string | null;
+  @ApiProperty() sourceEntityType!: string;
+  @ApiProperty({ format: 'uuid' }) sourceEntityId!: string;
+  @ApiProperty() sourceReference!: string;
+  @ApiProperty() description!: string;
+  @ApiPropertyOptional({ format: 'date', nullable: true }) validUntil!:
+    string | null;
+  @ApiProperty({ type: ComplianceUserSummaryDto })
+  createdBy!: ComplianceUserSummaryDto;
+  @ApiProperty({ format: 'date-time' }) createdAt!: string;
+}
+
+export class ComplianceFindingResponseDto {
+  @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiProperty() severity!: string;
+  @ApiProperty() status!: string;
+  @ApiProperty() category!: string;
+  @ApiProperty() title!: string;
+  @ApiProperty() description!: string;
+  @ApiProperty() detectionSource!: string;
+  @ApiProperty({ type: Object }) framework!: {
+    id: string;
+    code: string;
+    name: string;
+    version: string;
+  };
+  @ApiProperty({ type: Object }) requirement!: {
+    id: string;
+    code: string;
+    title: string;
+  };
+  @ApiPropertyOptional({ type: Object, nullable: true }) control!: {
+    id: string;
+    code: string;
+    name: string;
+  } | null;
+  @ApiPropertyOptional({ type: ComplianceUserSummaryDto, nullable: true })
+  owner!: ComplianceUserSummaryDto | null;
+  @ApiProperty({ format: 'date-time' }) detectedAt!: string;
+  @ApiPropertyOptional({ format: 'date-time', nullable: true }) dueAt!:
+    string | null;
+  @ApiPropertyOptional({ format: 'date-time', nullable: true }) resolvedAt!:
+    string | null;
+  @ApiPropertyOptional({ nullable: true }) resolutionNote!: string | null;
+  @ApiProperty() evidenceCount!: number;
+}
+
+export class ComplianceOverviewResponseDto {
+  @ApiProperty() frameworks!: number;
+  @ApiProperty() requirements!: number;
+  @ApiProperty() controls!: number;
+  @ApiProperty() evidence!: number;
+  @ApiProperty() openFindings!: number;
+  @ApiProperty() criticalFindings!: number;
+  @ApiProperty() majorFindings!: number;
+  @ApiProperty() unmappedRequirements!: number;
+}
