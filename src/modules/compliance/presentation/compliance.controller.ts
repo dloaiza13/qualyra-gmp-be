@@ -26,9 +26,11 @@ import { Permissions } from '../../authorization/presentation/permissions.decora
 import { PermissionsGuard } from '../../authorization/presentation/permissions.guard.js';
 import { ComplianceService } from '../application/compliance.service.js';
 import { ComplianceEvaluationService } from '../application/compliance-evaluation.service.js';
+import { ComplianceReadinessService } from '../application/compliance-readiness.service.js';
 import {
   ComplianceEvaluationListQueryDto,
   ComplianceFindingListQueryDto,
+  ComplianceSnapshotListQueryDto,
   CreateComplianceControlDto,
   CreateComplianceEvidenceDto,
   CreateComplianceFindingDto,
@@ -38,6 +40,7 @@ import {
   RunComplianceEvaluationDto,
   UpdateComplianceRuleDto,
   UpdateComplianceFindingStatusDto,
+  UpdateComplianceReadinessPolicyDto,
 } from '../application/dto/compliance-request.dto.js';
 import {
   ComplianceControlResponseDto,
@@ -46,8 +49,11 @@ import {
   ComplianceFindingResponseDto,
   ComplianceFrameworkResponseDto,
   ComplianceOverviewResponseDto,
+  ComplianceReadinessPolicyResponseDto,
+  ComplianceReadinessResponseDto,
   ComplianceRuleCatalogResponseDto,
   ComplianceRuleResponseDto,
+  ComplianceScoreSnapshotResponseDto,
 } from '../application/dto/compliance-response.dto.js';
 
 @ApiTags('Continuous compliance')
@@ -58,6 +64,7 @@ export class ComplianceController {
   constructor(
     private readonly compliance: ComplianceService,
     private readonly evaluations: ComplianceEvaluationService,
+    private readonly readiness: ComplianceReadinessService,
   ) {}
 
   @Get('overview')
@@ -67,6 +74,59 @@ export class ComplianceController {
     @CurrentUser() principal: AuthenticatedPrincipal,
   ): Promise<ComplianceOverviewResponseDto> {
     return this.compliance.overview(principal);
+  }
+
+  @Get('readiness')
+  @Permissions('compliance.read')
+  @ApiOkResponse({ type: ComplianceReadinessResponseDto })
+  auditReadiness(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+  ): Promise<ComplianceReadinessResponseDto> {
+    return this.readiness.getReadiness(principal);
+  }
+
+  @Get('readiness/policy')
+  @Permissions('compliance.read')
+  @ApiOkResponse({ type: ComplianceReadinessPolicyResponseDto })
+  readinessPolicy(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+  ): Promise<ComplianceReadinessPolicyResponseDto> {
+    return this.readiness.getPolicy(principal);
+  }
+
+  @Patch('readiness/policy')
+  @Permissions('compliance.manage')
+  @ApiOkResponse({ type: ComplianceReadinessPolicyResponseDto })
+  updateReadinessPolicy(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+    @Body() input: UpdateComplianceReadinessPolicyDto,
+    @Req() request: Request & RequestWithContext,
+  ): Promise<ComplianceReadinessPolicyResponseDto> {
+    return this.readiness.updatePolicy(
+      principal,
+      input,
+      requestMetadata(request),
+    );
+  }
+
+  @Get('readiness/snapshots')
+  @Permissions('compliance.read')
+  @ApiOkResponse({ type: ComplianceScoreSnapshotResponseDto, isArray: true })
+  readinessSnapshots(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+    @Query() query: ComplianceSnapshotListQueryDto,
+  ): Promise<ComplianceScoreSnapshotResponseDto[]> {
+    return this.readiness.listSnapshots(principal, query);
+  }
+
+  @Post('readiness/snapshots')
+  @Permissions('compliance.evaluate')
+  @ApiCreatedResponse({ type: ComplianceScoreSnapshotResponseDto })
+  captureReadinessSnapshot(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+    @Req() request: Request & RequestWithContext,
+  ): Promise<ComplianceScoreSnapshotResponseDto> {
+    return this.readiness.captureSnapshot(principal, requestMetadata(request));
   }
 
   @Get('frameworks')

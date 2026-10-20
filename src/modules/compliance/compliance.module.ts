@@ -3,6 +3,7 @@ import { PrismaModule } from '../../infrastructure/database/prisma/prisma.module
 import { AuthorizationModule } from '../authorization/authorization.module.js';
 import { ComplianceService } from './application/compliance.service.js';
 import { ComplianceEvaluationService } from './application/compliance-evaluation.service.js';
+import { ComplianceReadinessService } from './application/compliance-readiness.service.js';
 import { ComplianceRuleRegistry } from './application/compliance-rule-registry.js';
 import { COMPLIANCE_RULE_EVALUATORS } from './domain/compliance-rule.js';
 import { ComplianceEvidenceSourceResolver } from './domain/compliance-evidence-source.js';
@@ -17,6 +18,7 @@ import { ComplianceController } from './presentation/compliance.controller.js';
   providers: [
     ComplianceService,
     ComplianceEvaluationService,
+    ComplianceReadinessService,
     ComplianceRuleRegistry,
     CapaActionOverdueRuleEvaluator,
     EquipmentCalibrationOverdueRuleEvaluator,

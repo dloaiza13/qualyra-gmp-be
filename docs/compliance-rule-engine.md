@@ -67,5 +67,5 @@ Read endpoints require `compliance.read`, rule mutations require
 
 - Scheduling/background queues and additional operational adapters belong to
   Phase 4.
-- Readiness scoring, explanations, snapshots and trends belong to Phase 3.
+- Readiness scoring, explanations, snapshots and trends are delivered in Phase 3.
 - An LLM does not decide pass/fail and is not part of this engine.

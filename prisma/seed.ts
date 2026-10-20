@@ -324,6 +324,15 @@ async function seedComplianceDemo(): Promise<boolean> {
         },
       });
     }
+    await transaction.complianceReadinessPolicy.upsert({
+      where: { tenantId },
+      create: {
+        tenantId,
+        createdByUserId: creator.id,
+        updatedByUserId: creator.id,
+      },
+      update: {},
+    });
   });
   return true;
 }

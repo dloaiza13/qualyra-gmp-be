@@ -7025,6 +7025,161 @@
         ]
       }
     },
+    "/api/v1/compliance/readiness": {
+      "get": {
+        "operationId": "ComplianceController_auditReadiness",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplianceReadinessResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Continuous compliance"
+        ]
+      }
+    },
+    "/api/v1/compliance/readiness/policy": {
+      "get": {
+        "operationId": "ComplianceController_readinessPolicy",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplianceReadinessPolicyResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Continuous compliance"
+        ]
+      },
+      "patch": {
+        "operationId": "ComplianceController_updateReadinessPolicy",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateComplianceReadinessPolicyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplianceReadinessPolicyResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Continuous compliance"
+        ]
+      }
+    },
+    "/api/v1/compliance/readiness/snapshots": {
+      "get": {
+        "operationId": "ComplianceController_readinessSnapshots",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 24,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ComplianceScoreSnapshotResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Continuous compliance"
+        ]
+      },
+      "post": {
+        "operationId": "ComplianceController_captureReadinessSnapshot",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplianceScoreSnapshotResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Continuous compliance"
+        ]
+      }
+    },
     "/api/v1/compliance/frameworks": {
       "get": {
         "operationId": "ComplianceController_frameworks",
@@ -17976,6 +18131,268 @@
           "unmappedRequirements"
         ]
       },
+      "ComplianceReadinessResponseDto": {
+        "type": "object",
+        "properties": {
+          "calculatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "overallScore": {
+            "type": "object",
+            "minimum": 0,
+            "maximum": 100,
+            "nullable": true
+          },
+          "status": {
+            "type": "object"
+          },
+          "eligible": {
+            "type": "boolean"
+          },
+          "methodology": {
+            "type": "object"
+          },
+          "coverage": {
+            "type": "object"
+          },
+          "findings": {
+            "type": "object"
+          },
+          "frameworks": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "deductions": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "calculatedAt",
+          "status",
+          "eligible",
+          "methodology",
+          "coverage",
+          "findings",
+          "frameworks",
+          "categories",
+          "deductions"
+        ]
+      },
+      "ComplianceReadinessPolicyResponseDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "number"
+          },
+          "criticalPenalty": {
+            "type": "number"
+          },
+          "majorPenalty": {
+            "type": "number"
+          },
+          "minorPenalty": {
+            "type": "number"
+          },
+          "observationPenalty": {
+            "type": "number"
+          },
+          "unmappedRequirementPenalty": {
+            "type": "number"
+          },
+          "missingEvidencePenalty": {
+            "type": "number"
+          },
+          "excellentMinimum": {
+            "type": "number"
+          },
+          "goodMinimum": {
+            "type": "number"
+          },
+          "needsAttentionMinimum": {
+            "type": "number"
+          },
+          "frameworkWeights": {
+            "type": "object"
+          },
+          "categoryWeights": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "version",
+          "criticalPenalty",
+          "majorPenalty",
+          "minorPenalty",
+          "observationPenalty",
+          "unmappedRequirementPenalty",
+          "missingEvidencePenalty",
+          "excellentMinimum",
+          "goodMinimum",
+          "needsAttentionMinimum",
+          "frameworkWeights",
+          "categoryWeights"
+        ]
+      },
+      "UpdateComplianceReadinessPolicyDto": {
+        "type": "object",
+        "properties": {
+          "criticalPenalty": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "majorPenalty": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "minorPenalty": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "observationPenalty": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "unmappedRequirementPenalty": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "missingEvidencePenalty": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "excellentMinimum": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "goodMinimum": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "needsAttentionMinimum": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "frameworkWeights": {
+            "type": "object"
+          },
+          "categoryWeights": {
+            "type": "object"
+          }
+        }
+      },
+      "ComplianceUserSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "email"
+        ]
+      },
+      "ComplianceScoreSnapshotResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "overallScore": {
+            "type": "object",
+            "minimum": 0,
+            "maximum": 100,
+            "nullable": true
+          },
+          "status": {
+            "type": "object"
+          },
+          "activeFrameworks": {
+            "type": "number"
+          },
+          "totalRequirements": {
+            "type": "number"
+          },
+          "mappedRequirements": {
+            "type": "number"
+          },
+          "evidenceCoveredRequirements": {
+            "type": "number"
+          },
+          "criticalFindings": {
+            "type": "number"
+          },
+          "majorFindings": {
+            "type": "number"
+          },
+          "minorFindings": {
+            "type": "number"
+          },
+          "observationFindings": {
+            "type": "number"
+          },
+          "acceptedRiskFindings": {
+            "type": "number"
+          },
+          "policyVersion": {
+            "type": "number"
+          },
+          "createdBy": {
+            "$ref": "#/components/schemas/ComplianceUserSummaryDto"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "activeFrameworks",
+          "totalRequirements",
+          "mappedRequirements",
+          "evidenceCoveredRequirements",
+          "criticalFindings",
+          "majorFindings",
+          "minorFindings",
+          "observationFindings",
+          "acceptedRiskFindings",
+          "policyVersion",
+          "createdBy",
+          "createdAt"
+        ]
+      },
       "ComplianceRequirementResponseDto": {
         "type": "object",
         "properties": {
@@ -18150,27 +18567,6 @@
           "title",
           "description",
           "severity"
-        ]
-      },
-      "ComplianceUserSummaryDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "displayName": {
-            "type": "string"
-          },
-          "email": {
-            "type": "string",
-            "format": "email"
-          }
-        },
-        "required": [
-          "id",
-          "displayName",
-          "email"
         ]
       },
       "ComplianceControlResponseDto": {

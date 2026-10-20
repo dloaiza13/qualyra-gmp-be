@@ -396,3 +396,88 @@ export class ComplianceEvaluationListQueryDto {
   @Max(100)
   limit = 20;
 }
+
+export class UpdateComplianceReadinessPolicyDto {
+  @ApiPropertyOptional({ minimum: 0, maximum: 100 })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(100)
+  criticalPenalty?: number;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 100 })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(100)
+  majorPenalty?: number;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 100 })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(100)
+  minorPenalty?: number;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 100 })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(100)
+  observationPenalty?: number;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 100 })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(100)
+  unmappedRequirementPenalty?: number;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 100 })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(100)
+  missingEvidencePenalty?: number;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 100 })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(100)
+  excellentMinimum?: number;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 100 })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(100)
+  goodMinimum?: number;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 100 })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(100)
+  needsAttentionMinimum?: number;
+
+  @ApiPropertyOptional({ type: Object })
+  @IsOptional()
+  @IsObject()
+  frameworkWeights?: Record<string, unknown>;
+
+  @ApiPropertyOptional({ type: Object })
+  @IsOptional()
+  @IsObject()
+  categoryWeights?: Record<string, unknown>;
+}
+
+export class ComplianceSnapshotListQueryDto {
+  @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 24 })
+  @Type(() => Number)
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit = 24;
+}

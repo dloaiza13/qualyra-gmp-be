@@ -733,246 +733,259 @@ enum ComplianceRuleOutcome {
   ERROR
 }
 
+enum ComplianceReadinessStatus {
+  NOT_ENOUGH_DATA
+  EXCELLENT
+  GOOD
+  NEEDS_ATTENTION
+  HIGH_RISK
+}
+
 model Tenant {
-  id                       String                          @id @default(uuid()) @db.Uuid
-  name                     String                          @db.VarChar(200)
-  slug                     String                          @unique(map: "tenants_slug_key") @db.VarChar(63)
-  status                   TenantStatus                    @default(ACTIVE)
-  plan                     TenantPlan                      @default(TRIAL)
-  trialEndsAt              DateTime?                       @map("trial_ends_at") @db.Timestamptz(3)
-  createdAt                DateTime                        @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt                DateTime                        @updatedAt @map("updated_at") @db.Timestamptz(3)
-  users                    User[]
-  roles                    Role[]
-  rolePermissions          RolePermission[]
-  userRoles                UserRole[]
-  sessions                 Session[]
-  refreshTokens            RefreshToken[]
-  passwordResetTokens      PasswordResetToken[]
-  emailVerificationTokens  EmailVerificationToken[]
-  invitations              Invitation[]
-  invitationRoles          InvitationRole[]
-  securityEvents           SecurityEvent[]
-  outboxMessages           OutboxMessage[]
-  documents                Document[]
-  documentVersions         DocumentVersion[]
-  documentWorkflows        DocumentWorkflow[]
-  documentReleases         DocumentRelease[]
-  documentObsolescences    DocumentObsolescence[]
-  documentPeriodicReviews  DocumentPeriodicReview[]
-  trainingAssignments      TrainingAssignment[]
-  deviationSequences       DeviationSequence[]
-  deviations               Deviation[]
-  deviationInvestigations  DeviationInvestigation[]
-  capaSequences            CapaSequence[]
-  capas                    Capa[]
-  capaActions              CapaAction[]
-  capaEffectivenessReviews CapaEffectivenessReview[]
-  capaFollowUpCycles       CapaFollowUpCycle[]
-  capaActionExtensions     CapaActionExtension[]
-  capaActionEvidence       CapaActionEvidenceReference[]
-  capaEvidenceUploads      CapaEvidenceUpload[]
-  capaNotifications        CapaNotification[]
-  capaAuditExports         CapaAuditExport[]
-  changeControlSequences   ChangeControlSequence[]
-  changeControls           ChangeControl[]
-  changeAssessments        ChangeControlAssessment[]
-  changeDecisions          ChangeControlDecision[]
-  changeTasks              ChangeControlTask[]
-  changeVerifications      ChangeControlVerification[]
-  auditSequences           AuditSequence[]
-  audits                   GmpAudit[]
-  auditFindings            AuditFinding[]
-  auditReports             AuditReport[]
-  auditFindingResponses    AuditFindingResponse[]
-  auditClosures            AuditClosure[]
-  qualityRiskSequences     QualityRiskSequence[]
-  qualityRisks             QualityRiskAssessment[]
-  qualityRiskItems         QualityRiskItem[]
-  qualityRiskReviews       QualityRiskReview[]
-  supplierSequences        SupplierSequence[]
-  suppliers                Supplier[]
-  supplierQualifications   SupplierQualification[]
-  supplierDecisions        SupplierQualificationDecision[]
-  supplierScarSequences    SupplierScarSequence[]
-  supplierScars            SupplierScar[]
-  supplierScarResponses    SupplierScarResponse[]
-  equipmentSequences       EquipmentSequence[]
-  equipment                Equipment[]
-  equipmentCalibrations    EquipmentCalibration[]
-  calibrationReviews       EquipmentCalibrationReview[]
-  equipmentMaintenances    EquipmentMaintenance[]
-  maintenanceReviews       EquipmentMaintenanceReview[]
-  complaintSequences       ComplaintSequence[]
-  complaints               ProductComplaint[]
-  complaintInvestigations  ComplaintInvestigation[]
-  complaintDecisions       ComplaintDecision[]
-  recallSequences          RecallSequence[]
-  productRecalls           ProductRecall[]
-  recallRiskAssessments    RecallRiskAssessment[]
-  recallDecisions          RecallDecision[]
-  recallExecutionUpdates   RecallExecutionUpdate[]
-  recallClosures           RecallClosure[]
-  productReviewSequences   ProductReviewSequence[]
-  productQualityReviews    ProductQualityReview[]
-  productReviewAssessments ProductReviewAssessment[]
-  productReviewDecisions   ProductReviewDecision[]
-  photoEvidence            PhotoEvidence[]
-  photoEvidenceUsage       TenantPhotoEvidenceUsage?
-  helpGuides               HelpGuide[]
-  helpGuideRevisions       HelpGuideRevision[]
-  helpGuideFeedback        HelpGuideFeedback[]
-  complianceFrameworks     ComplianceFramework[]
-  complianceRequirements   ComplianceRequirement[]
-  complianceControls       ComplianceControl[]
-  complianceMappings       ComplianceControlRequirement[]
-  complianceEvidence       ComplianceEvidence[]
-  complianceFindings       ComplianceFinding[]
-  complianceRules          ComplianceRule[]
-  complianceEvaluationRuns ComplianceEvaluationRun[]
-  complianceRuleResults    ComplianceRuleResult[]
-  platformAuditEvents      PlatformAuditEvent[]
-  subscription             TenantSubscription?
-  billingProviderEvents    BillingProviderEvent[]
+  id                        String                          @id @default(uuid()) @db.Uuid
+  name                      String                          @db.VarChar(200)
+  slug                      String                          @unique(map: "tenants_slug_key") @db.VarChar(63)
+  status                    TenantStatus                    @default(ACTIVE)
+  plan                      TenantPlan                      @default(TRIAL)
+  trialEndsAt               DateTime?                       @map("trial_ends_at") @db.Timestamptz(3)
+  createdAt                 DateTime                        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                 DateTime                        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  users                     User[]
+  roles                     Role[]
+  rolePermissions           RolePermission[]
+  userRoles                 UserRole[]
+  sessions                  Session[]
+  refreshTokens             RefreshToken[]
+  passwordResetTokens       PasswordResetToken[]
+  emailVerificationTokens   EmailVerificationToken[]
+  invitations               Invitation[]
+  invitationRoles           InvitationRole[]
+  securityEvents            SecurityEvent[]
+  outboxMessages            OutboxMessage[]
+  documents                 Document[]
+  documentVersions          DocumentVersion[]
+  documentWorkflows         DocumentWorkflow[]
+  documentReleases          DocumentRelease[]
+  documentObsolescences     DocumentObsolescence[]
+  documentPeriodicReviews   DocumentPeriodicReview[]
+  trainingAssignments       TrainingAssignment[]
+  deviationSequences        DeviationSequence[]
+  deviations                Deviation[]
+  deviationInvestigations   DeviationInvestigation[]
+  capaSequences             CapaSequence[]
+  capas                     Capa[]
+  capaActions               CapaAction[]
+  capaEffectivenessReviews  CapaEffectivenessReview[]
+  capaFollowUpCycles        CapaFollowUpCycle[]
+  capaActionExtensions      CapaActionExtension[]
+  capaActionEvidence        CapaActionEvidenceReference[]
+  capaEvidenceUploads       CapaEvidenceUpload[]
+  capaNotifications         CapaNotification[]
+  capaAuditExports          CapaAuditExport[]
+  changeControlSequences    ChangeControlSequence[]
+  changeControls            ChangeControl[]
+  changeAssessments         ChangeControlAssessment[]
+  changeDecisions           ChangeControlDecision[]
+  changeTasks               ChangeControlTask[]
+  changeVerifications       ChangeControlVerification[]
+  auditSequences            AuditSequence[]
+  audits                    GmpAudit[]
+  auditFindings             AuditFinding[]
+  auditReports              AuditReport[]
+  auditFindingResponses     AuditFindingResponse[]
+  auditClosures             AuditClosure[]
+  qualityRiskSequences      QualityRiskSequence[]
+  qualityRisks              QualityRiskAssessment[]
+  qualityRiskItems          QualityRiskItem[]
+  qualityRiskReviews        QualityRiskReview[]
+  supplierSequences         SupplierSequence[]
+  suppliers                 Supplier[]
+  supplierQualifications    SupplierQualification[]
+  supplierDecisions         SupplierQualificationDecision[]
+  supplierScarSequences     SupplierScarSequence[]
+  supplierScars             SupplierScar[]
+  supplierScarResponses     SupplierScarResponse[]
+  equipmentSequences        EquipmentSequence[]
+  equipment                 Equipment[]
+  equipmentCalibrations     EquipmentCalibration[]
+  calibrationReviews        EquipmentCalibrationReview[]
+  equipmentMaintenances     EquipmentMaintenance[]
+  maintenanceReviews        EquipmentMaintenanceReview[]
+  complaintSequences        ComplaintSequence[]
+  complaints                ProductComplaint[]
+  complaintInvestigations   ComplaintInvestigation[]
+  complaintDecisions        ComplaintDecision[]
+  recallSequences           RecallSequence[]
+  productRecalls            ProductRecall[]
+  recallRiskAssessments     RecallRiskAssessment[]
+  recallDecisions           RecallDecision[]
+  recallExecutionUpdates    RecallExecutionUpdate[]
+  recallClosures            RecallClosure[]
+  productReviewSequences    ProductReviewSequence[]
+  productQualityReviews     ProductQualityReview[]
+  productReviewAssessments  ProductReviewAssessment[]
+  productReviewDecisions    ProductReviewDecision[]
+  photoEvidence             PhotoEvidence[]
+  photoEvidenceUsage        TenantPhotoEvidenceUsage?
+  helpGuides                HelpGuide[]
+  helpGuideRevisions        HelpGuideRevision[]
+  helpGuideFeedback         HelpGuideFeedback[]
+  complianceFrameworks      ComplianceFramework[]
+  complianceRequirements    ComplianceRequirement[]
+  complianceControls        ComplianceControl[]
+  complianceMappings        ComplianceControlRequirement[]
+  complianceEvidence        ComplianceEvidence[]
+  complianceFindings        ComplianceFinding[]
+  complianceRules           ComplianceRule[]
+  complianceEvaluationRuns  ComplianceEvaluationRun[]
+  complianceRuleResults     ComplianceRuleResult[]
+  complianceReadinessPolicy ComplianceReadinessPolicy?
+  complianceScoreSnapshots  ComplianceScoreSnapshot[]
+  platformAuditEvents       PlatformAuditEvent[]
+  subscription              TenantSubscription?
+  billingProviderEvents     BillingProviderEvent[]
 
   @@map("tenants")
 }
 
 model User {
-  id                                String                          @id @default(uuid()) @db.Uuid
-  tenantId                          String                          @map("tenant_id") @db.Uuid
-  email                             String                          @db.VarChar(320)
-  displayName                       String                          @map("display_name") @db.VarChar(200)
-  themePreference                   UserThemePreference             @default(SYSTEM) @map("theme_preference")
-  localePreference                  UserLocalePreference            @default(ES) @map("locale_preference")
-  avatarObjectKey                   String?                         @map("avatar_object_key") @db.VarChar(1000)
-  avatarStorageDriver               String?                         @map("avatar_storage_driver") @db.VarChar(50)
-  avatarContentType                 String?                         @map("avatar_content_type") @db.VarChar(100)
-  avatarSizeBytes                   Int?                            @map("avatar_size_bytes")
-  avatarSha256                      String?                         @map("avatar_sha256") @db.Char(64)
-  avatarUpdatedAt                   DateTime?                       @map("avatar_updated_at") @db.Timestamptz(3)
-  passwordHash                      String                          @map("password_hash")
-  status                            UserStatus                      @default(INVITED)
-  emailVerifiedAt                   DateTime?                       @map("email_verified_at") @db.Timestamptz(3)
-  failedLoginCount                  Int                             @default(0) @map("failed_login_count")
-  lockedUntil                       DateTime?                       @map("locked_until") @db.Timestamptz(3)
-  passwordChangedAt                 DateTime?                       @map("password_changed_at") @db.Timestamptz(3)
-  createdAt                         DateTime                        @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt                         DateTime                        @updatedAt @map("updated_at") @db.Timestamptz(3)
-  tenant                            Tenant                          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  userRoles                         UserRole[]
-  sessions                          Session[]
-  refreshTokens                     RefreshToken[]
-  passwordResetTokens               PasswordResetToken[]
-  emailVerificationTokens           EmailVerificationToken[]
-  invitationsCreated                Invitation[]                    @relation("InvitationCreator")
-  securityEventsAsActor             SecurityEvent[]                 @relation("SecurityEventActor")
-  securityEventsAsSubject           SecurityEvent[]                 @relation("SecurityEventSubject")
-  documentsOwned                    Document[]                      @relation("DocumentOwner")
-  documentsCreated                  Document[]                      @relation("DocumentCreator")
-  documentVersionsCreated           DocumentVersion[]               @relation("DocumentVersionCreator")
-  documentWorkflowsRequested        DocumentWorkflow[]              @relation("DocumentWorkflowRequester")
-  documentReviewAssignments         DocumentWorkflow[]              @relation("DocumentWorkflowReviewer")
-  documentApprovalAssignments       DocumentWorkflow[]              @relation("DocumentWorkflowApprover")
-  documentReleases                  DocumentRelease[]               @relation("DocumentReleaseSigner")
-  documentObsolescences             DocumentObsolescence[]          @relation("DocumentObsolescenceSigner")
-  documentsPeriodicReviewConfigured Document[]                      @relation("DocumentPeriodicReviewConfiguration")
-  documentPeriodicReviewAssignments DocumentPeriodicReview[]        @relation("DocumentPeriodicReviewAssignee")
-  documentPeriodicReviewsScheduled  DocumentPeriodicReview[]        @relation("DocumentPeriodicReviewScheduler")
-  trainingAssignmentsReceived       TrainingAssignment[]            @relation("TrainingAssignmentAssignee")
-  trainingAssignmentsCreated        TrainingAssignment[]            @relation("TrainingAssignmentCreator")
-  trainingAssignmentsCancelled      TrainingAssignment[]            @relation("TrainingAssignmentCanceller")
-  deviationsReported                Deviation[]                     @relation("DeviationReporter")
-  deviationInvestigations           Deviation[]                     @relation("DeviationInvestigator")
-  deviationsTriaged                 Deviation[]                     @relation("DeviationTriager")
-  deviationsCancelled               Deviation[]                     @relation("DeviationCanceller")
-  deviationInvestigationsCompleted  DeviationInvestigation[]        @relation("DeviationInvestigationCompleter")
-  capasCreated                      Capa[]                          @relation("CapaCreator")
-  capaActionsAssigned               CapaAction[]                    @relation("CapaActionAssignee")
-  capaEffectivenessReviewsAssigned  CapaEffectivenessReview[]       @relation("CapaEffectivenessAssignee")
-  capaEffectivenessReviewsScheduled CapaEffectivenessReview[]       @relation("CapaEffectivenessScheduler")
-  capaFollowUpCyclesCreated         CapaFollowUpCycle[]             @relation("CapaFollowUpCreator")
-  capaActionExtensionsApproved      CapaActionExtension[]           @relation("CapaActionExtensionApprover")
-  capaEvidenceUploadsCreated        CapaEvidenceUpload[]            @relation("CapaEvidenceUploader")
-  capaNotificationsReceived         CapaNotification[]              @relation("CapaNotificationRecipient")
-  capaAuditExportsCreated           CapaAuditExport[]               @relation("CapaAuditExporter")
-  changeControlsProposed            ChangeControl[]                 @relation("ChangeControlProposer")
-  changeControlsCancelled           ChangeControl[]                 @relation("ChangeControlCanceller")
-  changeAssessmentsCompleted        ChangeControlAssessment[]       @relation("ChangeAssessmentAssessor")
-  changeControlOwners               ChangeControlAssessment[]       @relation("ChangeAssessmentOwner")
-  changeApprovalAssignments         ChangeControlAssessment[]       @relation("ChangeAssessmentApprover")
-  changeVerificationAssignments     ChangeControlAssessment[]       @relation("ChangeAssessmentVerifier")
-  changeDecisionsCompleted          ChangeControlDecision[]         @relation("ChangeDecisionSigner")
-  changeTasksAssigned               ChangeControlTask[]             @relation("ChangeTaskAssignee")
-  changeVerificationsCompleted      ChangeControlVerification[]     @relation("ChangeVerificationSigner")
-  auditsCreated                     GmpAudit[]                      @relation("AuditCreator")
-  auditsLed                         GmpAudit[]                      @relation("AuditLeadAuditor")
-  auditsReviewed                    GmpAudit[]                      @relation("AuditReviewer")
-  auditsCancelled                   GmpAudit[]                      @relation("AuditCanceller")
-  auditFindingsCreated              AuditFinding[]                  @relation("AuditFindingCreator")
-  auditFindingsAssigned             AuditFinding[]                  @relation("AuditFindingResponsible")
-  auditReportsCompleted             AuditReport[]                   @relation("AuditReportCompleter")
-  auditResponsesSubmitted           AuditFindingResponse[]          @relation("AuditResponseSubmitter")
-  auditResponsesReviewed            AuditFindingResponse[]          @relation("AuditResponseReviewer")
-  auditsClosed                      AuditClosure[]                  @relation("AuditClosureSigner")
-  qualityRisksOwned                 QualityRiskAssessment[]         @relation("QualityRiskOwner")
-  qualityRisksReviewed              QualityRiskAssessment[]         @relation("QualityRiskReviewer")
-  qualityRisksCreated               QualityRiskAssessment[]         @relation("QualityRiskCreator")
-  qualityRisksCancelled             QualityRiskAssessment[]         @relation("QualityRiskCanceller")
-  qualityRiskItemsAssigned          QualityRiskItem[]               @relation("QualityRiskItemAssignee")
-  qualityRiskMitigationsCompleted   QualityRiskItem[]               @relation("QualityRiskItemCompleter")
-  qualityRiskReviewsCompleted       QualityRiskReview[]             @relation("QualityRiskReviewSigner")
-  suppliersOwned                    Supplier[]                      @relation("SupplierQualityOwner")
-  suppliersApproved                 Supplier[]                      @relation("SupplierApprover")
-  suppliersCreated                  Supplier[]                      @relation("SupplierCreator")
-  supplierQualificationsCompleted   SupplierQualification[]         @relation("SupplierQualificationEvaluator")
-  supplierDecisionsCompleted        SupplierQualificationDecision[] @relation("SupplierQualificationDecisionSigner")
-  supplierScarsCreated              SupplierScar[]                  @relation("SupplierScarCreator")
-  supplierScarResponsesSubmitted    SupplierScarResponse[]          @relation("SupplierScarResponseSubmitter")
-  supplierScarResponsesReviewed     SupplierScarResponse[]          @relation("SupplierScarResponseReviewer")
-  equipmentOwned                    Equipment[]                     @relation("EquipmentOwner")
-  equipmentVerified                 Equipment[]                     @relation("EquipmentVerifier")
-  equipmentCreated                  Equipment[]                     @relation("EquipmentCreator")
-  equipmentRetired                  Equipment[]                     @relation("EquipmentRetirer")
-  calibrationsPerformed             EquipmentCalibration[]          @relation("CalibrationPerformer")
-  calibrationReviewsCompleted       EquipmentCalibrationReview[]    @relation("CalibrationReviewer")
-  maintenancesPerformed             EquipmentMaintenance[]          @relation("MaintenancePerformer")
-  maintenanceReviewsCompleted       EquipmentMaintenanceReview[]    @relation("MaintenanceReviewer")
-  complaintsReported                ProductComplaint[]              @relation("ComplaintReporter")
-  complaintsInvestigated            ProductComplaint[]              @relation("ComplaintInvestigator")
-  complaintsReviewed                ProductComplaint[]              @relation("ComplaintReviewer")
-  complaintsTriaged                 ProductComplaint[]              @relation("ComplaintTriager")
-  complaintsCancelled               ProductComplaint[]              @relation("ComplaintCanceller")
-  complaintInvestigationsCompleted  ComplaintInvestigation[]        @relation("ComplaintInvestigationSigner")
-  complaintDecisionsCompleted       ComplaintDecision[]             @relation("ComplaintDecisionSigner")
-  productRecallsReported            ProductRecall[]                 @relation("ProductRecallReporter")
-  productRecallApprovalAssignments  ProductRecall[]                 @relation("ProductRecallApprover")
-  productRecallsCancelled           ProductRecall[]                 @relation("ProductRecallCanceller")
-  recallRiskAssessmentsCompleted    RecallRiskAssessment[]          @relation("RecallAssessmentSigner")
-  recallDecisionsCompleted          RecallDecision[]                @relation("RecallDecisionSigner")
-  recallExecutionUpdatesRecorded    RecallExecutionUpdate[]         @relation("RecallExecutionRecorder")
-  recallClosuresCompleted           RecallClosure[]                 @relation("RecallClosureSigner")
-  productReviewsCreated             ProductQualityReview[]          @relation("ProductReviewCreator")
-  productReviewApprovalAssignments  ProductQualityReview[]          @relation("ProductReviewApprover")
-  productReviewsCancelled           ProductQualityReview[]          @relation("ProductReviewCanceller")
-  productReviewAssessmentsCompleted ProductReviewAssessment[]       @relation("ProductReviewAssessmentSigner")
-  productReviewDecisionsCompleted   ProductReviewDecision[]         @relation("ProductReviewDecisionSigner")
-  photoEvidenceUploaded             PhotoEvidence[]                 @relation("PhotoEvidenceUploader")
-  helpGuidesCreated                 HelpGuide[]                     @relation("HelpGuideCreator")
-  helpGuideRevisionsCreated         HelpGuideRevision[]             @relation("HelpGuideRevisionCreator")
-  helpGuideRevisionsPublished       HelpGuideRevision[]             @relation("HelpGuideRevisionPublisher")
-  helpGuideFeedback                 HelpGuideFeedback[]
-  complianceFrameworksCreated       ComplianceFramework[]           @relation("ComplianceFrameworkCreator")
-  complianceRequirementsCreated     ComplianceRequirement[]         @relation("ComplianceRequirementCreator")
-  complianceControlsOwned           ComplianceControl[]             @relation("ComplianceControlOwner")
-  complianceControlsCreated         ComplianceControl[]             @relation("ComplianceControlCreator")
-  complianceEvidenceCreated         ComplianceEvidence[]            @relation("ComplianceEvidenceCreator")
-  complianceFindingsOwned           ComplianceFinding[]             @relation("ComplianceFindingOwner")
-  complianceFindingsCreated         ComplianceFinding[]             @relation("ComplianceFindingCreator")
-  complianceFindingsResolved        ComplianceFinding[]             @relation("ComplianceFindingResolver")
-  complianceRulesOwned              ComplianceRule[]                @relation("ComplianceRuleOwner")
-  complianceRulesCreated            ComplianceRule[]                @relation("ComplianceRuleCreator")
-  complianceEvaluationsTriggered    ComplianceEvaluationRun[]       @relation("ComplianceEvaluationTriggerUser")
+  id                                 String                          @id @default(uuid()) @db.Uuid
+  tenantId                           String                          @map("tenant_id") @db.Uuid
+  email                              String                          @db.VarChar(320)
+  displayName                        String                          @map("display_name") @db.VarChar(200)
+  themePreference                    UserThemePreference             @default(SYSTEM) @map("theme_preference")
+  localePreference                   UserLocalePreference            @default(ES) @map("locale_preference")
+  avatarObjectKey                    String?                         @map("avatar_object_key") @db.VarChar(1000)
+  avatarStorageDriver                String?                         @map("avatar_storage_driver") @db.VarChar(50)
+  avatarContentType                  String?                         @map("avatar_content_type") @db.VarChar(100)
+  avatarSizeBytes                    Int?                            @map("avatar_size_bytes")
+  avatarSha256                       String?                         @map("avatar_sha256") @db.Char(64)
+  avatarUpdatedAt                    DateTime?                       @map("avatar_updated_at") @db.Timestamptz(3)
+  passwordHash                       String                          @map("password_hash")
+  status                             UserStatus                      @default(INVITED)
+  emailVerifiedAt                    DateTime?                       @map("email_verified_at") @db.Timestamptz(3)
+  failedLoginCount                   Int                             @default(0) @map("failed_login_count")
+  lockedUntil                        DateTime?                       @map("locked_until") @db.Timestamptz(3)
+  passwordChangedAt                  DateTime?                       @map("password_changed_at") @db.Timestamptz(3)
+  createdAt                          DateTime                        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                          DateTime                        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant                             Tenant                          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  userRoles                          UserRole[]
+  sessions                           Session[]
+  refreshTokens                      RefreshToken[]
+  passwordResetTokens                PasswordResetToken[]
+  emailVerificationTokens            EmailVerificationToken[]
+  invitationsCreated                 Invitation[]                    @relation("InvitationCreator")
+  securityEventsAsActor              SecurityEvent[]                 @relation("SecurityEventActor")
+  securityEventsAsSubject            SecurityEvent[]                 @relation("SecurityEventSubject")
+  documentsOwned                     Document[]                      @relation("DocumentOwner")
+  documentsCreated                   Document[]                      @relation("DocumentCreator")
+  documentVersionsCreated            DocumentVersion[]               @relation("DocumentVersionCreator")
+  documentWorkflowsRequested         DocumentWorkflow[]              @relation("DocumentWorkflowRequester")
+  documentReviewAssignments          DocumentWorkflow[]              @relation("DocumentWorkflowReviewer")
+  documentApprovalAssignments        DocumentWorkflow[]              @relation("DocumentWorkflowApprover")
+  documentReleases                   DocumentRelease[]               @relation("DocumentReleaseSigner")
+  documentObsolescences              DocumentObsolescence[]          @relation("DocumentObsolescenceSigner")
+  documentsPeriodicReviewConfigured  Document[]                      @relation("DocumentPeriodicReviewConfiguration")
+  documentPeriodicReviewAssignments  DocumentPeriodicReview[]        @relation("DocumentPeriodicReviewAssignee")
+  documentPeriodicReviewsScheduled   DocumentPeriodicReview[]        @relation("DocumentPeriodicReviewScheduler")
+  trainingAssignmentsReceived        TrainingAssignment[]            @relation("TrainingAssignmentAssignee")
+  trainingAssignmentsCreated         TrainingAssignment[]            @relation("TrainingAssignmentCreator")
+  trainingAssignmentsCancelled       TrainingAssignment[]            @relation("TrainingAssignmentCanceller")
+  deviationsReported                 Deviation[]                     @relation("DeviationReporter")
+  deviationInvestigations            Deviation[]                     @relation("DeviationInvestigator")
+  deviationsTriaged                  Deviation[]                     @relation("DeviationTriager")
+  deviationsCancelled                Deviation[]                     @relation("DeviationCanceller")
+  deviationInvestigationsCompleted   DeviationInvestigation[]        @relation("DeviationInvestigationCompleter")
+  capasCreated                       Capa[]                          @relation("CapaCreator")
+  capaActionsAssigned                CapaAction[]                    @relation("CapaActionAssignee")
+  capaEffectivenessReviewsAssigned   CapaEffectivenessReview[]       @relation("CapaEffectivenessAssignee")
+  capaEffectivenessReviewsScheduled  CapaEffectivenessReview[]       @relation("CapaEffectivenessScheduler")
+  capaFollowUpCyclesCreated          CapaFollowUpCycle[]             @relation("CapaFollowUpCreator")
+  capaActionExtensionsApproved       CapaActionExtension[]           @relation("CapaActionExtensionApprover")
+  capaEvidenceUploadsCreated         CapaEvidenceUpload[]            @relation("CapaEvidenceUploader")
+  capaNotificationsReceived          CapaNotification[]              @relation("CapaNotificationRecipient")
+  capaAuditExportsCreated            CapaAuditExport[]               @relation("CapaAuditExporter")
+  changeControlsProposed             ChangeControl[]                 @relation("ChangeControlProposer")
+  changeControlsCancelled            ChangeControl[]                 @relation("ChangeControlCanceller")
+  changeAssessmentsCompleted         ChangeControlAssessment[]       @relation("ChangeAssessmentAssessor")
+  changeControlOwners                ChangeControlAssessment[]       @relation("ChangeAssessmentOwner")
+  changeApprovalAssignments          ChangeControlAssessment[]       @relation("ChangeAssessmentApprover")
+  changeVerificationAssignments      ChangeControlAssessment[]       @relation("ChangeAssessmentVerifier")
+  changeDecisionsCompleted           ChangeControlDecision[]         @relation("ChangeDecisionSigner")
+  changeTasksAssigned                ChangeControlTask[]             @relation("ChangeTaskAssignee")
+  changeVerificationsCompleted       ChangeControlVerification[]     @relation("ChangeVerificationSigner")
+  auditsCreated                      GmpAudit[]                      @relation("AuditCreator")
+  auditsLed                          GmpAudit[]                      @relation("AuditLeadAuditor")
+  auditsReviewed                     GmpAudit[]                      @relation("AuditReviewer")
+  auditsCancelled                    GmpAudit[]                      @relation("AuditCanceller")
+  auditFindingsCreated               AuditFinding[]                  @relation("AuditFindingCreator")
+  auditFindingsAssigned              AuditFinding[]                  @relation("AuditFindingResponsible")
+  auditReportsCompleted              AuditReport[]                   @relation("AuditReportCompleter")
+  auditResponsesSubmitted            AuditFindingResponse[]          @relation("AuditResponseSubmitter")
+  auditResponsesReviewed             AuditFindingResponse[]          @relation("AuditResponseReviewer")
+  auditsClosed                       AuditClosure[]                  @relation("AuditClosureSigner")
+  qualityRisksOwned                  QualityRiskAssessment[]         @relation("QualityRiskOwner")
+  qualityRisksReviewed               QualityRiskAssessment[]         @relation("QualityRiskReviewer")
+  qualityRisksCreated                QualityRiskAssessment[]         @relation("QualityRiskCreator")
+  qualityRisksCancelled              QualityRiskAssessment[]         @relation("QualityRiskCanceller")
+  qualityRiskItemsAssigned           QualityRiskItem[]               @relation("QualityRiskItemAssignee")
+  qualityRiskMitigationsCompleted    QualityRiskItem[]               @relation("QualityRiskItemCompleter")
+  qualityRiskReviewsCompleted        QualityRiskReview[]             @relation("QualityRiskReviewSigner")
+  suppliersOwned                     Supplier[]                      @relation("SupplierQualityOwner")
+  suppliersApproved                  Supplier[]                      @relation("SupplierApprover")
+  suppliersCreated                   Supplier[]                      @relation("SupplierCreator")
+  supplierQualificationsCompleted    SupplierQualification[]         @relation("SupplierQualificationEvaluator")
+  supplierDecisionsCompleted         SupplierQualificationDecision[] @relation("SupplierQualificationDecisionSigner")
+  supplierScarsCreated               SupplierScar[]                  @relation("SupplierScarCreator")
+  supplierScarResponsesSubmitted     SupplierScarResponse[]          @relation("SupplierScarResponseSubmitter")
+  supplierScarResponsesReviewed      SupplierScarResponse[]          @relation("SupplierScarResponseReviewer")
+  equipmentOwned                     Equipment[]                     @relation("EquipmentOwner")
+  equipmentVerified                  Equipment[]                     @relation("EquipmentVerifier")
+  equipmentCreated                   Equipment[]                     @relation("EquipmentCreator")
+  equipmentRetired                   Equipment[]                     @relation("EquipmentRetirer")
+  calibrationsPerformed              EquipmentCalibration[]          @relation("CalibrationPerformer")
+  calibrationReviewsCompleted        EquipmentCalibrationReview[]    @relation("CalibrationReviewer")
+  maintenancesPerformed              EquipmentMaintenance[]          @relation("MaintenancePerformer")
+  maintenanceReviewsCompleted        EquipmentMaintenanceReview[]    @relation("MaintenanceReviewer")
+  complaintsReported                 ProductComplaint[]              @relation("ComplaintReporter")
+  complaintsInvestigated             ProductComplaint[]              @relation("ComplaintInvestigator")
+  complaintsReviewed                 ProductComplaint[]              @relation("ComplaintReviewer")
+  complaintsTriaged                  ProductComplaint[]              @relation("ComplaintTriager")
+  complaintsCancelled                ProductComplaint[]              @relation("ComplaintCanceller")
+  complaintInvestigationsCompleted   ComplaintInvestigation[]        @relation("ComplaintInvestigationSigner")
+  complaintDecisionsCompleted        ComplaintDecision[]             @relation("ComplaintDecisionSigner")
+  productRecallsReported             ProductRecall[]                 @relation("ProductRecallReporter")
+  productRecallApprovalAssignments   ProductRecall[]                 @relation("ProductRecallApprover")
+  productRecallsCancelled            ProductRecall[]                 @relation("ProductRecallCanceller")
+  recallRiskAssessmentsCompleted     RecallRiskAssessment[]          @relation("RecallAssessmentSigner")
+  recallDecisionsCompleted           RecallDecision[]                @relation("RecallDecisionSigner")
+  recallExecutionUpdatesRecorded     RecallExecutionUpdate[]         @relation("RecallExecutionRecorder")
+  recallClosuresCompleted            RecallClosure[]                 @relation("RecallClosureSigner")
+  productReviewsCreated              ProductQualityReview[]          @relation("ProductReviewCreator")
+  productReviewApprovalAssignments   ProductQualityReview[]          @relation("ProductReviewApprover")
+  productReviewsCancelled            ProductQualityReview[]          @relation("ProductReviewCanceller")
+  productReviewAssessmentsCompleted  ProductReviewAssessment[]       @relation("ProductReviewAssessmentSigner")
+  productReviewDecisionsCompleted    ProductReviewDecision[]         @relation("ProductReviewDecisionSigner")
+  photoEvidenceUploaded              PhotoEvidence[]                 @relation("PhotoEvidenceUploader")
+  helpGuidesCreated                  HelpGuide[]                     @relation("HelpGuideCreator")
+  helpGuideRevisionsCreated          HelpGuideRevision[]             @relation("HelpGuideRevisionCreator")
+  helpGuideRevisionsPublished        HelpGuideRevision[]             @relation("HelpGuideRevisionPublisher")
+  helpGuideFeedback                  HelpGuideFeedback[]
+  complianceFrameworksCreated        ComplianceFramework[]           @relation("ComplianceFrameworkCreator")
+  complianceRequirementsCreated      ComplianceRequirement[]         @relation("ComplianceRequirementCreator")
+  complianceControlsOwned            ComplianceControl[]             @relation("ComplianceControlOwner")
+  complianceControlsCreated          ComplianceControl[]             @relation("ComplianceControlCreator")
+  complianceEvidenceCreated          ComplianceEvidence[]            @relation("ComplianceEvidenceCreator")
+  complianceFindingsOwned            ComplianceFinding[]             @relation("ComplianceFindingOwner")
+  complianceFindingsCreated          ComplianceFinding[]             @relation("ComplianceFindingCreator")
+  complianceFindingsResolved         ComplianceFinding[]             @relation("ComplianceFindingResolver")
+  complianceRulesOwned               ComplianceRule[]                @relation("ComplianceRuleOwner")
+  complianceRulesCreated             ComplianceRule[]                @relation("ComplianceRuleCreator")
+  complianceEvaluationsTriggered     ComplianceEvaluationRun[]       @relation("ComplianceEvaluationTriggerUser")
+  complianceReadinessPoliciesCreated ComplianceReadinessPolicy[]     @relation("ComplianceReadinessPolicyCreator")
+  complianceReadinessPoliciesUpdated ComplianceReadinessPolicy[]     @relation("ComplianceReadinessPolicyUpdater")
+  complianceScoreSnapshotsCreated    ComplianceScoreSnapshot[]       @relation("ComplianceScoreSnapshotCreator")
 
   @@unique([tenantId, id], map: "users_tenant_id_id_key")
   @@unique([tenantId, email], map: "users_tenant_id_email_key")
@@ -3296,6 +3309,59 @@ model ComplianceRuleResult {
   @@unique([tenantId, evaluationRunId, ruleId], map: "compliance_rule_results_run_rule_key")
   @@index([tenantId, ruleId, createdAt(sort: Desc)], map: "compliance_rule_results_rule_created_idx")
   @@map("compliance_rule_results")
+}
+
+model ComplianceReadinessPolicy {
+  id                         String   @id @default(uuid()) @db.Uuid
+  tenantId                   String   @unique(map: "compliance_readiness_policies_tenant_key") @map("tenant_id") @db.Uuid
+  criticalPenalty            Decimal  @default(15) @map("critical_penalty") @db.Decimal(7, 2)
+  majorPenalty               Decimal  @default(5) @map("major_penalty") @db.Decimal(7, 2)
+  minorPenalty               Decimal  @default(2) @map("minor_penalty") @db.Decimal(7, 2)
+  observationPenalty         Decimal  @default(0.5) @map("observation_penalty") @db.Decimal(7, 2)
+  unmappedRequirementPenalty Decimal  @default(5) @map("unmapped_requirement_penalty") @db.Decimal(7, 2)
+  missingEvidencePenalty     Decimal  @default(2) @map("missing_evidence_penalty") @db.Decimal(7, 2)
+  excellentMinimum           Decimal  @default(90) @map("excellent_minimum") @db.Decimal(5, 2)
+  goodMinimum                Decimal  @default(75) @map("good_minimum") @db.Decimal(5, 2)
+  needsAttentionMinimum      Decimal  @default(50) @map("needs_attention_minimum") @db.Decimal(5, 2)
+  frameworkWeights           Json     @default("{}") @map("framework_weights")
+  categoryWeights            Json     @default("{}") @map("category_weights")
+  version                    Int      @default(1)
+  createdByUserId            String   @map("created_by_user_id") @db.Uuid
+  updatedByUserId            String   @map("updated_by_user_id") @db.Uuid
+  createdAt                  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant                     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  createdBy                  User     @relation("ComplianceReadinessPolicyCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
+  updatedBy                  User     @relation("ComplianceReadinessPolicyUpdater", fields: [tenantId, updatedByUserId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id], map: "compliance_readiness_policies_tenant_id_id_key")
+  @@map("compliance_readiness_policies")
+}
+
+model ComplianceScoreSnapshot {
+  id                          String                    @id @default(uuid()) @db.Uuid
+  tenantId                    String                    @map("tenant_id") @db.Uuid
+  overallScore                Decimal?                  @map("overall_score") @db.Decimal(5, 2)
+  status                      ComplianceReadinessStatus
+  activeFrameworks            Int                       @map("active_frameworks")
+  totalRequirements           Int                       @map("total_requirements")
+  mappedRequirements          Int                       @map("mapped_requirements")
+  evidenceCoveredRequirements Int                       @map("evidence_covered_requirements")
+  criticalFindings            Int                       @map("critical_findings")
+  majorFindings               Int                       @map("major_findings")
+  minorFindings               Int                       @map("minor_findings")
+  observationFindings         Int                       @map("observation_findings")
+  acceptedRiskFindings        Int                       @map("accepted_risk_findings")
+  policyVersion               Int                       @map("policy_version")
+  calculation                 Json
+  createdByUserId             String                    @map("created_by_user_id") @db.Uuid
+  createdAt                   DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant                      Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  createdBy                   User                      @relation("ComplianceScoreSnapshotCreator", fields: [tenantId, createdByUserId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id], map: "compliance_score_snapshots_tenant_id_id_key")
+  @@index([tenantId, createdAt(sort: Desc)], map: "compliance_score_snapshots_created_idx")
+  @@map("compliance_score_snapshots")
 }
 
 model ComplianceFinding {

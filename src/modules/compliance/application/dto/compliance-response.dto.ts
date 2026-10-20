@@ -1,4 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import type {
+  ComplianceReadinessPolicyValues,
+  ComplianceReadinessResult,
+} from '../../domain/compliance-readiness.js';
 
 export class ComplianceUserSummaryDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
@@ -209,4 +213,59 @@ export class ComplianceEvaluationRunResponseDto {
   @ApiPropertyOptional() errorSummary!: string | null;
   @ApiProperty({ type: ComplianceRuleResultResponseDto, isArray: true })
   results!: ComplianceRuleResultResponseDto[];
+}
+
+export class ComplianceReadinessPolicyResponseDto implements ComplianceReadinessPolicyValues {
+  @ApiProperty() version!: number;
+  @ApiProperty() criticalPenalty!: number;
+  @ApiProperty() majorPenalty!: number;
+  @ApiProperty() minorPenalty!: number;
+  @ApiProperty() observationPenalty!: number;
+  @ApiProperty() unmappedRequirementPenalty!: number;
+  @ApiProperty() missingEvidencePenalty!: number;
+  @ApiProperty() excellentMinimum!: number;
+  @ApiProperty() goodMinimum!: number;
+  @ApiProperty() needsAttentionMinimum!: number;
+  @ApiProperty({ type: Object }) frameworkWeights!: Record<string, number>;
+  @ApiProperty({ type: Object }) categoryWeights!: Record<string, number>;
+}
+
+export class ComplianceReadinessResponseDto implements ComplianceReadinessResult {
+  @ApiProperty({ format: 'date-time' }) calculatedAt!: string;
+  @ApiPropertyOptional({ minimum: 0, maximum: 100, nullable: true })
+  overallScore!: number | null;
+  @ApiProperty() status!: ComplianceReadinessResult['status'];
+  @ApiProperty() eligible!: boolean;
+  @ApiProperty({ type: Object })
+  methodology!: ComplianceReadinessResult['methodology'];
+  @ApiProperty({ type: Object })
+  coverage!: ComplianceReadinessResult['coverage'];
+  @ApiProperty({ type: Object })
+  findings!: ComplianceReadinessResult['findings'];
+  @ApiProperty({ type: Object, isArray: true })
+  frameworks!: ComplianceReadinessResult['frameworks'];
+  @ApiProperty({ type: Object, isArray: true })
+  categories!: ComplianceReadinessResult['categories'];
+  @ApiProperty({ type: Object, isArray: true })
+  deductions!: ComplianceReadinessResult['deductions'];
+}
+
+export class ComplianceScoreSnapshotResponseDto {
+  @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiPropertyOptional({ minimum: 0, maximum: 100, nullable: true })
+  overallScore!: number | null;
+  @ApiProperty() status!: ComplianceReadinessResult['status'];
+  @ApiProperty() activeFrameworks!: number;
+  @ApiProperty() totalRequirements!: number;
+  @ApiProperty() mappedRequirements!: number;
+  @ApiProperty() evidenceCoveredRequirements!: number;
+  @ApiProperty() criticalFindings!: number;
+  @ApiProperty() majorFindings!: number;
+  @ApiProperty() minorFindings!: number;
+  @ApiProperty() observationFindings!: number;
+  @ApiProperty() acceptedRiskFindings!: number;
+  @ApiProperty() policyVersion!: number;
+  @ApiProperty({ type: ComplianceUserSummaryDto })
+  createdBy!: ComplianceUserSummaryDto;
+  @ApiProperty({ format: 'date-time' }) createdAt!: string;
 }

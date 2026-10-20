@@ -127,8 +127,8 @@ permission-aware and follow the existing responsive shell and form patterns.
 2. **Rule engine (delivered):** typed rule contract, tenant evaluation runs, idempotency,
    generated-finding reconciliation and first adapters (for example overdue CAPA
    and calibration).
-3. **Audit readiness:** transparent scoring policy, explanations, categories,
-   snapshots, trends and actionable overview.
+3. **Audit readiness (delivered):** transparent scoring policy, explanations,
+   categories, immutable snapshots, trends and actionable overview.
 4. **Operational integrations:** expand adapters across documents, training,
    deviations, audits, suppliers and other existing modules.
 5. **Supplier compliance:** certificates, agreements, supplier audits and
