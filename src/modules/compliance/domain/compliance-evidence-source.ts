@@ -21,6 +21,17 @@ export type ComplianceEvidenceSourceType =
   (typeof complianceEvidenceSourceTypes)[number];
 
 export abstract class ComplianceEvidenceSourceResolver {
+  abstract navigation(
+    transaction: Prisma.TransactionClient,
+    tenantId: string,
+    sourceType: ComplianceEvidenceSourceType,
+    sourceId: string,
+  ): Promise<{
+    modulePath: string;
+    recordId: string;
+    permission: string;
+  } | null>;
+
   abstract exists(
     transaction: Prisma.TransactionClient,
     tenantId: string,

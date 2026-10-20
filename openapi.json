@@ -7243,6 +7243,51 @@
         ]
       }
     },
+    "/api/v1/compliance/frameworks/{frameworkId}": {
+      "patch": {
+        "operationId": "ComplianceController_updateFramework",
+        "parameters": [
+          {
+            "name": "frameworkId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateComplianceFrameworkDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplianceFrameworkResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Continuous compliance"
+        ]
+      }
+    },
     "/api/v1/compliance/frameworks/{frameworkId}/requirements": {
       "post": {
         "operationId": "ComplianceController_createRequirement",
@@ -7605,7 +7650,65 @@
     "/api/v1/compliance/evidence": {
       "get": {
         "operationId": "ComplianceController_evidence",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 200,
+              "default": 200,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 0,
+              "maximum": 1000000,
+              "default": 0,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "findingId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "requirementId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "controlId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "",
@@ -7650,6 +7753,204 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ComplianceEvidenceResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Continuous compliance"
+        ]
+      }
+    },
+    "/api/v1/compliance/sources/{sourceType}/{sourceId}": {
+      "get": {
+        "operationId": "ComplianceController_sourceLocation",
+        "parameters": [
+          {
+            "name": "sourceType",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DOCUMENT",
+                "TRAINING_ASSIGNMENT",
+                "CAPA",
+                "AUDIT",
+                "DEVIATION",
+                "EQUIPMENT",
+                "CALIBRATION",
+                "SUPPLIER",
+                "CHANGE_CONTROL",
+                "QUALITY_RISK",
+                "COMPLAINT",
+                "RECALL",
+                "PRODUCT_REVIEW",
+                "PHOTO_EVIDENCE"
+              ]
+            }
+          },
+          {
+            "name": "sourceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplianceSourceLocationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Continuous compliance"
+        ]
+      }
+    },
+    "/api/v1/compliance/controls/{controlId}": {
+      "patch": {
+        "operationId": "ComplianceController_updateControl",
+        "parameters": [
+          {
+            "name": "controlId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateComplianceControlDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplianceControlResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Continuous compliance"
+        ]
+      }
+    },
+    "/api/v1/compliance/finding-categories": {
+      "get": {
+        "operationId": "ComplianceController_findingCategories",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Continuous compliance"
+        ]
+      }
+    },
+    "/api/v1/compliance/participants": {
+      "get": {
+        "operationId": "ComplianceController_participants",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ComplianceUserSummaryDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Continuous compliance"
+        ]
+      }
+    },
+    "/api/v1/compliance/findings/{findingId}": {
+      "get": {
+        "operationId": "ComplianceController_finding",
+        "parameters": [
+          {
+            "name": "findingId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplianceFindingResponseDto"
                 }
               }
             }
@@ -7723,6 +8024,21 @@
               "minimum": 1,
               "maximum": 200,
               "default": 100,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 0,
+              "maximum": 1000000,
+              "default": 0,
               "allOf": [
                 {
                   "$ref": "#/components/schemas/Object"
@@ -18368,6 +18684,18 @@
           "policyVersion": {
             "type": "number"
           },
+          "frameworks": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
           "createdBy": {
             "$ref": "#/components/schemas/ComplianceUserSummaryDto"
           },
@@ -18389,6 +18717,8 @@
           "observationFindings",
           "acceptedRiskFindings",
           "policyVersion",
+          "frameworks",
+          "categories",
           "createdBy",
           "createdAt"
         ]
@@ -18518,6 +18848,17 @@
           "name",
           "version",
           "description"
+        ]
+      },
+      "UpdateComplianceFrameworkDto": {
+        "type": "object",
+        "properties": {
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "active"
         ]
       },
       "CreateComplianceRequirementDto": {
@@ -18867,6 +19208,9 @@
       "ComplianceRuleResultResponseDto": {
         "type": "object",
         "properties": {
+          "ruleSnapshot": {
+            "type": "object"
+          },
           "id": {
             "type": "string",
             "format": "uuid"
@@ -18908,6 +19252,7 @@
           }
         },
         "required": [
+          "ruleSnapshot",
           "id",
           "outcome",
           "scannedCount",
@@ -19110,61 +19455,63 @@
           "createdAt"
         ]
       },
-      "CreateComplianceEvidenceDto": {
+      "ComplianceSourceLocationResponseDto": {
         "type": "object",
         "properties": {
-          "requirementId": {
+          "modulePath": {
+            "type": "string"
+          },
+          "recordId": {
             "type": "string",
             "format": "uuid"
           },
-          "controlId": {
-            "type": "string",
-            "format": "uuid"
+          "permission": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "modulePath",
+          "recordId",
+          "permission"
+        ]
+      },
+      "UpdateComplianceControlDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
           },
-          "findingId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "sourceEntityType": {
-            "type": "string",
-            "enum": [
-              "DOCUMENT",
-              "TRAINING_ASSIGNMENT",
-              "CAPA",
-              "AUDIT",
-              "DEVIATION",
-              "EQUIPMENT",
-              "CALIBRATION",
-              "SUPPLIER",
-              "CHANGE_CONTROL",
-              "QUALITY_RISK",
-              "COMPLAINT",
-              "RECALL",
-              "PRODUCT_REVIEW",
-              "PHOTO_EVIDENCE"
-            ]
-          },
-          "sourceEntityId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "sourceReference": {
+          "name": {
             "type": "string"
           },
           "description": {
             "type": "string"
           },
-          "validUntil": {
+          "category": {
+            "type": "string"
+          },
+          "requirementIds": {
+            "minItems": 1,
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
             "type": "string",
-            "format": "date"
+            "enum": [
+              "DRAFT",
+              "ACTIVE",
+              "RETIRED"
+            ]
+          },
+          "ownerUserId": {
+            "type": "object",
+            "format": "uuid",
+            "nullable": true
           }
-        },
-        "required": [
-          "sourceEntityType",
-          "sourceEntityId",
-          "sourceReference",
-          "description"
-        ]
+        }
       },
       "ComplianceFindingResponseDto": {
         "type": "object",
@@ -19262,6 +19609,62 @@
           "requirement",
           "detectedAt",
           "evidenceCount"
+        ]
+      },
+      "CreateComplianceEvidenceDto": {
+        "type": "object",
+        "properties": {
+          "requirementId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "controlId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "findingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sourceEntityType": {
+            "type": "string",
+            "enum": [
+              "DOCUMENT",
+              "TRAINING_ASSIGNMENT",
+              "CAPA",
+              "AUDIT",
+              "DEVIATION",
+              "EQUIPMENT",
+              "CALIBRATION",
+              "SUPPLIER",
+              "CHANGE_CONTROL",
+              "QUALITY_RISK",
+              "COMPLAINT",
+              "RECALL",
+              "PRODUCT_REVIEW",
+              "PHOTO_EVIDENCE"
+            ]
+          },
+          "sourceEntityId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sourceReference": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "validUntil": {
+            "type": "string",
+            "format": "date"
+          }
+        },
+        "required": [
+          "sourceEntityType",
+          "sourceEntityId",
+          "sourceReference",
+          "description"
         ]
       },
       "CreateComplianceFindingDto": {

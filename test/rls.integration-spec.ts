@@ -149,10 +149,13 @@ describeDatabase('PostgreSQL tenant isolation', () => {
   });
 
   afterAll(async () => {
-    await deleteTenantFixture(ownerPool, fixture.tenantAId);
-    await deleteTenantFixture(ownerPool, fixture.tenantBId);
-    await applicationPool.end();
-    await ownerPool.end();
+    try {
+      await deleteTenantFixture(ownerPool, fixture.tenantAId);
+      await deleteTenantFixture(ownerPool, fixture.tenantBId);
+    } finally {
+      await applicationPool.end();
+      await ownerPool.end();
+    }
   });
 
   it('returns only rows belonging to the transaction tenant', async () => {
@@ -796,6 +799,15 @@ async function deleteTenantFixture(
   try {
     await client.query('BEGIN');
     await setTenantContext(client, tenantId);
+    await client.query('SELECT id FROM tenants WHERE id = $1 FOR UPDATE', [
+      tenantId,
+    ]);
+    // The running maintenance reconciler may initialize this counter while a
+    // test tenant exists. Remove only this fixture's derived counter as well.
+    await client.query(
+      'DELETE FROM tenant_photo_evidence_usage WHERE tenant_id = $1',
+      [tenantId],
+    );
     await client.query('DELETE FROM user_roles WHERE tenant_id = $1', [
       tenantId,
     ]);

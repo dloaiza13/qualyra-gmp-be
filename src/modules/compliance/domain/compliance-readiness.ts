@@ -397,9 +397,12 @@ function frameworkWeight(
   framework: ComplianceReadinessRequirementFact['framework'],
 ): number {
   return (
-    policy.frameworkWeights[framework.id] ??
-    policy.frameworkWeights[`${framework.code}:${framework.version}`] ??
-    policy.frameworkWeights[framework.code] ??
+    ownWeight(policy.frameworkWeights, framework.id) ??
+    ownWeight(
+      policy.frameworkWeights,
+      `${framework.code}:${framework.version}`,
+    ) ??
+    ownWeight(policy.frameworkWeights, framework.code) ??
     1
   );
 }
@@ -408,7 +411,14 @@ function categoryWeight(
   policy: ComplianceReadinessPolicyValues,
   category: string,
 ): number {
-  return policy.categoryWeights[category] ?? 1;
+  return ownWeight(policy.categoryWeights, category) ?? 1;
+}
+
+function ownWeight(
+  weights: Record<string, number>,
+  key: string,
+): number | undefined {
+  return Object.hasOwn(weights, key) ? weights[key] : undefined;
 }
 
 function normalizedWeight(weight: number): number {

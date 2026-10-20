@@ -51,9 +51,16 @@ risk records a governed decision; it does not erase it from the dashboard.
 
 A snapshot stores the score, coverage, finding counts, policy version and full
 calculation payload as an immutable tenant record. It is created explicitly by
-an authorized user or after a manual deterministic evaluation. Historical
+an authorized user or after a completed manual deterministic evaluation. Failed
+or partial evaluations are shown with their errors and do not automatically
+produce a historical measurement. Historical
 charts read snapshots instead of silently recalculating the past with today's
 policy or data.
+
+The overview trend and category deltas compare snapshots with the same policy
+version, framework identities and requirement count. The measurement list keeps
+other versions visible with their actor and scope; it does not join incomparable
+states into one line. The displayed formula makes its 0–100 clamp explicit.
 
 Snapshots have forced PostgreSQL RLS and the runtime role can neither update nor
 delete them. Policy changes and snapshot creation append security events.
@@ -71,6 +78,32 @@ controls, current evidence and findings are queried under the same tenant
 context. The UI exposes configuration only to compliance managers and snapshot
 capture only to users allowed to evaluate.
 
+Tenant advisory locks serialize compliance mutations and policy version changes;
+shared calculation locks prevent a snapshot from mixing concurrent compliance
+decisions. Different tenants use different lock keys. Evidence `validUntil` is a
+calendar date and remains current for its entire UTC day. Missing weight-map
+entries use an own-property check, so categories such as `constructor` cannot
+corrupt the score through JavaScript object inheritance.
+
+## Review of phases 1–3 (2026-10-20)
+
+The review fixed control creation with composite tenant mappings, added control
+editing and multi-requirement selection, framework activation, rule configuration
+editing, source navigation, finding evidence inspection, server-side filtering
+and paging, and route history/unsaved-form behavior. The demo seed now preserves
+configured rules. The contextual guide and English translations reflect the
+delivered scoring behavior.
+
+`test/compliance.integration-spec.ts` exercises the real HTTP validation and
+permission guard, PostgreSQL forced RLS, tenant-safe relationships, policy
+versions, evidence dates, deterministic idempotency, accepted risk, reopening,
+resolution and history. Its fixtures run inside one rollback-only transaction;
+they do not leave companies or business records in the QA database. A separate
+connection verifies tenant lock isolation. Frontend regressions cover readers,
+multi-mapping, form protection, exact source navigation, browser back, server
+filters and the catalog's default severity. The optional live browser test
+checks desktop, tablet and mobile without submitting test business records.
+
 ## Deliberate limits
 
 - The score is an internal prioritization aid, not certification or regulatory
@@ -78,4 +111,6 @@ capture only to users allowed to evaluate.
 - Evidence validity uses the persisted `validUntil` value; future phases can add
   richer evidence-specific validity adapters.
 - Phase 4 expands deterministic adapters across more operational modules.
+- Scheduled/background evaluations remain a Phase 4 integration task. The two
+  delivered evaluators are overdue CAPA actions and overdue equipment calibration.
 - AI does not calculate, override or invent the score.

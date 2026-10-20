@@ -7,6 +7,60 @@ import {
 
 @Injectable()
 export class PrismaComplianceEvidenceSourceResolver extends ComplianceEvidenceSourceResolver {
+  async navigation(
+    transaction: Prisma.TransactionClient,
+    tenantId: string,
+    sourceType: ComplianceEvidenceSourceType,
+    sourceId: string,
+  ): Promise<{
+    modulePath: string;
+    recordId: string;
+    permission: string;
+  } | null> {
+    if (!(await this.exists(transaction, tenantId, sourceType, sourceId)))
+      return null;
+    if (sourceType === 'CALIBRATION') {
+      const calibration =
+        await transaction.equipmentCalibration.findFirstOrThrow({
+          where: { id: sourceId, tenantId },
+          select: { equipmentId: true },
+        });
+      return {
+        modulePath: 'equipment',
+        recordId: calibration.equipmentId,
+        permission: 'equipment.read',
+      };
+    }
+    if (sourceType === 'PHOTO_EVIDENCE') {
+      const photo = await transaction.photoEvidence.findFirstOrThrow({
+        where: { id: sourceId, tenantId },
+        select: { subjectType: true, subjectId: true },
+      });
+      return this.navigation(
+        transaction,
+        tenantId,
+        photo.subjectType,
+        photo.subjectId,
+      );
+    }
+    const targets = {
+      DOCUMENT: ['documents', 'documents.read'],
+      TRAINING_ASSIGNMENT: ['training', 'training.read'],
+      CAPA: ['capas', 'capas.read'],
+      AUDIT: ['audits', 'audits.read'],
+      DEVIATION: ['deviations', 'deviations.read'],
+      EQUIPMENT: ['equipment', 'equipment.read'],
+      SUPPLIER: ['suppliers', 'suppliers.read'],
+      CHANGE_CONTROL: ['changes', 'changes.read'],
+      QUALITY_RISK: ['risks', 'risks.read'],
+      COMPLAINT: ['complaints', 'complaints.read'],
+      RECALL: ['recalls', 'recalls.read'],
+      PRODUCT_REVIEW: ['product-reviews', 'product_reviews.read'],
+    } as const;
+    const [modulePath, permission] = targets[sourceType];
+    return { modulePath, recordId: sourceId, permission };
+  }
+
   async exists(
     transaction: Prisma.TransactionClient,
     tenantId: string,

@@ -22,6 +22,7 @@ import type {
   ComplianceReadinessResponseDto,
   ComplianceScoreSnapshotResponseDto,
 } from './dto/compliance-response.dto.js';
+import { lockComplianceTenant } from './compliance-transaction-lock.js';
 
 const userSummary = { id: true, displayName: true, email: true } as const;
 
@@ -32,8 +33,12 @@ export class ComplianceReadinessService {
   getReadiness(
     principal: AuthenticatedPrincipal,
   ): Promise<ComplianceReadinessResponseDto> {
-    return this.tenantUnitOfWork.execute(principal.tenantId, (transaction) =>
-      this.calculate(transaction, principal.tenantId),
+    return this.tenantUnitOfWork.execute(
+      principal.tenantId,
+      async (transaction) => {
+        await lockComplianceTenant(transaction, principal.tenantId, true);
+        return this.calculate(transaction, principal.tenantId);
+      },
     );
   }
 
@@ -54,6 +59,7 @@ export class ComplianceReadinessService {
     return this.tenantUnitOfWork.execute(
       principal.tenantId,
       async (transaction) => {
+        await lockComplianceTenant(transaction, principal.tenantId);
         const existing = await transaction.complianceReadinessPolicy.findUnique(
           { where: { tenantId: principal.tenantId } },
         );
@@ -71,7 +77,7 @@ export class ComplianceReadinessService {
             input.categoryWeights === undefined
               ? current.categoryWeights
               : validatedWeights(input.categoryWeights, 'categoryWeights'),
-          version: existing ? existing.version + 1 : 1,
+          version: current.version + 1,
         };
         validatePolicy(next);
         const saved = await transaction.complianceReadinessPolicy.upsert({
@@ -96,6 +102,8 @@ export class ComplianceReadinessService {
           metadata: {
             previousVersion: existing?.version ?? null,
             version: saved.version,
+            previousPolicy: policyPersistenceData(current),
+            policy: policyPersistenceData(next),
             criticalPenalty: Number(saved.criticalPenalty),
             majorPenalty: Number(saved.majorPenalty),
             unmappedRequirementPenalty: Number(
@@ -133,6 +141,7 @@ export class ComplianceReadinessService {
     return this.tenantUnitOfWork.execute(
       principal.tenantId,
       async (transaction) => {
+        await lockComplianceTenant(transaction, principal.tenantId, true);
         const readiness = await this.calculate(transaction, principal.tenantId);
         const snapshot = await transaction.complianceScoreSnapshot.create({
           data: {
@@ -178,8 +187,10 @@ export class ComplianceReadinessService {
     tenantId: string,
   ): Promise<ComplianceReadinessResult> {
     const calculatedAt = new Date();
+    // validUntil is a calendar date: evidence remains valid for that whole UTC day.
+    const validOnDate = new Date(calculatedAt.toISOString().slice(0, 10));
     const validEvidenceWhere: Prisma.ComplianceEvidenceWhereInput = {
-      OR: [{ validUntil: null }, { validUntil: { gte: calculatedAt } }],
+      OR: [{ validUntil: null }, { validUntil: { gte: validOnDate } }],
     };
     const [policy, frameworks, findings] = await Promise.all([
       this.loadPolicy(transaction, tenantId),
@@ -263,12 +274,16 @@ export class ComplianceReadinessService {
           })),
         })),
       );
-    return calculateComplianceReadiness({
+    const result = calculateComplianceReadiness({
       calculatedAt,
       policy,
       requirements,
       findings,
     });
+    return {
+      ...result,
+      coverage: { ...result.coverage, activeFrameworks: frameworks.length },
+    };
   }
 
   private async loadPolicy(
@@ -299,6 +314,9 @@ function validatedWeights(
   value: Record<string, unknown>,
   field: string,
 ): Record<string, number> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw complianceInvalid(`${field} must be an object.`);
+  }
   const entries = Object.entries(value).map(([rawKey, rawWeight]) => {
     const key = rawKey.trim();
     if (!key || key.length > 200) {
@@ -320,6 +338,30 @@ function validatedWeights(
 }
 
 function validatePolicy(policy: ComplianceReadinessPolicyValues): void {
+  const numericFields = [
+    policy.criticalPenalty,
+    policy.majorPenalty,
+    policy.minorPenalty,
+    policy.observationPenalty,
+    policy.unmappedRequirementPenalty,
+    policy.missingEvidencePenalty,
+    policy.excellentMinimum,
+    policy.goodMinimum,
+    policy.needsAttentionMinimum,
+  ];
+  if (
+    numericFields.some(
+      (value) =>
+        typeof value !== 'number' ||
+        !Number.isFinite(value) ||
+        value < 0 ||
+        value > 100,
+    )
+  ) {
+    throw complianceInvalid(
+      'Policy penalties and thresholds must be numbers between 0 and 100.',
+    );
+  }
   if (
     policy.criticalPenalty < policy.majorPenalty ||
     policy.majorPenalty < policy.minorPenalty ||
@@ -390,6 +432,8 @@ function mapSnapshot(
     include: { createdBy: { select: typeof userSummary } };
   }>,
 ): ComplianceScoreSnapshotResponseDto {
+  const calculation =
+    snapshot.calculation as unknown as ComplianceReadinessResult;
   return {
     id: snapshot.id,
     overallScore:
@@ -405,6 +449,8 @@ function mapSnapshot(
     observationFindings: snapshot.observationFindings,
     acceptedRiskFindings: snapshot.acceptedRiskFindings,
     policyVersion: snapshot.policyVersion,
+    frameworks: calculation.frameworks ?? [],
+    categories: calculation.categories ?? [],
     createdBy: snapshot.createdBy,
     createdAt: snapshot.createdAt.toISOString(),
   };

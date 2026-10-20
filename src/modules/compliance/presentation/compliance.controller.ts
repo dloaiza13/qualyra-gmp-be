@@ -29,6 +29,8 @@ import { ComplianceEvaluationService } from '../application/compliance-evaluatio
 import { ComplianceReadinessService } from '../application/compliance-readiness.service.js';
 import {
   ComplianceEvaluationListQueryDto,
+  ComplianceEvidenceListQueryDto,
+  ComplianceSourceParamsDto,
   ComplianceFindingListQueryDto,
   ComplianceSnapshotListQueryDto,
   CreateComplianceControlDto,
@@ -41,6 +43,8 @@ import {
   UpdateComplianceRuleDto,
   UpdateComplianceFindingStatusDto,
   UpdateComplianceReadinessPolicyDto,
+  UpdateComplianceControlDto,
+  UpdateComplianceFrameworkDto,
 } from '../application/dto/compliance-request.dto.js';
 import {
   ComplianceControlResponseDto,
@@ -54,6 +58,8 @@ import {
   ComplianceRuleCatalogResponseDto,
   ComplianceRuleResponseDto,
   ComplianceScoreSnapshotResponseDto,
+  ComplianceSourceLocationResponseDto,
+  ComplianceUserSummaryDto,
 } from '../application/dto/compliance-response.dto.js';
 
 @ApiTags('Continuous compliance')
@@ -148,6 +154,23 @@ export class ComplianceController {
   ): Promise<ComplianceFrameworkResponseDto> {
     return this.compliance.createFramework(
       principal,
+      input,
+      requestMetadata(request),
+    );
+  }
+
+  @Patch('frameworks/:frameworkId')
+  @Permissions('compliance.frameworks.manage')
+  @ApiOkResponse({ type: ComplianceFrameworkResponseDto })
+  updateFramework(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+    @Param('frameworkId', new ParseUUIDPipe()) frameworkId: string,
+    @Body() input: UpdateComplianceFrameworkDto,
+    @Req() request: Request & RequestWithContext,
+  ): Promise<ComplianceFrameworkResponseDto> {
+    return this.compliance.updateFramework(
+      principal,
+      frameworkId,
       input,
       requestMetadata(request),
     );
@@ -282,8 +305,68 @@ export class ComplianceController {
   @ApiOkResponse({ type: ComplianceEvidenceResponseDto, isArray: true })
   evidence(
     @CurrentUser() principal: AuthenticatedPrincipal,
+    @Query() query: ComplianceEvidenceListQueryDto,
   ): Promise<ComplianceEvidenceResponseDto[]> {
-    return this.compliance.listEvidence(principal);
+    return this.compliance.listEvidence(principal, query);
+  }
+
+  @Get('sources/:sourceType/:sourceId')
+  @Permissions('compliance.read')
+  @ApiOkResponse({ type: ComplianceSourceLocationResponseDto })
+  sourceLocation(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+    @Param() params: ComplianceSourceParamsDto,
+  ): Promise<ComplianceSourceLocationResponseDto> {
+    return this.compliance.sourceLocation(
+      principal,
+      params.sourceType,
+      params.sourceId,
+    );
+  }
+
+  @Patch('controls/:controlId')
+  @Permissions('compliance.manage')
+  @ApiOkResponse({ type: ComplianceControlResponseDto })
+  updateControl(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+    @Param('controlId', new ParseUUIDPipe()) controlId: string,
+    @Body() input: UpdateComplianceControlDto,
+    @Req() request: Request & RequestWithContext,
+  ): Promise<ComplianceControlResponseDto> {
+    return this.compliance.updateControl(
+      principal,
+      controlId,
+      input,
+      requestMetadata(request),
+    );
+  }
+
+  @Get('finding-categories')
+  @Permissions('compliance.read')
+  @ApiOkResponse({ type: String, isArray: true })
+  findingCategories(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+  ): Promise<string[]> {
+    return this.compliance.findingCategories(principal);
+  }
+
+  @Get('participants')
+  @Permissions('compliance.read')
+  @ApiOkResponse({ type: ComplianceUserSummaryDto, isArray: true })
+  participants(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+  ): Promise<ComplianceUserSummaryDto[]> {
+    return this.compliance.participants(principal);
+  }
+
+  @Get('findings/:findingId')
+  @Permissions('compliance.read')
+  @ApiOkResponse({ type: ComplianceFindingResponseDto })
+  finding(
+    @CurrentUser() principal: AuthenticatedPrincipal,
+    @Param('findingId', new ParseUUIDPipe()) findingId: string,
+  ): Promise<ComplianceFindingResponseDto> {
+    return this.compliance.getFinding(principal, findingId);
   }
 
   @Post('evidence')

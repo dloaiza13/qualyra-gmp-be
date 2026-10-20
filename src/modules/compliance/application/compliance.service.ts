@@ -11,7 +11,10 @@ import {
   isClosedComplianceFinding,
 } from '../domain/compliance-finding-lifecycle.js';
 import { ComplianceEvidenceSourceResolver } from '../domain/compliance-evidence-source.js';
+import type { ComplianceEvidenceSourceType } from '../domain/compliance-evidence-source.js';
+import { lockComplianceTenant } from './compliance-transaction-lock.js';
 import type {
+  ComplianceEvidenceListQueryDto,
   ComplianceFindingListQueryDto,
   CreateComplianceControlDto,
   CreateComplianceEvidenceDto,
@@ -19,6 +22,8 @@ import type {
   CreateComplianceFrameworkDto,
   CreateComplianceRequirementDto,
   UpdateComplianceFindingStatusDto,
+  UpdateComplianceControlDto,
+  UpdateComplianceFrameworkDto,
 } from './dto/compliance-request.dto.js';
 import type {
   ComplianceControlResponseDto,
@@ -178,6 +183,7 @@ export class ComplianceService {
     return this.tenantUnitOfWork.execute(
       principal.tenantId,
       async (transaction) => {
+        await lockComplianceTenant(transaction, principal.tenantId);
         try {
           const created = await transaction.complianceFramework.create({
             data: {
@@ -219,6 +225,37 @@ export class ComplianceService {
     );
   }
 
+  updateFramework(
+    principal: AuthenticatedPrincipal,
+    frameworkId: string,
+    input: UpdateComplianceFrameworkDto,
+    request: RequestMetadata,
+  ): Promise<ComplianceFrameworkResponseDto> {
+    return this.tenantUnitOfWork.execute(
+      principal.tenantId,
+      async (transaction) => {
+        await lockComplianceTenant(transaction, principal.tenantId);
+        await requireFramework(transaction, principal.tenantId, frameworkId);
+        const updated = await transaction.complianceFramework.update({
+          where: {
+            tenantId_id: { tenantId: principal.tenantId, id: frameworkId },
+          },
+          data: { active: input.active },
+          include: frameworkInclude,
+        });
+        await appendSecurityEvent(transaction, {
+          tenantId: principal.tenantId,
+          actorUserId: principal.userId,
+          eventType: 'COMPLIANCE_FRAMEWORK_STATUS_CHANGED',
+          outcome: 'SUCCESS',
+          request,
+          metadata: { frameworkId, active: updated.active },
+        });
+        return mapFramework(updated);
+      },
+    );
+  }
+
   createRequirement(
     principal: AuthenticatedPrincipal,
     frameworkId: string,
@@ -228,6 +265,7 @@ export class ComplianceService {
     return this.tenantUnitOfWork.execute(
       principal.tenantId,
       async (transaction) => {
+        await lockComplianceTenant(transaction, principal.tenantId);
         await requireFramework(transaction, principal.tenantId, frameworkId);
         if (input.parentRequirementId) {
           const parent = await transaction.complianceRequirement.findFirst({
@@ -313,6 +351,7 @@ export class ComplianceService {
     return this.tenantUnitOfWork.execute(
       principal.tenantId,
       async (transaction) => {
+        await lockComplianceTenant(transaction, principal.tenantId);
         const requirementIds = [...new Set(input.requirementIds)];
         const requirementCount = await transaction.complianceRequirement.count({
           where: { tenantId: principal.tenantId, id: { in: requirementIds } },
@@ -338,14 +377,15 @@ export class ComplianceService {
               status: input.status,
               ownerUserId: input.ownerUserId,
               createdByUserId: principal.userId,
-              requirementMappings: {
-                create: requirementIds.map((requirementId) => ({
-                  tenantId: principal.tenantId,
-                  requirementId,
-                })),
-              },
             },
             include: controlInclude,
+          });
+          await transaction.complianceControlRequirement.createMany({
+            data: requirementIds.map((requirementId) => ({
+              tenantId: principal.tenantId,
+              controlId: created.id,
+              requirementId,
+            })),
           });
           await appendSecurityEvent(transaction, {
             tenantId: principal.tenantId,
@@ -360,7 +400,14 @@ export class ComplianceService {
               requirementIds,
             },
           });
-          return mapControl(created);
+          return mapControl(
+            await transaction.complianceControl.findUniqueOrThrow({
+              where: {
+                tenantId_id: { tenantId: principal.tenantId, id: created.id },
+              },
+              include: controlInclude,
+            }),
+          );
         } catch (error: unknown) {
           if (isUniqueConstraintError(error))
             throw complianceConflict(
@@ -372,16 +419,237 @@ export class ComplianceService {
     );
   }
 
+  updateControl(
+    principal: AuthenticatedPrincipal,
+    controlId: string,
+    input: UpdateComplianceControlDto,
+    request: RequestMetadata,
+  ): Promise<ComplianceControlResponseDto> {
+    return this.tenantUnitOfWork.execute(
+      principal.tenantId,
+      async (transaction) => {
+        await lockComplianceTenant(transaction, principal.tenantId);
+        const existing = await transaction.complianceControl.findFirst({
+          where: { id: controlId, tenantId: principal.tenantId },
+          include: controlInclude,
+        });
+        if (!existing)
+          throw complianceNotFound('Compliance control was not found.');
+        const requirementIds = input.requirementIds
+          ? [...new Set(input.requirementIds)]
+          : existing.requirementMappings.map(
+              ({ requirementId }) => requirementId,
+            );
+        const count = await transaction.complianceRequirement.count({
+          where: { tenantId: principal.tenantId, id: { in: requirementIds } },
+        });
+        if (count !== requirementIds.length)
+          throw complianceInvalid(
+            'One or more requirements are invalid for this organization.',
+          );
+        if (input.ownerUserId)
+          await requireActiveUser(
+            transaction,
+            principal.tenantId,
+            input.ownerUserId,
+          );
+        const removed = existing.requirementMappings
+          .map(({ requirementId }) => requirementId)
+          .filter((id) => !requirementIds.includes(id));
+        if (removed.length) {
+          const [findings, rules, evidence] = await Promise.all([
+            transaction.complianceFinding.count({
+              where: {
+                tenantId: principal.tenantId,
+                controlId,
+                requirementId: { in: removed },
+              },
+            }),
+            transaction.complianceRule.count({
+              where: {
+                tenantId: principal.tenantId,
+                controlId,
+                requirementId: { in: removed },
+              },
+            }),
+            transaction.complianceEvidence.count({
+              where: {
+                tenantId: principal.tenantId,
+                controlId,
+                requirementId: { in: removed },
+              },
+            }),
+          ]);
+          if (findings || rules || evidence)
+            throw complianceConflict(
+              'A mapping referenced by findings, rules or evidence cannot be removed. Retire the control instead.',
+            );
+          await transaction.complianceControlRequirement.deleteMany({
+            where: {
+              tenantId: principal.tenantId,
+              controlId,
+              requirementId: { in: removed },
+            },
+          });
+        }
+        const added = requirementIds.filter(
+          (id) =>
+            !existing.requirementMappings.some(
+              ({ requirementId }) => requirementId === id,
+            ),
+        );
+        try {
+          const updated = await transaction.complianceControl.update({
+            where: {
+              tenantId_id: { tenantId: principal.tenantId, id: controlId },
+            },
+            data: {
+              code: input.code?.toUpperCase(),
+              name: input.name,
+              description: input.description,
+              category: input.category,
+              status: input.status,
+              ownerUserId: input.ownerUserId,
+            },
+            include: controlInclude,
+          });
+          if (added.length)
+            await transaction.complianceControlRequirement.createMany({
+              data: added.map((requirementId) => ({
+                tenantId: principal.tenantId,
+                controlId,
+                requirementId,
+              })),
+            });
+          await appendSecurityEvent(transaction, {
+            tenantId: principal.tenantId,
+            actorUserId: principal.userId,
+            request,
+            eventType: 'COMPLIANCE_CONTROL_UPDATED',
+            outcome: 'SUCCESS',
+            metadata: {
+              controlId,
+              previousStatus: existing.status,
+              status: updated.status,
+              previousRequirementIds: existing.requirementMappings.map(
+                ({ requirementId }) => requirementId,
+              ),
+              requirementIds,
+            },
+          });
+          return mapControl(
+            await transaction.complianceControl.findUniqueOrThrow({
+              where: {
+                tenantId_id: { tenantId: principal.tenantId, id: controlId },
+              },
+              include: controlInclude,
+            }),
+          );
+        } catch (error) {
+          if (isUniqueConstraintError(error))
+            throw complianceConflict(
+              'A compliance control with this code already exists.',
+            );
+          throw error;
+        }
+      },
+    );
+  }
+
+  findingCategories(principal: AuthenticatedPrincipal): Promise<string[]> {
+    return this.tenantUnitOfWork.execute(
+      principal.tenantId,
+      async (transaction) => {
+        const values = await transaction.complianceFinding.findMany({
+          where: { tenantId: principal.tenantId },
+          distinct: ['category'],
+          select: { category: true },
+          orderBy: { category: 'asc' },
+        });
+        return values.map(({ category }) => category);
+      },
+    );
+  }
+
+  participants(principal: AuthenticatedPrincipal) {
+    return this.tenantUnitOfWork.execute(principal.tenantId, (transaction) =>
+      transaction.user.findMany({
+        where: { tenantId: principal.tenantId, status: 'ACTIVE' },
+        select: userSummary,
+        orderBy: { displayName: 'asc' },
+      }),
+    );
+  }
+
+  sourceLocation(
+    principal: AuthenticatedPrincipal,
+    sourceType: ComplianceEvidenceSourceType,
+    sourceId: string,
+  ) {
+    return this.tenantUnitOfWork.execute(
+      principal.tenantId,
+      async (transaction) => {
+        const location = await this.evidenceSources.navigation(
+          transaction,
+          principal.tenantId,
+          sourceType,
+          sourceId,
+        );
+        if (!location)
+          throw complianceNotFound('Compliance source was not found.');
+        return location;
+      },
+    );
+  }
+
+  getFinding(
+    principal: AuthenticatedPrincipal,
+    findingId: string,
+  ): Promise<ComplianceFindingResponseDto> {
+    return this.tenantUnitOfWork.execute(
+      principal.tenantId,
+      async (transaction) => {
+        const finding = await transaction.complianceFinding.findFirst({
+          where: { id: findingId, tenantId: principal.tenantId },
+          include: findingInclude,
+        });
+        if (!finding)
+          throw complianceNotFound('Compliance finding was not found.');
+        return mapFinding(finding);
+      },
+    );
+  }
+
   listEvidence(
     principal: AuthenticatedPrincipal,
+    query: ComplianceEvidenceListQueryDto,
   ): Promise<ComplianceEvidenceResponseDto[]> {
     return this.tenantUnitOfWork.execute(
       principal.tenantId,
       async (transaction) => {
         const records = await transaction.complianceEvidence.findMany({
-          where: { tenantId: principal.tenantId },
-          take: 200,
-          orderBy: { createdAt: 'desc' },
+          where: {
+            tenantId: principal.tenantId,
+            controlId: query.controlId,
+            findingId: query.findingId,
+            ...(query.requirementId
+              ? {
+                  OR: [
+                    { requirementId: query.requirementId },
+                    {
+                      control: {
+                        requirementMappings: {
+                          some: { requirementId: query.requirementId },
+                        },
+                      },
+                    },
+                  ],
+                }
+              : {}),
+          },
+          take: query.limit,
+          skip: query.offset,
+          orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
           include: evidenceInclude,
         });
         return records.map(mapEvidence);
@@ -397,6 +665,7 @@ export class ComplianceService {
     return this.tenantUnitOfWork.execute(
       principal.tenantId,
       async (transaction) => {
+        await lockComplianceTenant(transaction, principal.tenantId);
         if (!input.requirementId && !input.controlId && !input.findingId) {
           throw complianceInvalid(
             'Evidence must be linked to a requirement, control, or finding.',
@@ -474,10 +743,12 @@ export class ComplianceService {
               : {}),
           },
           take: query.limit,
+          skip: query.offset,
           orderBy: [
             { status: 'asc' },
             { severity: 'asc' },
             { detectedAt: 'desc' },
+            { id: 'asc' },
           ],
           include: findingInclude,
         });
@@ -494,6 +765,7 @@ export class ComplianceService {
     return this.tenantUnitOfWork.execute(
       principal.tenantId,
       async (transaction) => {
+        await lockComplianceTenant(transaction, principal.tenantId);
         const requirement = await transaction.complianceRequirement.findFirst({
           where: { id: input.requirementId, tenantId: principal.tenantId },
           select: { id: true, frameworkId: true },
@@ -589,6 +861,7 @@ export class ComplianceService {
     return this.tenantUnitOfWork.execute(
       principal.tenantId,
       async (transaction) => {
+        await lockComplianceTenant(transaction, principal.tenantId);
         const existing = await transaction.complianceFinding.findFirst({
           where: { id: findingId, tenantId: principal.tenantId },
           select: { id: true, status: true },
@@ -686,6 +959,23 @@ export class ComplianceService {
       throw complianceInvalid(
         'The finding and control evidence targets are inconsistent.',
       );
+    }
+    if (input.requirementId && input.controlId) {
+      const mapping = await transaction.complianceControlRequirement.findUnique(
+        {
+          where: {
+            tenantId_controlId_requirementId: {
+              tenantId,
+              controlId: input.controlId,
+              requirementId: input.requirementId,
+            },
+          },
+        },
+      );
+      if (!mapping)
+        throw complianceInvalid(
+          'The control and requirement evidence targets are not mapped.',
+        );
     }
   }
 }

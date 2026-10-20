@@ -18,7 +18,12 @@ import {
   Min,
   Matches,
 } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  ApiProperty,
+  ApiPropertyOptional,
+  PartialType,
+  OmitType,
+} from '@nestjs/swagger';
 import { complianceEvidenceSourceTypes } from '../../domain/compliance-evidence-source.js';
 import { complianceRuleImplementationKeys } from '../../domain/compliance-rule.js';
 
@@ -78,6 +83,12 @@ export class CreateComplianceFrameworkDto {
   effectiveDate?: string;
   @ApiPropertyOptional({ default: true }) @IsOptional() @IsBoolean() active =
     true;
+}
+
+export class UpdateComplianceFrameworkDto {
+  @ApiProperty()
+  @IsBoolean()
+  active!: boolean;
 }
 
 export class CreateComplianceRequirementDto {
@@ -156,6 +167,62 @@ export class CreateComplianceControlDto {
   requirementIds!: string[];
 }
 
+export class UpdateComplianceControlDto extends PartialType(
+  OmitType(CreateComplianceControlDto, ['status', 'ownerUserId'] as const),
+) {
+  @ApiPropertyOptional({ enum: complianceControlStatuses })
+  @IsOptional()
+  @IsIn(complianceControlStatuses)
+  status?: (typeof complianceControlStatuses)[number];
+
+  @ApiPropertyOptional({ format: 'uuid', nullable: true })
+  @IsOptional()
+  @IsUUID('4')
+  ownerUserId?: string | null;
+}
+
+export class ComplianceEvidenceListQueryDto {
+  @ApiPropertyOptional({ minimum: 1, maximum: 200, default: 200 })
+  @Type(() => Number)
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(200)
+  limit = 200;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 1000000, default: 0 })
+  @Type(() => Number)
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(1000000)
+  offset = 0;
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID('4')
+  findingId?: string;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID('4')
+  requirementId?: string;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID('4')
+  controlId?: string;
+}
+
+export class ComplianceSourceParamsDto {
+  @ApiProperty({ enum: complianceEvidenceSourceTypes })
+  @IsIn(complianceEvidenceSourceTypes)
+  sourceType!: (typeof complianceEvidenceSourceTypes)[number];
+
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID('4')
+  sourceId!: string;
+}
+
 export class CreateComplianceEvidenceDto {
   @ApiPropertyOptional({ format: 'uuid' })
   @IsOptional()
@@ -186,6 +253,7 @@ export class CreateComplianceEvidenceDto {
   @ApiPropertyOptional({ format: 'date' })
   @IsOptional()
   @IsISO8601({ strict: true })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
   validUntil?: string;
 }
 
@@ -275,6 +343,14 @@ export class ComplianceFindingListQueryDto {
   @Min(1)
   @Max(200)
   limit = 100;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 1000000, default: 0 })
+  @Type(() => Number)
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(1000000)
+  offset = 0;
 }
 
 export class CreateComplianceRuleDto {

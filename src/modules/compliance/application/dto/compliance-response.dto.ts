@@ -10,6 +10,12 @@ export class ComplianceUserSummaryDto {
   @ApiProperty({ format: 'email' }) email!: string;
 }
 
+export class ComplianceSourceLocationResponseDto {
+  @ApiProperty() modulePath!: string;
+  @ApiProperty({ format: 'uuid' }) recordId!: string;
+  @ApiProperty() permission!: string;
+}
+
 export class ComplianceRequirementResponseDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiPropertyOptional({ format: 'uuid', nullable: true })
@@ -160,6 +166,7 @@ export class ComplianceRuleResponseDto {
     code: string;
     name: string;
     version: string;
+    active: boolean;
   };
   @ApiProperty({ type: Object }) requirement!: {
     id: string;
@@ -178,6 +185,7 @@ export class ComplianceRuleResponseDto {
 }
 
 export class ComplianceRuleResultResponseDto {
+  @ApiProperty({ type: Object }) ruleSnapshot!: Record<string, unknown>;
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty() outcome!: string;
   @ApiProperty() scannedCount!: number;
@@ -265,6 +273,10 @@ export class ComplianceScoreSnapshotResponseDto {
   @ApiProperty() observationFindings!: number;
   @ApiProperty() acceptedRiskFindings!: number;
   @ApiProperty() policyVersion!: number;
+  @ApiProperty({ type: Object, isArray: true })
+  frameworks!: ComplianceReadinessResult['frameworks'];
+  @ApiProperty({ type: Object, isArray: true })
+  categories!: ComplianceReadinessResult['categories'];
   @ApiProperty({ type: ComplianceUserSummaryDto })
   createdBy!: ComplianceUserSummaryDto;
   @ApiProperty({ format: 'date-time' }) createdAt!: string;

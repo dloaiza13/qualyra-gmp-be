@@ -43,6 +43,13 @@ GMP, FDA or jurisdiction-specific conclusion.
 Rule result details are capped at 100 violations to keep history bounded. The
 aggregate counts remain complete.
 
+New successful results also retain the rule name, implementation, severity,
+category, requirement/control mapping and configuration used for that run.
+Editing a rule later does not rename or reinterpret those historical results.
+Results created before this snapshot was introduced expose an empty
+`ruleSnapshot` rather than invented historical criteria. Disabled rules and rules
+on inactive frameworks are excluded from execution.
+
 ## Tenant isolation and integrity
 
 `ComplianceRule`, `ComplianceEvaluationRun` and `ComplianceRuleResult` use

@@ -31,7 +31,8 @@ the source of compliance truth.
 
 ### Frontend
 
-- React 18, Vite, React Router and Tailwind utility classes.
+- React 19, Vite, React Router and Tailwind utility classes (the existing project
+  versions are preserved).
 - A permission-aware `AdminShell` owns routable workspace sections, lazy-loaded
   feature views, responsive/collapsible navigation and contextual help.
 - Server state is fetched through the typed shared API client; local component
@@ -91,14 +92,33 @@ compliance data.
 
 - `GET /compliance/overview`
 - `GET|POST /compliance/frameworks`
+- `PATCH /compliance/frameworks/:frameworkId` (activate/deactivate adoption)
 - `POST /compliance/frameworks/:frameworkId/requirements`
 - `GET|POST /compliance/controls`
+- `PATCH /compliance/controls/:controlId` (metadata, status and mappings)
 - `GET|POST /compliance/evidence`
 - `GET|POST /compliance/findings`
+- `GET /compliance/findings/:findingId`
+- `GET /compliance/finding-categories`
+- `GET /compliance/participants`
+- `GET /compliance/sources/:sourceType/:sourceId`
 - `PATCH /compliance/findings/:findingId/status`
 
 The API uses the existing JWT and permission guards. Mutations append security
 events; all queries execute inside the tenant unit of work.
+
+Controls can map to multiple requirements and move from draft to active or
+retired. Mappings referenced by rules, findings or evidence cannot be removed;
+retirement preserves their traceability. Control creation and mapping writes
+are explicit operations in the same transaction, avoiding Prisma's nested-write
+ambiguity with shared composite tenant keys.
+
+Finding and evidence lists support bounded `limit`/`offset` pages. Finding
+filters execute on the server, not only over the first browser page. Evidence
+can be filtered by finding, control or requirement; requirement evidence also
+includes evidence on mapped controls. Source locations resolve calibration and
+photo evidence to their parent record within the current tenant. Operational
+detail endpoints continue to enforce their own role and record access.
 
 ## Permissions
 

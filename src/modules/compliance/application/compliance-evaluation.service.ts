@@ -12,6 +12,7 @@ import {
   shouldResolveMissingFinding,
 } from '../domain/compliance-finding-reconciliation.js';
 import { ComplianceRuleRegistry } from './compliance-rule-registry.js';
+import { lockComplianceTenant } from './compliance-transaction-lock.js';
 import type {
   ComplianceEvaluationListQueryDto,
   CreateComplianceRuleDto,
@@ -32,7 +33,13 @@ const ruleInclude = {
       code: true,
       title: true,
       framework: {
-        select: { id: true, code: true, name: true, version: true },
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          version: true,
+          active: true,
+        },
       },
     },
   },
@@ -89,6 +96,7 @@ export class ComplianceEvaluationService {
     return this.tenantUnitOfWork.execute(
       principal.tenantId,
       async (transaction) => {
+        await lockComplianceTenant(transaction, principal.tenantId);
         await assertRuleTargets(
           transaction,
           principal.tenantId,
@@ -159,6 +167,7 @@ export class ComplianceEvaluationService {
     return this.tenantUnitOfWork.execute(
       principal.tenantId,
       async (transaction) => {
+        await lockComplianceTenant(transaction, principal.tenantId);
         const existing = await transaction.complianceRule.findFirst({
           where: { id: ruleId, tenantId: principal.tenantId },
         });
@@ -205,6 +214,11 @@ export class ComplianceEvaluationService {
             previousEnabled: existing.enabled,
             enabled: updated.enabled,
             severity: updated.severity,
+            previousConfiguration: existing.configuration,
+            configuration: updated.configuration,
+            previousSeverity: existing.severity,
+            previousCategory: existing.category,
+            category: updated.category,
           },
         });
         return mapRule(updated);
@@ -282,6 +296,7 @@ export class ComplianceEvaluationService {
     return this.tenantUnitOfWork.execute(
       principal.tenantId,
       async (transaction) => {
+        await lockComplianceTenant(transaction, principal.tenantId);
         const existing = await transaction.complianceEvaluationRun.findUnique({
           where: {
             tenantId_idempotencyKey: {
@@ -324,6 +339,7 @@ export class ComplianceEvaluationService {
           where: {
             tenantId: principal.tenantId,
             enabled: true,
+            requirement: { framework: { active: true } },
             ...(requestedIds.length ? { id: { in: requestedIds } } : {}),
           },
           orderBy: { key: 'asc' },
@@ -331,7 +347,7 @@ export class ComplianceEvaluationService {
         });
         if (requestedIds.length && rules.length !== requestedIds.length) {
           throw complianceInvalid(
-            'One or more selected rules do not exist or are disabled.',
+            'One or more selected rules do not exist, are disabled, or belong to an inactive framework.',
           );
         }
         if (!rules.length) {
@@ -385,6 +401,7 @@ export class ComplianceEvaluationService {
     return this.tenantUnitOfWork.execute(
       principal.tenantId,
       async (transaction) => {
+        await lockComplianceTenant(transaction, principal.tenantId);
         const startedAt = new Date();
         const [run, rule] = await Promise.all([
           transaction.complianceEvaluationRun.findFirst({
@@ -396,10 +413,16 @@ export class ComplianceEvaluationService {
             select: { id: true },
           }),
           transaction.complianceRule.findFirst({
-            where: { id: ruleId, tenantId: principal.tenantId, enabled: true },
+            where: {
+              id: ruleId,
+              tenantId: principal.tenantId,
+              enabled: true,
+              requirement: { framework: { active: true } },
+            },
             select: {
               id: true,
               key: true,
+              name: true,
               implementationKey: true,
               category: true,
               severity: true,
@@ -605,6 +628,16 @@ export class ComplianceEvaluationService {
             findingsResolved: toResolve.length,
             findingsUnchanged,
             details: {
+              rule: {
+                key: rule.key,
+                name: rule.name,
+                implementationKey: rule.implementationKey,
+                severity: rule.severity,
+                category: rule.category,
+                requirementId: rule.requirementId,
+                controlId: rule.controlId,
+                configuration: rule.configuration,
+              },
               violations: details,
               truncated:
                 evaluation.violations.length > maximumStoredViolationDetails,
@@ -644,6 +677,7 @@ export class ComplianceEvaluationService {
     await this.tenantUnitOfWork.execute(
       principal.tenantId,
       async (transaction) => {
+        await lockComplianceTenant(transaction, principal.tenantId);
         const existing = await transaction.complianceRuleResult.findUnique({
           where: {
             tenantId_evaluationRunId_ruleId: {
@@ -688,6 +722,12 @@ export class ComplianceEvaluationService {
     return this.tenantUnitOfWork.execute(
       principal.tenantId,
       async (transaction) => {
+        await lockComplianceTenant(transaction, principal.tenantId);
+        const run = await transaction.complianceEvaluationRun.findFirstOrThrow({
+          where: { id: runId, tenantId: principal.tenantId },
+          include: runInclude,
+        });
+        if (run.status !== 'RUNNING') return mapRun(run);
         const results = await transaction.complianceRuleResult.findMany({
           where: { tenantId: principal.tenantId, evaluationRunId: runId },
           orderBy: { startedAt: 'asc' },
@@ -855,7 +895,8 @@ function mapRun(record: RunRecord): ComplianceEvaluationRunResponseDto {
       findingsResolved: result.findingsResolved,
       findingsUnchanged: result.findingsUnchanged,
       errorMessage: result.errorMessage,
-      rule: result.rule,
+      rule: { ...result.rule, ...storedRuleIdentity(result.details) },
+      ruleSnapshot: jsonObject(jsonObject(result.details).rule ?? null),
       startedAt: result.startedAt.toISOString(),
       completedAt: result.completedAt.toISOString(),
     })),
@@ -864,6 +905,17 @@ function mapRun(record: RunRecord): ComplianceEvaluationRunResponseDto {
 
 function findingFingerprint(ruleId: string, subjectKey: string): string {
   return createHash('sha256').update(`${ruleId}:${subjectKey}`).digest('hex');
+}
+
+function storedRuleIdentity(details: Prisma.JsonValue | null): {
+  name?: string;
+  key?: string;
+} {
+  const rule = jsonObject(jsonObject(details).rule ?? null);
+  return {
+    ...(typeof rule.name === 'string' ? { name: rule.name } : {}),
+    ...(typeof rule.key === 'string' ? { key: rule.key } : {}),
+  };
 }
 
 function jsonObject(value: Prisma.JsonValue | null): Record<string, unknown> {

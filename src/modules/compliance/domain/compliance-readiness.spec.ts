@@ -44,6 +44,33 @@ function finding(
 }
 
 describe('compliance audit readiness scoring', () => {
+  it('clamps the score and safely handles category names matching object properties', () => {
+    const result = calculateComplianceReadiness({
+      calculatedAt: new Date('2026-10-20T12:00:00Z'),
+      policy: defaultComplianceReadinessPolicy,
+      requirements: [requirement({ weight: 10 })],
+      findings: [finding({ category: 'constructor' })],
+    });
+    expect(result.overallScore).toBe(0);
+    expect(result.status).toBe('HIGH_RISK');
+    expect(result.methodology.totalDeduction).toBe(200);
+  });
+
+  it('uses tenant thresholds rather than hard-coded status cutoffs', () => {
+    const result = calculateComplianceReadiness({
+      calculatedAt: new Date('2026-10-20T12:00:00Z'),
+      policy: {
+        ...defaultComplianceReadinessPolicy,
+        excellentMinimum: 99,
+        goodMinimum: 97,
+        needsAttentionMinimum: 96,
+      },
+      requirements: [requirement()],
+      findings: [],
+    });
+    expect(result.overallScore).toBe(95);
+    expect(result.status).toBe('HIGH_RISK');
+  });
   it('withholds the score when there is no active requirement basis', () => {
     const result = calculateComplianceReadiness({
       calculatedAt: new Date('2026-10-19T12:00:00.000Z'),

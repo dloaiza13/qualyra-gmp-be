@@ -314,14 +314,8 @@ async function seedComplianceDemo(): Promise<boolean> {
           configuration: { minimumDaysOverdue: 0 },
           createdByUserId: creator.id,
         },
-        update: {
-          name: rule.name,
-          description: rule.description,
-          category: rule.category,
-          severity: rule.severity,
-          requirementId,
-          configuration: { minimumDaysOverdue: 0 },
-        },
+        // Re-running a demo seed must not overwrite a tenant's configured rule.
+        update: {},
       });
     }
     await transaction.complianceReadinessPolicy.upsert({
